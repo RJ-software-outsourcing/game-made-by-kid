@@ -426,9 +426,10 @@ export function drawSilhouette(ctx, id, x, y, o, color, alpha) {
 /** Draw a character into a small DOM canvas (menu cards, result screen). */
 export function drawPortrait(canvas, id, t, o = {}) {
   const dpr = Math.min(2, window.devicePixelRatio || 1)
-  const w = canvas.clientWidth || canvas.width
-  const h = canvas.clientHeight || canvas.height
-  if (canvas.width !== Math.round(w * dpr)) {
+  const w = canvas.clientWidth
+  const h = canvas.clientHeight
+  if (!w || !h) return // not on screen
+  if (canvas.width !== Math.round(w * dpr) || canvas.height !== Math.round(h * dpr)) {
     canvas.width = Math.round(w * dpr)
     canvas.height = Math.round(h * dpr)
   }

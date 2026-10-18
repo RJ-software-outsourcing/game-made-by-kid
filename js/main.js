@@ -1,6 +1,6 @@
 import { ac, isMuted, setMuted, setMusicMode, sfx, startMusic } from './audio.js'
 import { CHAR_IDS, CHARS, drawChar, drawPortrait, drawSilhouette, loadBear } from './characters.js'
-import { HOME, World, WORLD_H, WORLD_W, heart } from './world.js'
+import { HOME, World, WORLD_H, WORLD_W, heart, lightSprite, setWorldSize } from './world.js'
 
 const $ = (id) => document.getElementById(id)
 const TAU = Math.PI * 2
@@ -24,9 +24,10 @@ let H = 0
 let DPR = 1
 
 function resize() {
-  DPR = Math.min(2, window.devicePixelRatio || 1)
   W = window.innerWidth
   H = window.innerHeight
+  // Cap the pixel count: a full-screen 2x canvas is a lot of pixels to fill every frame.
+  DPR = Math.min(2, window.devicePixelRatio || 1, Math.sqrt(3_000_000 / (W * H)))
   canvas.width = Math.round(W * DPR)
   canvas.height = Math.round(H * DPR)
   canvas.style.width = W + 'px'
@@ -34,8 +35,16 @@ function resize() {
   lightC.width = Math.ceil(W / 2)
   lightC.height = Math.ceil(H / 2)
 }
-window.addEventListener('resize', resize)
+window.addEventListener('resize', () => {
+  resize()
+  if (G.phase === 'menu') G.world = newWorld()
+})
 resize()
+
+function newWorld() {
+  setWorldSize(W, H)
+  return new World()
+}
 
 // ---------- Settings ----------
 
@@ -55,15 +64,15 @@ function saveSettings() {
 
 // ---------- Game state ----------
 
-const PLAYER_SPEED = 260
-const SEEKER_PLAYER_SPEED = 300
+const PLAYER_SPEED = 230
+const SEEKER_PLAYER_SPEED = 260
 const CATCH_R = 75 // player seeker finds a hider within this distance
 const SEEKER_COUNT_SECS = 3 // when the player seeks, the count is a quick animation, not a real wait
 
 const G = {
   phase: 'menu', // menu | rps | hide | seek | ending | result
   t: 0,
-  world: new World(),
+  world: newWorld(),
   chars: [],
   player: null,
   seeker: null,
@@ -166,6 +175,7 @@ function setTip(text) {
 
 const screens = ['menu', 'rps', 'count', 'result']
 function showScreen(name) {
+  if (name !== 'menu' && name !== 'rps' && name !== 'result') portraits = []
   for (const s of screens) $('screen-' + s).classList.toggle('hidden', s !== name)
 }
 
@@ -229,7 +239,7 @@ function goMenu() {
   G.chars = []
   G.particles = []
   G.popups = []
-  G.world = new World()
+  G.world = newWorld()
   showScreen('menu')
   buildMenu()
   $('hud').classList.add('hidden')
@@ -255,7 +265,7 @@ function startGame() {
   ac()
   startMusic()
   sfx.select()
-  G.world = new World()
+  G.world = newWorld()
   G.stars = 0
   $('hud-stars').textContent = '⭐ 0'
   const playerId = CHAR_IDS[settings.char]
@@ -688,10 +698,10 @@ function updateHiderAI(h, dt) {
     if (h.sneakT <= 0) {
       h.sneakT = rand(5, 10)
       const s = G.seeker
-      if (dist(h, s) > 480 && Math.random() < 0.4) {
+      if (dist(h, s) > 380 && Math.random() < 0.4) {
         const taken = new Set(G.chars.filter((c) => c !== h && c.goalSpot).map((c) => c.goalSpot))
         const options = G.world.spots.filter(
-          (sp) => !taken.has(sp) && sp !== h.goalSpot && dist(sp, h) < 700 && dist(sp, s) > 380,
+          (sp) => !taken.has(sp) && sp !== h.goalSpot && dist(sp, h) < 600 && dist(sp, s) > 300,
         )
         if (options.length) sendToSpot(h, options[Math.floor(Math.random() * options.length)], 75, 'sneak')
       }
@@ -741,14 +751,14 @@ function updateSeekerAI(s, dt) {
     if (!h.hidden) {
       if (d < 60) return catchHider(h, s)
       const a = Math.atan2(h.y - s.y, h.x - s.x)
-      if (s.mode !== 'chase' && d < 270 && angDiff(a, s.dir) < 0.65) {
+      if (s.mode !== 'chase' && d < 250 && angDiff(a, s.dir) < 0.65) {
         s.mode = 'chase'
         s.target = h
         s.bubble = { text: '!', t: 1 }
         sfx.alert()
       }
     }
-    if (h.noise > 0.3 && d < 120 + 520 * h.noise && s.mode !== 'chase' && s.alertCD <= 0) {
+    if (h.noise > 0.3 && d < 100 + 400 * h.noise && s.mode !== 'chase' && s.alertCD <= 0) {
       s.mode = 'investigate'
       s.goal = { x: h.x, y: h.y }
       s.alertCD = 2.5
@@ -767,7 +777,7 @@ function updateSeekerAI(s, dt) {
       s.bubble = { text: '?', t: 1.3 }
       sfx.hmm()
     } else {
-      moveToward(s, sp.x, sp.y, 125, dt)
+      moveToward(s, sp.x, sp.y, 100, dt)
       mvx = s.vx
       mvy = s.vy
     }
@@ -800,7 +810,7 @@ function updateSeekerAI(s, dt) {
     } else if (h.hidden) {
       s.mode = 'patrol'
       s.goalSpot = h.spot
-    } else if (dist(s, h) > 420) {
+    } else if (dist(s, h) > 380) {
       s.mode = 'patrol'
       s.goalSpot = nearestSpot(h, 400)
       s.bubble = { text: 'Huh?', t: 1 }
@@ -909,28 +919,25 @@ function update(dt) {
   if (playing) {
     const tm = Math.max(0, Math.ceil(G.timer))
     const el = $('hud-timer')
-    el.textContent = G.phase === 'hide' ? `🙈 ${tm}` : `⏰ ${Math.floor(tm / 60)}:${String(tm % 60).padStart(2, '0')}`
-    el.classList.toggle('urgent', G.phase === 'seek' && tm <= 10)
-    el.classList.toggle('hidden', G.phase === 'hide')
-    if (G.player !== G.seeker) $('noise-fill').style.width = `${Math.round(G.player.noise * 100)}%`
+    // Only touch the DOM when something changed (DOM writes every frame are slow).
+    const text = G.phase === 'hide' ? `🙈 ${tm}` : `⏰ ${Math.floor(tm / 60)}:${String(tm % 60).padStart(2, '0')}`
+    if (el.textContent !== text) {
+      el.textContent = text
+      el.classList.toggle('urgent', G.phase === 'seek' && tm <= 10)
+      el.classList.toggle('hidden', G.phase === 'hide')
+    }
+    if (G.player !== G.seeker) {
+      const width = `${Math.round(G.player.noise * 20) * 5}%`
+      const fill = $('noise-fill')
+      if (fill.style.width !== width) fill.style.width = width
+    }
   }
 
-  // camera
+  // camera: the whole playground always fits in the window
   const cam = G.cam
-  cam.scale = clamp(Math.min(W / 1300, H / 820), 0.5, 1.4)
-  let tx = HOME.x + Math.cos(t * 0.05) * 700
-  let ty = HOME.y + Math.sin(t * 0.07) * 350
-  if (G.player && playing) {
-    tx = G.player.x
-    ty = G.player.y
-  }
-  const hw = W / 2 / cam.scale
-  const hh = H / 2 / cam.scale
-  tx = hw * 2 >= WORLD_W ? WORLD_W / 2 : clamp(tx, hw, WORLD_W - hw)
-  ty = hh * 2 >= WORLD_H ? WORLD_H / 2 : clamp(ty, hh, WORLD_H - hh)
-  const ck = Math.min(1, dt * (playing ? 6 : 1))
-  cam.x += (tx - cam.x) * ck
-  cam.y += (ty - cam.y) * ck
+  cam.scale = Math.min(W / WORLD_W, H / WORLD_H)
+  cam.x = WORLD_W / 2
+  cam.y = WORLD_H / 2
 
   // particles
   for (const p of G.particles) {
@@ -1019,7 +1026,8 @@ function render() {
   ctx.globalAlpha = 1
 
   // darkness with light holes
-  const dark = playing ? 0.74 : 0.5
+  // A hider gets a bright sea to watch everyone; a seeker searches in the dark.
+  const dark = playing && playerSeeks && G.phase !== 'hide' ? 0.72 : playing ? 0.32 : 0.3
   lctx.setTransform(1, 0, 0, 1, 0, 0)
   lctx.globalCompositeOperation = 'source-over'
   lctx.clearRect(0, 0, lightC.width, lightC.height)
@@ -1031,24 +1039,19 @@ function render() {
     const k = 0.5
     const rr = r * G.cam.scale * k
     if (sx * k + rr < 0 || sy * k + rr < 0 || sx * k - rr > lightC.width || sy * k - rr > lightC.height) return
-    const g = lctx.createRadialGradient(sx * k, sy * k, 0, sx * k, sy * k, rr)
-    g.addColorStop(0, `rgba(0,0,0,${a})`)
-    g.addColorStop(0.6, `rgba(0,0,0,${a * 0.6})`)
-    g.addColorStop(1, 'rgba(0,0,0,0)')
-    lctx.fillStyle = g
-    lctx.beginPath()
-    lctx.arc(sx * k, sy * k, rr, 0, TAU)
-    lctx.fill()
+    lctx.globalAlpha = a
+    lctx.drawImage(lightSprite(), sx * k - rr, sy * k - rr, rr * 2, rr * 2)
+    lctx.globalAlpha = 1
   }
   for (const l of G.world.lights(t)) hole(l.x, l.y, l.r, l.a)
-  if (G.player && playing) hole(G.player.x, G.player.y, playerSeeks ? 340 : 280, 1)
+  if (G.player && playing) hole(G.player.x, G.player.y, playerSeeks ? 300 : 260, 1)
   const s = G.seeker
   const showCone = playing && s && !playerSeeks && G.phase !== 'hide'
   if (showCone) {
     hole(s.x, s.y, 140, 0.8)
     const [sx, sy] = toScreen(s.x, s.y)
     const k = 0.5
-    const R = 290 * G.cam.scale * k
+    const R = 260 * G.cam.scale * k
     const g = lctx.createRadialGradient(sx * k, sy * k, 0, sx * k, sy * k, R)
     g.addColorStop(0, 'rgba(0,0,0,0.85)')
     g.addColorStop(1, 'rgba(0,0,0,0)')
@@ -1066,13 +1069,13 @@ function render() {
   ctx.globalCompositeOperation = 'lighter'
   G.world.drawGlow(ctx, t)
   if (showCone) {
-    const g = ctx.createRadialGradient(s.x, s.y, 0, s.x, s.y, 290)
+    const g = ctx.createRadialGradient(s.x, s.y, 0, s.x, s.y, 260)
     g.addColorStop(0, 'rgba(255,240,150,0.22)')
     g.addColorStop(1, 'rgba(255,240,150,0)')
     ctx.fillStyle = g
     ctx.beginPath()
     ctx.moveTo(s.x, s.y)
-    ctx.arc(s.x, s.y, 290, s.dir - 0.65, s.dir + 0.65)
+    ctx.arc(s.x, s.y, 260, s.dir - 0.65, s.dir + 0.65)
     ctx.closePath()
     ctx.fill()
   }
@@ -1131,7 +1134,7 @@ function render() {
       if (c.hidden && !c.isPlayer) continue
       if (c.hidden) continue
       // In the dark, the seeker player only sees tags of hiders inside their light.
-      if (playerSeeks && !c.isPlayer && !c.found && dist(c, G.player) > 340) continue
+      if (playerSeeks && !c.isPlayer && !c.found && dist(c, G.player) > 300) continue
       if (G.phase === 'hide' && playerSeeks && !c.isPlayer) continue
       const tag = c.isPlayer ? `⭐ ${c.name}` : c.role === 'seeker' ? `👻 ${c.name}` : c.name
       label(c.x, c.y + 62, tag, c.isPlayer ? '#ffd84d' : c.role === 'seeker' ? '#ff9fb8' : '#fff', 15)
@@ -1220,12 +1223,12 @@ let last = performance.now()
 function frame(now) {
   const dt = Math.min(0.05, (now - last) / 1000)
   last = now
+  requestAnimationFrame(frame) // schedule first so one bad frame can't freeze the game
   update(dt)
   render()
-  requestAnimationFrame(frame)
 }
 
-if (location.search.includes('debug')) window.__hs = { G, keys, beginHide, beginSeek, step: (sec) => { for (let i = 0; i < sec * 30; i++) update(1 / 30) } }
+if (location.search.includes('debug')) window.__hs = { G, keys, beginHide, beginSeek, render, update, step: (sec) => { for (let i = 0; i < sec * 30; i++) update(1 / 30) } }
 
 loadBear().then(() => {
   goMenu()

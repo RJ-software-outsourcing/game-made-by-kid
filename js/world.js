@@ -2,10 +2,25 @@
 
 import { sfx } from './audio.js'
 
-export const WORLD_W = 2600
-export const WORLD_H = 1700
+// The whole playground fits on screen, so its size follows the window's shape.
+export let WORLD_W = 1600
+export let WORLD_H = 1000
 export const HOME = { x: WORLD_W / 2, y: WORLD_H / 2 }
-const FLOOR_Y = WORLD_H - 90
+let FLOOR_Y = WORLD_H - 70
+
+export function setWorldSize(screenW, screenH) {
+  const aspect = screenW / screenH
+  if (aspect >= 1) {
+    WORLD_H = 1000
+    WORLD_W = Math.round(Math.min(2000, Math.max(1100, 1000 * aspect)))
+  } else {
+    WORLD_W = 1100
+    WORLD_H = Math.round(Math.min(2000, Math.max(1000, 1100 / aspect)))
+  }
+  HOME.x = WORLD_W / 2
+  HOME.y = WORLD_H / 2
+  FLOOR_Y = WORLD_H - 70
+}
 
 const TAU = Math.PI * 2
 const rand = (a, b) => a + Math.random() * (b - a)
@@ -83,10 +98,27 @@ class Spot {
   }
 
   draw(c, t) {
-    c.save()
-    c.translate(this.x, this.y)
-    this['draw_' + this.kind](c, t + this.seed)
-    c.restore()
+    // Kelp and anemones sway, so they are drawn live; everything else is drawn once into a cache.
+    if (this.kind === 'kelp' || this.kind === 'anemone') {
+      c.save()
+      c.translate(this.x, this.y)
+      this['draw_' + this.kind](c, t + this.seed)
+      c.restore()
+      return
+    }
+    const r = this.r
+    if (!this.cache) {
+      const S = 2 // cache resolution (crisp on high-DPI screens)
+      const cv = document.createElement('canvas')
+      cv.width = Math.ceil(r * 2.8 * S)
+      cv.height = Math.ceil(r * 2.4 * S)
+      const g = cv.getContext('2d')
+      g.scale(S, S)
+      g.translate(r * 1.4, r * 1.4)
+      this['draw_' + this.kind](g, this.seed)
+      this.cache = cv
+    }
+    c.drawImage(this.cache, this.x - r * 1.4, this.y - r * 1.4, r * 2.8, r * 2.4)
   }
 
   glow(c, t) {
@@ -448,36 +480,74 @@ class Spot {
   }
 }
 
+// Glows are drawn from small pre-rendered sprites (one per color) instead of building
+// a radial gradient for every dot every frame, which is very slow in Chrome.
+const spriteCache = new Map()
+const RGBA = /rgba?\(\s*([^,)]+),\s*([^,)]+),\s*([^,)]+)(?:,\s*([^,)]+))?\)/
+
+function parseColor(color) {
+  const m = RGBA.exec(color)
+  if (!m) return [color, 1]
+  return [`${m[1]},${m[2]},${m[3]}`, m[4] === undefined ? 1 : Number(m[4])]
+}
+
+function sprite(rgb, kind) {
+  const key = rgb + kind
+  let cv = spriteCache.get(key)
+  if (!cv) {
+    cv = document.createElement('canvas')
+    cv.width = cv.height = 64
+    const g = cv.getContext('2d')
+    if (kind === 'halo') {
+      const grad = g.createRadialGradient(32, 32, 0, 32, 32, 32)
+      grad.addColorStop(0, `rgba(${rgb},1)`)
+      grad.addColorStop(1, `rgba(${rgb},0)`)
+      g.fillStyle = grad
+    } else g.fillStyle = `rgb(${rgb})`
+    g.beginPath()
+    g.arc(32, 32, kind === 'halo' ? 32 : 30, 0, TAU)
+    g.fill()
+    spriteCache.set(key, cv)
+  }
+  return cv
+}
+
+function drawSprite(c, x, y, r, color, kind) {
+  const [rgb, a] = parseColor(color)
+  if (a <= 0.01) return
+  const prev = c.globalAlpha
+  c.globalAlpha = prev * Math.min(1, a)
+  c.drawImage(sprite(rgb, kind), x - r, y - r, r * 2, r * 2)
+  c.globalAlpha = prev
+}
+
 function dot(c, x, y, r, color, haloR) {
-  if (haloR) halo(c, x, y, haloR, color)
-  c.fillStyle = color
-  c.beginPath()
-  c.arc(x, y, r, 0, TAU)
-  c.fill()
+  if (haloR) drawSprite(c, x, y, haloR, color, 'halo')
+  drawSprite(c, x, y, r, color, 'dot')
 }
 
 function halo(c, x, y, r, color) {
-  const g = c.createRadialGradient(x, y, 0, x, y, r)
-  g.addColorStop(0, color)
-  g.addColorStop(1, 'rgba(0,0,0,0)')
-  c.fillStyle = g
-  c.beginPath()
-  c.arc(x, y, r, 0, TAU)
-  c.fill()
+  drawSprite(c, x, y, r, color, 'halo')
+}
+
+/** A soft round light-hole sprite (used by the darkness layer). */
+export function lightSprite() {
+  return sprite('0,0,0', 'halo')
 }
 
 function genSpots() {
   const kinds = shuffle([...KINDS, ...shuffle([...KINDS])])
   const spots = []
-  let tries = 0
-  while (spots.length < 15 && tries < 4000) {
-    tries++
-    const x = rand(180, WORLD_W - 180)
-    const y = rand(200, FLOOR_Y - 90)
-    if (dist(x, y, HOME.x, HOME.y) < 330) continue
-    if (spots.some((s) => dist(s.x, s.y, x, y) < 330)) continue
-    const kind = kinds[spots.length % kinds.length]
-    spots.push(new Spot(kind, x, y, kind === 'wreck' ? 100 : rand(84, 100)))
+  const want = Math.round((WORLD_W * WORLD_H) / 150000) // about 11 on a 16:9 screen
+  for (let minD = 300; spots.length < want && minD > 200; minD -= 20) {
+    for (let tries = 0; tries < 3000 && spots.length < want; tries++) {
+      const x = rand(150, WORLD_W - 150)
+      const y = rand(190, FLOOR_Y - 80)
+      if (dist(x, y, HOME.x, HOME.y) < 250) continue
+      if (spots.some((s) => dist(s.x, s.y, x, y) < minD)) continue
+      const kind = kinds[spots.length % kinds.length]
+      spots.push(new Spot(kind, x, y, kind === 'wreck' ? 92 : rand(80, 92)))
+    }
   }
   return spots
 }
@@ -1047,14 +1117,14 @@ class MamaWhale {
       if (this.wait <= 0) {
         this.active = true
         this.d = Math.random() < 0.5 ? 1 : -1
-        this.x = this.d > 0 ? -700 : WORLD_W + 700
-        this.y = rand(400, WORLD_H - 500)
+        this.x = this.d > 0 ? -400 : WORLD_W + 400
+        this.y = rand(300, WORLD_H - 300)
         sfx.whaleSong()
       }
       return
     }
     this.x += this.d * 45 * dt
-    if (this.x < -800 || this.x > WORLD_W + 800) {
+    if (this.x < -500 || this.x > WORLD_W + 500) {
       this.active = false
       this.wait = rand(70, 110)
     }
@@ -1063,7 +1133,7 @@ class MamaWhale {
     if (!this.active) return
     c.save()
     c.translate(this.x, this.y + Math.sin(t * 0.4) * 30)
-    c.scale(this.d * 6, 6)
+    c.scale(this.d * 4, 4)
     c.globalAlpha = 0.22
     c.fillStyle = '#1d3a7a'
     c.beginPath()
@@ -1091,7 +1161,7 @@ class MamaWhale {
     if (!this.active) return
     // a floating heart above her
     c.save()
-    c.translate(this.x + this.d * 120, this.y - 230 + Math.sin(t * 2) * 10)
+    c.translate(this.x + this.d * 80, this.y - 160 + Math.sin(t * 2) * 10)
     c.scale(2, 2)
     c.fillStyle = 'rgba(255,140,180,0.35)'
     heart(c)
@@ -1114,17 +1184,17 @@ export class World {
   constructor() {
     this.spots = genSpots()
     this.critters = [
-      ...Array.from({ length: 6 }, () => new LanternSchool()),
-      ...Array.from({ length: 7 }, () => new Jelly()),
-      ...Array.from({ length: 3 }, () => new Angler()),
-      ...Array.from({ length: 6 }, () => new Shrimp()),
-      ...Array.from({ length: 2 }, () => new Dumbo()),
+      ...Array.from({ length: 4 }, () => new LanternSchool()),
+      ...Array.from({ length: 5 }, () => new Jelly()),
+      ...Array.from({ length: 2 }, () => new Angler()),
+      ...Array.from({ length: 4 }, () => new Shrimp()),
+      new Dumbo(),
     ]
     this.mama = new MamaWhale()
     this.eggs = [new Chest(this.spots), new Duck(), new Submarine()]
     this.floor = Array.from({ length: 40 }, (_, i) => [(i / 39) * WORLD_W, FLOOR_Y + rand(-20, 15)])
-    this.stars = Array.from({ length: 14 }, () => ({ x: rand(50, WORLD_W - 50), y: FLOOR_Y + rand(10, 50), r: rand(7, 11), rot: rand(0, TAU) }))
-    this.floorGlow = Array.from({ length: 50 }, () => [rand(0, WORLD_W), FLOOR_Y + rand(0, 70), rand(0, TAU)])
+    this.stars = Array.from({ length: 10 }, () => ({ x: rand(50, WORLD_W - 50), y: FLOOR_Y + rand(10, 50), r: rand(7, 11), rot: rand(0, TAU) }))
+    this.floorGlow = Array.from({ length: 30 }, () => [rand(0, WORLD_W), FLOOR_Y + rand(0, 70), rand(0, TAU)])
     this.distant = Array.from({ length: 10 }, (_, i) => ({ x: (i / 9) * WORLD_W + rand(-80, 80), w: rand(200, 420), h: rand(120, 300) }))
   }
 
