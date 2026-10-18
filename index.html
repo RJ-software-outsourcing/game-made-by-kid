@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
+    <title>Midnight Zone Hide &amp; Seek</title>
+    <meta name="description" content="A deep-sea hide and seek game with Mr. Whale, Mr. Sponge and Blankie Bear" />
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🐳</text></svg>" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <canvas id="game"></canvas>
+
+    <div id="hud" class="hidden">
+      <div class="hud-side">
+        <div id="hud-role" class="pill"></div>
+        <div id="hud-found" class="pill"></div>
+      </div>
+      <div id="hud-timer" class="timer"></div>
+      <div class="hud-side right">
+        <div id="hud-stars" class="pill">⭐ 0</div>
+      </div>
+    </div>
+
+    <div id="noise" class="hidden">
+      <span>🤫</span>
+      <div class="bar"><div id="noise-fill"></div></div>
+      <span>📢</span>
+    </div>
+    <div id="tip" class="tip hidden"></div>
+    <div id="banner" class="banner hidden"></div>
+
+    <div class="corner-btns">
+      <button id="btn-home" class="round-btn hidden" title="Back to character select">🏠</button>
+      <button id="btn-mute" class="round-btn" title="Sound on/off">🔊</button>
+    </div>
+
+    <section id="screen-menu" class="screen">
+      <h1 class="title"><span>Deep Sea Hide &amp; Seek</span><small>~ the Midnight Zone ~</small></h1>
+      <p class="subtitle">Pick your friend! <kbd>⬅️</kbd> <kbd>➡️</kbd> then press <kbd>Enter</kbd></p>
+      <div class="cards" id="cards"></div>
+      <div class="settings">
+        <div class="setting">
+          <span>🙈 Hiding time</span>
+          <button class="step" data-set="hide" data-d="-5">−</button>
+          <b id="set-hide">20 sec</b>
+          <button class="step" data-set="hide" data-d="5">+</button>
+        </div>
+        <div class="setting">
+          <span>👻 Seeking time</span>
+          <button class="step" data-set="seek" data-d="-1">−</button>
+          <b id="set-seek">3 min</b>
+          <button class="step" data-set="seek" data-d="1">+</button>
+        </div>
+      </div>
+      <button class="big-btn" id="btn-start">Play! ▶</button>
+    </section>
+
+    <section id="screen-rps" class="screen hidden">
+      <h2 id="rps-title" class="screen-title">Rock, Paper, Scissors!</h2>
+      <div class="rps-players" id="rps-players"></div>
+      <div id="rps-msg" class="rps-msg"></div>
+      <div class="rps-choices" id="rps-choices">
+        <button class="rps-btn" data-g="0"><span>✊</span>Rock</button>
+        <button class="rps-btn" data-g="1"><span>✌️</span>Scissors</button>
+        <button class="rps-btn" data-g="2"><span>✋</span>Paper</button>
+      </div>
+    </section>
+
+    <section id="screen-count" class="screen count hidden">
+      <div class="count-emoji">🙈</div>
+      <div class="count-text">You're the seeker! Close your eyes and count…</div>
+      <div id="count-num" class="count-num">20</div>
+      <div class="count-sub">Everyone is sneaking off to hide… shhh!</div>
+    </section>
+
+    <section id="screen-result" class="screen hidden">
+      <canvas id="result-char" class="result-char"></canvas>
+      <h2 id="result-title" class="result-title"></h2>
+      <p id="result-sub" class="result-sub"></p>
+      <button class="big-btn" id="btn-again">Play again 🔄</button>
+    </section>
+
+    <div id="dpad" class="hidden">
+      <button data-k="up" class="d-up">▲</button>
+      <button data-k="left" class="d-left">◀</button>
+      <button data-k="right" class="d-right">▶</button>
+      <button data-k="down" class="d-down">▼</button>
+    </div>
+    <button id="btn-action" class="round-btn action hidden">💬</button>
+
+    <script type="module" src="js/main.js"></script>
+  </body>
+</html>
