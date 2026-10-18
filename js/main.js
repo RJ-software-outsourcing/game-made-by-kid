@@ -58,6 +58,7 @@ function saveSettings() {
 const PLAYER_SPEED = 260
 const SEEKER_PLAYER_SPEED = 300
 const CATCH_R = 75 // player seeker finds a hider within this distance
+const SEEKER_COUNT_SECS = 3 // when the player seeks, the count is a quick animation, not a real wait
 
 const G = {
   phase: 'menu', // menu | rps | hide | seek | ending | result
@@ -232,6 +233,7 @@ function goMenu() {
   showScreen('menu')
   buildMenu()
   $('hud').classList.add('hidden')
+  $('hide-count').classList.add('hidden')
   $('noise').classList.add('hidden')
   $('btn-home').classList.add('hidden')
   setTip('')
@@ -368,9 +370,9 @@ function revealRps() {
 
 function beginHide(seekerId) {
   G.phase = 'hide'
-  G.timer = settings.hide
-  G.lastSec = Math.ceil(G.timer)
   G.seeker = G.chars.find((c) => c.id === seekerId)
+  G.timer = G.seeker.isPlayer ? SEEKER_COUNT_SECS : settings.hide
+  G.lastSec = -1
   const hiders = G.chars.filter((c) => c !== G.seeker)
   for (const [i, c] of G.chars.entries()) {
     c.role = c === G.seeker ? 'seeker' : 'hider'
@@ -402,12 +404,15 @@ function beginHide(seekerId) {
   updateFoundHud()
   setMusicMode('calm')
   sfx.go()
+  $('hide-count').classList.add('hidden')
   if (p === G.seeker) {
     showScreen('count')
     $('count-num').textContent = settings.hide
+    $('count-text').textContent = `You're the seeker! Counting to ${settings.hide}…`
     setTip('')
   } else {
     showScreen(null)
+    $('hide-count').classList.remove('hidden')
     showBanner('Quick, hide! 🙈', 1600)
     setTip('Hide behind coral, rocks, kelp or a big shell! Move with ⬅️➡️⬆️⬇️')
   }
@@ -427,6 +432,7 @@ function sendToSpot(c, s, speed, mode) {
 
 function beginSeek() {
   G.phase = 'seek'
+  $('hide-count').classList.add('hidden')
   G.timer = settings.seek * 60
   G.lastSec = Math.ceil(G.timer)
   setMusicMode('tense')
@@ -842,13 +848,29 @@ function update(dt) {
 
   if (G.phase === 'hide') {
     G.timer -= dt
-    const sec = Math.ceil(G.timer)
-    if (sec !== G.lastSec) {
-      G.lastSec = sec
-      if (sec > 0) sfx.tick()
-      if (G.player === G.seeker) $('count-num').textContent = sec
+    const playerSeeks = G.player === G.seeker
+    // The seeker counts up 1..N. When the player seeks, that count is sped up to a few seconds.
+    const total = playerSeeks ? SEEKER_COUNT_SECS : settings.hide
+    const counted = clamp(Math.floor((1 - G.timer / total) * settings.hide) + 1, 1, settings.hide)
+    const left = Math.max(1, Math.ceil(G.timer))
+    const shown = playerSeeks ? counted : left
+    if (shown !== G.lastSec) {
+      G.lastSec = shown
+      if (playerSeeks) {
+        sfx.tick()
+        $('count-num').textContent = counted
+      } else {
+        if (left <= 5) sfx.alert()
+        else sfx.tick()
+        const hc = $('hide-count')
+        hc.querySelector('b').textContent = left
+        hc.classList.toggle('urgent', left <= 5)
+        hc.classList.remove('bump')
+        void hc.offsetWidth
+        hc.classList.add('bump')
+      }
     }
-    if (G.player !== G.seeker) G.seeker.bubble = { text: `${settings.hide - Math.ceil(G.timer) + 1}…`, t: 0.2 }
+    if (!playerSeeks) G.seeker.bubble = { text: `${counted}…`, t: 0.2 }
     if (G.timer <= 0) beginSeek()
   } else if (G.phase === 'seek') {
     G.timer -= dt
@@ -889,6 +911,7 @@ function update(dt) {
     const el = $('hud-timer')
     el.textContent = G.phase === 'hide' ? `🙈 ${tm}` : `⏰ ${Math.floor(tm / 60)}:${String(tm % 60).padStart(2, '0')}`
     el.classList.toggle('urgent', G.phase === 'seek' && tm <= 10)
+    el.classList.toggle('hidden', G.phase === 'hide')
     if (G.player !== G.seeker) $('noise-fill').style.width = `${Math.round(G.player.noise * 100)}%`
   }
 

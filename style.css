@@ -119,7 +119,7 @@ kbd {
 }
 
 .card {
-  width: clamp(110px, 22vh, 220px);
+  width: clamp(92px, min(22vh, 28vw), 220px);
   padding: 10px 10px 14px;
   border-radius: 28px;
   background: var(--panel);
@@ -218,7 +218,7 @@ kbd {
 }
 .rps-player {
   position: relative;
-  width: clamp(110px, 21vh, 200px);
+  width: clamp(92px, min(21vh, 28vw), 200px);
   padding: 8px;
   border-radius: 24px;
   background: var(--panel);
@@ -290,7 +290,7 @@ kbd {
   display: flex;
   flex-direction: column;
   align-items: center;
-  width: clamp(90px, 16vh, 150px);
+  width: clamp(80px, min(16vh, 26vw), 150px);
   padding: 8px 0 10px;
   border-radius: 24px;
   background: var(--panel);
@@ -359,6 +359,7 @@ kbd {
   top: 12px;
   left: 12px;
   right: 76px;
+  min-height: 60px;
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
@@ -387,6 +388,10 @@ kbd {
   display: none;
 }
 .timer {
+  position: fixed;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
   padding: 2px 22px;
   border-radius: 999px;
   background: var(--panel);
@@ -398,6 +403,40 @@ kbd {
   color: #ff8f9f;
   border-color: #ff6f8f;
   animation: pulse 0.6s ease-in-out infinite;
+}
+
+/* Big countdown while you hide */
+.hide-count {
+  position: fixed;
+  top: 14%;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  pointer-events: none;
+  text-shadow: 0 0 24px rgba(120, 220, 255, 0.8);
+}
+.hide-count span {
+  font-size: clamp(18px, 3.5vh, 30px);
+  font-weight: 800;
+}
+.hide-count b {
+  font-size: clamp(64px, 16vh, 150px);
+  line-height: 0.9;
+  color: #bff4ff;
+}
+.hide-count.urgent b {
+  color: #ffd84d;
+  text-shadow: 0 0 30px rgba(255, 200, 80, 0.9);
+}
+.hide-count.bump b {
+  animation: bump 0.35s cubic-bezier(0.3, 1.8, 0.5, 1);
+}
+@keyframes bump {
+  from {
+    transform: scale(1.5);
+  }
 }
 
 #noise {
@@ -482,6 +521,12 @@ kbd {
   background: var(--panel);
   font-size: 26px;
   border: 3px solid rgba(255, 255, 255, 0.18);
+}
+
+@media (max-width: 700px) {
+  #hud {
+    top: 76px;
+  }
 }
 
 /* ---------- Touch controls ---------- */
