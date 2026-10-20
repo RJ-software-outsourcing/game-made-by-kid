@@ -32,6 +32,7 @@ body {
   position: fixed;
   inset: 0;
   display: block;
+  touch-action: none;
 }
 
 .hidden {
@@ -550,37 +551,6 @@ kbd {
 }
 
 /* ---------- Touch controls ---------- */
-
-#dpad {
-  position: fixed;
-  left: 18px;
-  bottom: 18px;
-  width: 168px;
-  height: 168px;
-  display: grid;
-  grid-template: repeat(3, 1fr) / repeat(3, 1fr);
-}
-#dpad button {
-  background: rgba(255, 255, 255, 0.16);
-  border-radius: 14px;
-  font-size: 24px;
-  margin: 3px;
-}
-#dpad button.on {
-  background: rgba(255, 255, 255, 0.4);
-}
-.d-up {
-  grid-area: 1 / 2;
-}
-.d-left {
-  grid-area: 2 / 1;
-}
-.d-right {
-  grid-area: 2 / 3;
-}
-.d-down {
-  grid-area: 3 / 2;
-}
 .round-btn.action {
   position: fixed;
   right: 24px;
@@ -626,11 +596,6 @@ kbd {
   top: calc(12px + env(safe-area-inset-top));
   right: calc(12px + env(safe-area-inset-right));
 }
-#dpad {
-  left: calc(18px + env(safe-area-inset-left));
-  bottom: calc(18px + env(safe-area-inset-bottom));
-  touch-action: none;
-}
 .round-btn.action {
   right: calc(24px + env(safe-area-inset-right));
   bottom: calc(36px + env(safe-area-inset-bottom));
@@ -647,16 +612,6 @@ kbd {
     height: 104px;
     font-size: 46px;
   }
-  #dpad {
-    width: min(240px, 34vw, 34vh);
-    height: min(240px, 34vw, 34vh);
-    min-width: 168px;
-    min-height: 168px;
-  }
-  #dpad button {
-    font-size: 30px;
-    border-radius: 18px;
-  }
   .step {
     width: 48px;
     height: 48px;
@@ -671,6 +626,6 @@ kbd {
   }
   .tip {
     bottom: calc(76px + env(safe-area-inset-bottom));
-    max-width: max(220px, calc(100% - 520px));
+    max-width: max(220px, calc(100% - 260px));
   }
 }

@@ -10,8 +10,9 @@ Live site: https://rj-software-outsourcing.github.io/game-made-by-kid/
 
 ## iPad and phones
 
-The games work on touch screens: Deep Sea Hide & Seek shows a touch pad (slide your thumb to change
-direction, touch a corner to go diagonally) and a 💬 button. For a full-screen experience on iPad, open the
+The games work on touch screens. In Deep Sea Hide & Seek, touch and hold anywhere in the sea to swim
+toward that spot (slide your finger to steer; the longer you hold, the faster you go), and use the 💬 button to
+say hi. A mouse click-and-hold works the same way. For a full-screen experience on iPad, open the
 site in Safari, tap Share → **Add to Home Screen**, and launch it from there.
 
 ## How it is organized

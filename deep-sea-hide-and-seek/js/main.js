@@ -79,6 +79,7 @@ const FLASH_HALF = 0.62 // half-angle of the beam, in radians
 const FLEE_R = 175
 const FLEE_CLOSE_R = 100 // ...or this close from any direction
 const FLEE_REACT = 0.15 // seconds of frozen surprise before running
+const RETREAT_R = 420 // hiders quietly back away to a farther spot when the seeker closes in this much
 // The computer seeker's flashlight (hiders can see it, and it matches what the AI can see).
 const AI_FLASH_R = 260
 const AI_FLASH_HALF = 0.65
@@ -128,6 +129,7 @@ function makeChar(id, isPlayer) {
     checked: new Map(),
     sneakT: rand(4, 8),
     fleeCD: 0,
+    retreatCD: 0,
     startleT: 0,
     visReal: 1, // how clearly the player-seeker sees this hider (0..1)
     visGhost: 0, // how strong the faint moving shadow is (0..1)
@@ -472,7 +474,7 @@ function beginHide(seekerId) {
     showScreen(null)
     $('hide-count').classList.remove('hidden')
     showBanner('Quick, hide! 🙈', 1600)
-    setTip(`Hide behind coral, rocks, kelp or a big shell! Move with ${IS_TOUCH ? 'the pad' : '⬅️➡️⬆️⬇️'}`)
+    setTip(IS_TOUCH ? 'Hide behind coral, rocks, kelp or a big shell! Touch and hold to swim there. Hold longer to go faster 👆' : 'Hide behind coral, rocks, kelp or a big shell! Move with ⬅️➡️⬆️⬇️')
   }
 }
 
@@ -513,7 +515,7 @@ function beginSeek() {
   if (G.player === s) {
     showScreen(null)
     showBanner('Go find them! 🔦')
-    setTip('Your flashlight shines where you swim 🔦 Watch for faint moving shadows 👀')
+    setTip(IS_TOUCH ? 'Touch and hold to swim there. Your flashlight points the way 🔦 Watch for faint shadows 👀' : 'Your flashlight shines where you swim 🔦 Watch for faint moving shadows 👀')
   } else {
     showBanner('Ready or not, here I come! 👻')
     s.bubble = { text: 'Here I come!', t: 2 }
@@ -592,6 +594,8 @@ function showResult() {
 // ---------- Input ----------
 
 const keys = { up: false, down: false, left: false, right: false }
+// Touch / mouse: press and hold anywhere in the sea to swim toward that spot; the longer you hold, the faster you go.
+const touch = { active: false, id: null, sx: 0, sy: 0 }
 const KEYMAP = {
   ArrowUp: 'up',
   ArrowDown: 'down',
@@ -671,60 +675,45 @@ $('btn-home').addEventListener('click', () => {
 $('btn-start').addEventListener('click', startGame)
 $('btn-again').addEventListener('click', goMenu)
 
-// Touch controls
-if (IS_TOUCH) {
-  const dpad = $('dpad')
-  const action = $('btn-action')
-  const showTouch = () => {
-    const playing = (G.phase === 'hide' && G.player !== G.seeker) || G.phase === 'seek'
-    dpad.classList.toggle('hidden', !playing)
-    action.classList.toggle('hidden', !playing)
-    if (!playing) releasePad()
+// Touch controls: hold a finger (or the mouse) anywhere in the sea to swim toward it.
+const releaseTouch = () => {
+  touch.active = false
+  touch.id = null
+}
+canvas.addEventListener('pointerdown', (e) => {
+  e.preventDefault()
+  ac()
+  if (touch.active) return
+  touch.active = true
+  touch.id = e.pointerId
+  touch.sx = e.clientX
+  touch.sy = e.clientY
+  try {
+    canvas.setPointerCapture(e.pointerId)
+  } catch {
+    // capture is only a nicety
   }
-  setInterval(showTouch, 300)
+})
+canvas.addEventListener('pointermove', (e) => {
+  if (touch.active && e.pointerId === touch.id) {
+    touch.sx = e.clientX
+    touch.sy = e.clientY
+  }
+})
+for (const ev of ['pointerup', 'pointercancel', 'lostpointercapture']) {
+  canvas.addEventListener(ev, (e) => {
+    if (e.pointerId === touch.id) releaseTouch()
+  })
+}
+window.addEventListener('blur', releaseTouch)
 
-  // One touch area for the whole pad: you can slide your thumb from arrow to arrow, and touching
-  // a corner moves diagonally. The middle of the pad is a dead zone.
-  let padPointer = null
-  const buttons = Object.fromEntries([...dpad.querySelectorAll('button')].map((b) => [b.dataset.k, b]))
-  const setDirs = (dirs) => {
-    for (const k of ['up', 'down', 'left', 'right']) {
-      keys[k] = !!dirs[k]
-      buttons[k].classList.toggle('on', !!dirs[k])
-    }
-  }
-  const releasePad = () => {
-    padPointer = null
-    setDirs({})
-  }
-  const steer = (e) => {
-    const r = dpad.getBoundingClientRect()
-    const x = (e.clientX - (r.left + r.width / 2)) / (r.width / 2)
-    const y = (e.clientY - (r.top + r.height / 2)) / (r.height / 2)
-    const dead = 0.3
-    setDirs({ left: x < -dead, right: x > dead, up: y < -dead, down: y > dead })
-  }
-  dpad.addEventListener('pointerdown', (e) => {
-    e.preventDefault()
-    ac()
-    startMusic()
-    if (padPointer !== null) return
-    padPointer = e.pointerId
-    try {
-      dpad.setPointerCapture(e.pointerId)
-    } catch {
-      // capture is only a nicety
-    }
-    steer(e)
-  })
-  dpad.addEventListener('pointermove', (e) => {
-    if (e.pointerId === padPointer) steer(e)
-  })
-  for (const ev of ['pointerup', 'pointercancel', 'lostpointercapture']) {
-    dpad.addEventListener(ev, (e) => {
-      if (e.pointerId === padPointer) releasePad()
-    })
-  }
+if (IS_TOUCH) {
+  const action = $('btn-action')
+  setInterval(() => {
+    const playing = (G.phase === 'hide' && G.player !== G.seeker) || G.phase === 'seek'
+    action.classList.toggle('hidden', !playing)
+    if (!playing) releaseTouch()
+  }, 300)
   action.addEventListener('pointerdown', (e) => {
     e.preventDefault()
     ac()
@@ -759,14 +748,30 @@ function updatePlayer(dt) {
   const frozen = G.phase === 'ending' || (G.phase === 'hide' && p === G.seeker) || p.found
   let dx = (keys.right ? 1 : 0) - (keys.left ? 1 : 0)
   let dy = (keys.down ? 1 : 0) - (keys.up ? 1 : 0)
+  let touching = false
+  if (touch.active && !dx && !dy) {
+    const [px, py] = toScreen(p.x, p.y)
+    const tx = touch.sx - px
+    const ty = touch.sy - py
+    const d = Math.hypot(tx, ty)
+    touching = true
+    if (d > 14) {
+      dx = tx / d
+      dy = ty / d
+    }
+  }
   if (frozen) dx = dy = 0
   const len = Math.hypot(dx, dy) || 1
   if (dx || dy) G.holdT += dt
   else G.holdT = 0
   const isSeeker = p === G.seeker
   const max = isSeeker ? SEEKER_PLAYER_SPEED : PLAYER_SPEED
-  // Hiders start slow and speed up the longer a key is held (sneaking vs. running).
-  const f = isSeeker ? Math.min(1, 0.5 + G.holdT * 2) : 0.28 + 0.72 * smooth(0.35, 1.5, G.holdT)
+  // The longer you hold, the faster you swim (hiders start slow, which keeps them quiet).
+  const f = isSeeker
+    ? touching
+      ? 0.3 + 0.7 * smooth(0, 1.3, G.holdT)
+      : Math.min(1, 0.5 + G.holdT * 2)
+    : 0.28 + 0.72 * smooth(0.35, 1.5, G.holdT)
   const tvx = (dx / len) * max * f
   const tvy = (dy / len) * max * f
   const k = Math.min(1, dt * 9)
@@ -806,24 +811,44 @@ function updateVisibility(h, p) {
   h.visGhost = motion * 0.05 * (1 - smooth(200, 430, d)) * (1 - lit)
 }
 
-/** Best spot to run to: far from the seeker and in the direction away from them. */
-function escapeSpot(h, s) {
+/** Distance from point (px, py) to the line segment a-b. */
+function distToSegment(px, py, ax, ay, bx, by) {
+  const vx = bx - ax
+  const vy = by - ay
+  const l2 = vx * vx + vy * vy
+  const t = l2 ? clamp(((px - ax) * vx + (py - ay) * vy) / l2, 0, 1) : 0
+  return Math.hypot(px - (ax + t * vx), py - (ay + t * vy))
+}
+
+/**
+ * Where a hider should go to get away from the seeker `s`.
+ * Only spots that are farther from the seeker, in the direction away from them, and reachable
+ * without running past them. `wander` is the calm version (a hider backing off); otherwise it is a
+ * panicked dash, which prefers spots off to the side of the flashlight beam.
+ */
+function escapeSpot(h, s, wander = false) {
   const taken = new Set(G.chars.filter((c) => c !== h && c.goalSpot).map((c) => c.goalSpot))
   const ax = h.x - s.x
   const ay = h.y - s.y
   const al = Math.hypot(ax, ay) || 1
+  const dhs = al
   const scored = G.world.spots
     .filter((sp) => !taken.has(sp) && sp !== h.goalSpot)
     .map((sp) => {
       const dh = dist(sp, h)
       const ds = dist(sp, s)
       const heading = ((sp.x - h.x) * ax + (sp.y - h.y) * ay) / ((dh || 1) * al) // 1 = straight away
-      // Prefer spots off to the side of the flashlight beam, so the runner slips out of the light.
+      const clear = distToSegment(s.x, s.y, h.x, h.y, sp.x, sp.y) // how close the route passes the seeker
       const side = Math.min(angDiff(Math.atan2(sp.y - s.y, sp.x - s.x), s.dir), 1.6)
-      return { sp, dh, ds, heading, score: ds + heading * 120 + side * 140 + Math.min(dh, 450) * 0.2 }
+      const score = ds + heading * 120 + side * 140 + Math.min(dh, 450) * 0.2 + Math.min(clear, 300) * 0.4
+      return { sp, dh, ds, heading, clear, score }
     })
-  const good = scored.filter((o) => o.dh > 220 && o.dh < 800 && o.ds > 240 && o.heading > -0.3)
-  const pool = (good.length ? good : scored.filter((o) => o.ds > 150)).sort((a, b) => b.score - a.score).slice(0, 2)
+  const minMove = wander ? 130 : 220
+  const ok = (o) => o.dh > minMove && o.dh < 800 && o.heading > -0.3 && o.clear > 130
+  let good = scored.filter((o) => ok(o) && o.ds > 240 && o.ds > dhs + 40) // clearly farther away
+  if (!good.length) good = scored.filter((o) => ok(o) && o.ds > 240 && o.ds > dhs - 50) // at least not closer
+  if (!good.length && !wander) good = scored.filter((o) => o.ds > 150 && o.clear > 60) // cornered: any way out
+  const pool = good.sort((a, b) => b.score - a.score).slice(0, 2)
   return pool.length ? pool[Math.floor(Math.random() * pool.length)].sp : null
 }
 
@@ -862,6 +887,22 @@ function updateHiderAI(h, dt) {
         return
       }
     }
+    // The seeker is coming this way: quietly back off to a spot farther away.
+    h.retreatCD -= dt
+    if (G.player === G.seeker && h.retreatCD <= 0) {
+      const p = G.seeker
+      const d = dist(h, p)
+      const toward = angDiff(Math.atan2(h.y - p.y, h.x - p.x), p.dir) < FLASH_HALF * 2
+      if (d < RETREAT_R && (toward || d < 250)) {
+        h.retreatCD = 3
+        const sp = escapeSpot(h, p, true)
+        if (sp) {
+          sendToSpot(h, sp, rand(150, 230), 'sneak')
+          h.sneakT = rand(2, 4)
+          return
+        }
+      }
+    }
     h.sneakT -= dt
     if (h.sneakT <= 0) {
       const s = G.seeker
@@ -883,11 +924,17 @@ function updateHiderAI(h, dt) {
       }
       h.sneakT = rand(wait[0], wait[1])
       if (dist(h, s) > minSeeker && Math.random() < chance) {
-        const taken = new Set(G.chars.filter((c) => c !== h && c.goalSpot).map((c) => c.goalSpot))
-        const options = G.world.spots.filter(
-          (sp) => !taken.has(sp) && sp !== h.goalSpot && dist(sp, h) < (G.player === s ? 750 : 600) && dist(sp, s) > minSpotSeeker,
-        )
-        if (options.length) sendToSpot(h, options[Math.floor(Math.random() * options.length)], rand(speed[0], speed[1]), 'sneak')
+        if (G.player === s) {
+          // Move on purpose: only to a spot that gets me farther from the player.
+          const sp = escapeSpot(h, s, true)
+          if (sp) sendToSpot(h, sp, rand(speed[0], speed[1]), 'sneak')
+        } else {
+          const taken = new Set(G.chars.filter((c) => c !== h && c.goalSpot).map((c) => c.goalSpot))
+          const options = G.world.spots.filter(
+            (sp) => !taken.has(sp) && sp !== h.goalSpot && dist(sp, h) < 600 && dist(sp, s) > minSpotSeeker,
+          )
+          if (options.length) sendToSpot(h, options[Math.floor(Math.random() * options.length)], rand(speed[0], speed[1]), 'sneak')
+        }
       }
     }
   } else if (h.mode === 'follow') {
@@ -1292,6 +1339,31 @@ function render() {
     drawCharacter(G.player)
     ctx.restore()
     label(G.player.x, G.player.y - 66, '🙈 Hidden!', '#9fffc8')
+  }
+
+  // where you are swimming to (touch / mouse)
+  if (touch.active && playing && G.player && !G.player.found) {
+    const wx = (touch.sx - W / 2) / G.cam.scale + G.cam.x
+    const wy = (touch.sy - H / 2) / G.cam.scale + G.cam.y
+    const grow = Math.min(G.holdT, 1.5)
+    ctx.save()
+    ctx.strokeStyle = 'rgba(190,240,255,0.85)'
+    ctx.lineWidth = 3
+    ctx.setLineDash([2, 9])
+    ctx.lineCap = 'round'
+    ctx.beginPath()
+    ctx.moveTo(G.player.x, G.player.y)
+    ctx.lineTo(wx, wy)
+    ctx.stroke()
+    ctx.setLineDash([])
+    ctx.beginPath()
+    ctx.arc(wx, wy, 20 + grow * 10 + Math.sin(t * 9) * 3, 0, TAU)
+    ctx.stroke()
+    ctx.fillStyle = 'rgba(190,240,255,0.9)'
+    ctx.beginPath()
+    ctx.arc(wx, wy, 5, 0, TAU)
+    ctx.fill()
+    ctx.restore()
   }
 
   // particles
