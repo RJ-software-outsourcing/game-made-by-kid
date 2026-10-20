@@ -265,7 +265,7 @@ const HANDS = ['✊', '✌️', '✋']
 const HAND_NAMES = ['rock', 'scissors', 'paper']
 const beats = (a, b) => (a === 0 && b === 1) || (a === 1 && b === 2) || (a === 2 && b === 0)
 
-const rps = { contenders: [], picks: {}, choice: 0, stage: 'pick', cards: {}, target: null, tieDone: false }
+const rps = { contenders: [], picks: {}, choice: 0, stage: 'pick', cards: {}, target: null }
 const rand3 = () => Math.floor(Math.random() * 3)
 let rpsTimer = 0
 
@@ -283,7 +283,6 @@ function startGame() {
   // other two. The computer's picks below are chosen to make the game come out that way.
   const others = G.chars.filter((c) => !c.isPlayer)
   rps.target = Math.random() < 0.5 ? G.player.id : others[Math.floor(Math.random() * others.length)].id
-  rps.tieDone = false
   G.phase = 'rps'
   $('btn-home').classList.remove('hidden')
   showScreen('rps')
@@ -348,12 +347,6 @@ function assignPicks(playerPick) {
   const inGame = cs.includes(me)
   const base = inGame ? playerPick : rand3()
   if (inGame) picks[me] = playerPick
-  // Sometimes start with a tie, just for fun.
-  if (cs.length === 3 && !rps.tieDone && Math.random() < 0.3) {
-    rps.tieDone = true
-    for (const id of cs) picks[id] = base
-    return
-  }
   const target = cs.includes(rps.target) ? rps.target : null
   if (!target) {
     for (const id of cs) if (id !== me) picks[id] = rand3()
@@ -760,7 +753,7 @@ function updateVisibility(h, p) {
   const lit = Math.max(near, beam)
   const motion = smooth(15, 170, Math.hypot(h.vx, h.vy))
   h.visReal = lit
-  h.visGhost = motion * 0.38 * (1 - smooth(260, 560, d)) * (1 - lit)
+  h.visGhost = motion * 0.12 * (1 - smooth(260, 560, d)) * (1 - lit)
 }
 
 function updateHiderAI(h, dt) {
