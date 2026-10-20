@@ -265,7 +265,8 @@ const HANDS = ['✊', '✌️', '✋']
 const HAND_NAMES = ['rock', 'scissors', 'paper']
 const beats = (a, b) => (a === 0 && b === 1) || (a === 1 && b === 2) || (a === 2 && b === 0)
 
-const rps = { contenders: [], picks: {}, choice: 0, stage: 'pick', cards: {} }
+const rps = { contenders: [], picks: {}, choice: 0, stage: 'pick', cards: {}, target: null, tieDone: false }
+const rand3 = () => Math.floor(Math.random() * 3)
 let rpsTimer = 0
 
 function startGame() {
@@ -278,6 +279,11 @@ function startGame() {
   const playerId = CHAR_IDS[settings.char]
   G.chars = CHAR_IDS.map((id) => makeChar(id, id === playerId))
   G.player = G.chars.find((c) => c.isPlayer)
+  // Decide up front who ends up as the seeker: the player half of the time, otherwise one of the
+  // other two. The computer's picks below are chosen to make the game come out that way.
+  const others = G.chars.filter((c) => !c.isPlayer)
+  rps.target = Math.random() < 0.5 ? G.player.id : others[Math.floor(Math.random() * others.length)].id
+  rps.tieDone = false
   G.phase = 'rps'
   $('btn-home').classList.remove('hidden')
   showScreen('rps')
@@ -334,11 +340,42 @@ document.querySelectorAll('.rps-btn').forEach((b) =>
   }),
 )
 
+// Hand that beats X is (X + 2) % 3; the hand X beats is (X + 1) % 3.
+function assignPicks(playerPick) {
+  const picks = rps.picks
+  const cs = rps.contenders
+  const me = G.player.id
+  const inGame = cs.includes(me)
+  const base = inGame ? playerPick : rand3()
+  if (inGame) picks[me] = playerPick
+  // Sometimes start with a tie, just for fun.
+  if (cs.length === 3 && !rps.tieDone && Math.random() < 0.3) {
+    rps.tieDone = true
+    for (const id of cs) picks[id] = base
+    return
+  }
+  const target = cs.includes(rps.target) ? rps.target : null
+  if (!target) {
+    for (const id of cs) if (id !== me) picks[id] = rand3()
+    return
+  }
+  if (target === me) {
+    // The player loses: everyone else beats their pick.
+    for (const id of cs) if (id !== me) picks[id] = (playerPick + 2) % 3
+  } else {
+    // The target loses to the player's pick (or to a random hand if the player is out).
+    for (const id of cs) {
+      if (id === me) continue
+      picks[id] = id === target ? (base + 1) % 3 : base
+    }
+  }
+}
+
 function playRps(playerPick) {
   rps.stage = 'anim'
   $('rps-choices').classList.add('hidden')
+  assignPicks(playerPick)
   for (const id of rps.contenders) {
-    rps.picks[id] = id === G.player.id ? playerPick : Math.floor(Math.random() * 3)
     const hand = rps.cards[id].querySelector('.rps-hand')
     hand.textContent = '✊'
     hand.className = 'rps-hand shake'
@@ -736,14 +773,30 @@ function updateHiderAI(h, dt) {
     if (G.phase !== 'seek') return
     h.sneakT -= dt
     if (h.sneakT <= 0) {
-      h.sneakT = rand(5, 10)
       const s = G.seeker
-      if (dist(h, s) > 380 && Math.random() < 0.4) {
+      const left = G.chars.filter((c) => c.role === 'hider' && !c.found).length
+      // When the player is the seeker, hiders move more often and faster, especially with
+      // several of them left, so there is always something to notice.
+      let wait = [5, 10]
+      let chance = 0.4
+      let speed = [65, 130]
+      let minSeeker = 380
+      let minSpotSeeker = 300
+      if (G.player === s) {
+        const crowd = left >= 2
+        wait = crowd ? [1.5, 3.5] : [3, 6]
+        chance = crowd ? 0.9 : 0.6
+        speed = crowd ? [130, 200] : [100, 160]
+        minSeeker = 150
+        minSpotSeeker = 180
+      }
+      h.sneakT = rand(wait[0], wait[1])
+      if (dist(h, s) > minSeeker && Math.random() < chance) {
         const taken = new Set(G.chars.filter((c) => c !== h && c.goalSpot).map((c) => c.goalSpot))
         const options = G.world.spots.filter(
-          (sp) => !taken.has(sp) && sp !== h.goalSpot && dist(sp, h) < 600 && dist(sp, s) > 300,
+          (sp) => !taken.has(sp) && sp !== h.goalSpot && dist(sp, h) < (G.player === s ? 750 : 600) && dist(sp, s) > minSpotSeeker,
         )
-        if (options.length) sendToSpot(h, options[Math.floor(Math.random() * options.length)], rand(65, 130), 'sneak')
+        if (options.length) sendToSpot(h, options[Math.floor(Math.random() * options.length)], rand(speed[0], speed[1]), 'sneak')
       }
     }
   } else if (h.mode === 'follow') {
@@ -1280,7 +1333,7 @@ function frame(now) {
   render()
 }
 
-if (location.search.includes('debug')) window.__hs = { G, keys, beginHide, beginSeek, render, update, step: (sec) => { for (let i = 0; i < sec * 30; i++) update(1 / 30) } }
+if (location.search.includes('debug')) window.__hs = { G, keys, beginHide, beginSeek, render, update, startGame, assignPicks, rps, beats, step: (sec) => { for (let i = 0; i < sec * 30; i++) update(1 / 30) } }
 
 loadBear().then(() => {
   goMenu()
