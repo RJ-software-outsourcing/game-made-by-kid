@@ -8,6 +8,12 @@ Live site: https://rj-software-outsourcing.github.io/game-made-by-kid/
 |---|---|
 | 🐳🧽🧸 Deep Sea Hide & Seek | `/deep-sea-hide-and-seek/` |
 
+## iPad and phones
+
+The games work on touch screens: Deep Sea Hide & Seek shows a touch pad (slide your thumb to change
+direction, touch a corner to go diagonally) and a 💬 button. For a full-screen experience on iPad, open the
+site in Safari, tap Share → **Add to Home Screen**, and launch it from there.
+
 ## How it is organized
 
 - `index.html`, `home.js`, `home.css`: the home page. It only reads `games.json` and renders the list.

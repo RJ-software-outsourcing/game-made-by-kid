@@ -14,7 +14,17 @@ export function ac() {
   if (!('AudioContext' in window)) return null
   try {
     if (!ctx) {
+      // Safari: treat this as media playback so sound isn't muted by the ringer switch.
+      try {
+        if (navigator.audioSession) navigator.audioSession.type = 'playback'
+      } catch {
+        // not supported
+      }
       ctx = new AudioContext()
+      // iOS suspends audio when the page is hidden or interrupted; wake it up when we come back.
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible' && ctx.state !== 'running') ctx.resume()
+      })
       master = ctx.createGain()
       master.gain.value = muted ? 0 : 0.9
       master.connect(ctx.destination)

@@ -16,6 +16,10 @@ body {
   width: 100%;
   height: 100%;
   overflow: hidden;
+  overscroll-behavior: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-text-size-adjust: 100%;
   background: #040818;
   color: var(--ink);
   font-family: var(--font);
@@ -34,7 +38,23 @@ body {
   display: none !important;
 }
 
+html.touch body {
+  position: fixed; /* no rubber-band scrolling on iOS */
+  inset: 0;
+}
+
+.touch-only {
+  display: none;
+}
+html.touch .touch-only {
+  display: inline;
+}
+html.touch .kbd-only {
+  display: none;
+}
+
 button {
+  touch-action: manipulation;
   font-family: inherit;
   color: inherit;
   cursor: pointer;
@@ -591,4 +611,66 @@ kbd {
 
 #screen-menu {
   padding-top: 64px;
+}
+
+/* ---------- iPad / touch screens ---------- */
+
+#hud {
+  top: calc(12px + env(safe-area-inset-top));
+  left: calc(12px + env(safe-area-inset-left));
+}
+.timer {
+  top: calc(12px + env(safe-area-inset-top));
+}
+.corner-btns {
+  top: calc(12px + env(safe-area-inset-top));
+  right: calc(12px + env(safe-area-inset-right));
+}
+#dpad {
+  left: calc(18px + env(safe-area-inset-left));
+  bottom: calc(18px + env(safe-area-inset-bottom));
+  touch-action: none;
+}
+.round-btn.action {
+  right: calc(24px + env(safe-area-inset-right));
+  bottom: calc(36px + env(safe-area-inset-bottom));
+}
+
+@media (pointer: coarse) {
+  .round-btn {
+    width: 60px;
+    height: 60px;
+    font-size: 30px;
+  }
+  .round-btn.action {
+    width: 104px;
+    height: 104px;
+    font-size: 46px;
+  }
+  #dpad {
+    width: min(240px, 34vw, 34vh);
+    height: min(240px, 34vw, 34vh);
+    min-width: 168px;
+    min-height: 168px;
+  }
+  #dpad button {
+    font-size: 30px;
+    border-radius: 18px;
+  }
+  .step {
+    width: 48px;
+    height: 48px;
+    font-size: 26px;
+  }
+  .big-btn {
+    padding: 10px 48px;
+  }
+  /* keep the meter and the hint in the free space between the pad and the action button */
+  #noise {
+    bottom: calc(18px + env(safe-area-inset-bottom));
+  }
+  .tip {
+    bottom: calc(76px + env(safe-area-inset-bottom));
+    max-width: max(220px, calc(100% - 520px));
+  }
 }

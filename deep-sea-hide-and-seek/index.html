@@ -2,7 +2,13 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover, user-scalable=no" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Hide & Seek" />
+    <meta name="theme-color" content="#040818" />
+    <meta name="format-detection" content="telephone=no" />
     <title>Midnight Zone Hide &amp; Seek</title>
     <meta name="description" content="A deep-sea hide and seek game with Mr. Whale, Mr. Sponge, Blankie Bear and Golden Shrimp" />
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🐳</text></svg>" />
@@ -42,7 +48,7 @@
     <section id="screen-menu" class="screen">
       <a class="back-link" href="../">← All games</a>
       <h1 class="title"><span>Deep Sea Hide &amp; Seek</span><small>~ the Midnight Zone ~</small></h1>
-      <p class="subtitle">Pick your friend! <kbd>⬅️</kbd> <kbd>➡️</kbd> then press <kbd>Enter</kbd></p>
+      <p class="subtitle">Pick your friend! <span class="kbd-only"><kbd>⬅️</kbd> <kbd>➡️</kbd> then press <kbd>Enter</kbd></span><span class="touch-only">then tap Play!</span></p>
       <div class="cards" id="cards"></div>
       <div class="settings">
         <div class="setting">
@@ -92,7 +98,7 @@
       <button data-k="right" class="d-right">▶</button>
       <button data-k="down" class="d-down">▼</button>
     </div>
-    <button id="btn-action" class="round-btn action hidden">💬</button>
+    <button id="btn-action" class="round-btn action hidden" aria-label="Say hi">💬</button>
 
     <script type="module" src="js/main.js"></script>
   </body>

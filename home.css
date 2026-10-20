@@ -21,7 +21,7 @@ body {
 main {
   max-width: 1000px;
   margin: 0 auto;
-  padding: clamp(20px, 5vh, 56px) 16px 40px;
+  padding: calc(clamp(20px, 5vh, 56px) + env(safe-area-inset-top)) calc(16px + env(safe-area-inset-right)) calc(40px + env(safe-area-inset-bottom)) calc(16px + env(safe-area-inset-left));
 }
 
 header {

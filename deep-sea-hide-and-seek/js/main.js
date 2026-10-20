@@ -3,6 +3,11 @@ import { CHAR_IDS, CHARS, drawChar, drawPortrait, drawSilhouette, loadBear } fro
 import { HOME, World, WORLD_H, WORLD_W, heart, lightSprite, setWorldSize } from './world.js'
 
 const $ = (id) => document.getElementById(id)
+// iPad / phone / any touch screen (add ?touch to the address to preview it on a computer)
+const IS_TOUCH = 'ontouchstart' in window || navigator.maxTouchPoints > 0 || location.search.includes('touch')
+if (IS_TOUCH) document.documentElement.classList.add('touch')
+// Stop Safari's pinch-zoom gestures from zooming the game.
+for (const ev of ['gesturestart', 'gesturechange', 'gestureend']) document.addEventListener(ev, (e) => e.preventDefault())
 const TAU = Math.PI * 2
 const rand = (a, b) => a + Math.random() * (b - a)
 const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v))
@@ -467,7 +472,7 @@ function beginHide(seekerId) {
     showScreen(null)
     $('hide-count').classList.remove('hidden')
     showBanner('Quick, hide! 🙈', 1600)
-    setTip('Hide behind coral, rocks, kelp or a big shell! Move with ⬅️➡️⬆️⬇️')
+    setTip(`Hide behind coral, rocks, kelp or a big shell! Move with ${IS_TOUCH ? 'the pad' : '⬅️➡️⬆️⬇️'}`)
   }
 }
 
@@ -667,36 +672,68 @@ $('btn-start').addEventListener('click', startGame)
 $('btn-again').addEventListener('click', goMenu)
 
 // Touch controls
-if ('ontouchstart' in window || navigator.maxTouchPoints > 0) {
+if (IS_TOUCH) {
   const dpad = $('dpad')
   const action = $('btn-action')
   const showTouch = () => {
-    const playing = G.phase === 'hide' || G.phase === 'seek'
+    const playing = (G.phase === 'hide' && G.player !== G.seeker) || G.phase === 'seek'
     dpad.classList.toggle('hidden', !playing)
     action.classList.toggle('hidden', !playing)
+    if (!playing) releasePad()
   }
   setInterval(showTouch, 300)
-  dpad.querySelectorAll('button').forEach((b) => {
-    const k = b.dataset.k
-    const on = (e) => {
-      e.preventDefault()
-      ac()
-      startMusic()
-      keys[k] = true
-      b.classList.add('on')
+
+  // One touch area for the whole pad: you can slide your thumb from arrow to arrow, and touching
+  // a corner moves diagonally. The middle of the pad is a dead zone.
+  let padPointer = null
+  const buttons = Object.fromEntries([...dpad.querySelectorAll('button')].map((b) => [b.dataset.k, b]))
+  const setDirs = (dirs) => {
+    for (const k of ['up', 'down', 'left', 'right']) {
+      keys[k] = !!dirs[k]
+      buttons[k].classList.toggle('on', !!dirs[k])
     }
-    const off = (e) => {
-      e.preventDefault()
-      keys[k] = false
-      b.classList.remove('on')
+  }
+  const releasePad = () => {
+    padPointer = null
+    setDirs({})
+  }
+  const steer = (e) => {
+    const r = dpad.getBoundingClientRect()
+    const x = (e.clientX - (r.left + r.width / 2)) / (r.width / 2)
+    const y = (e.clientY - (r.top + r.height / 2)) / (r.height / 2)
+    const dead = 0.3
+    setDirs({ left: x < -dead, right: x > dead, up: y < -dead, down: y > dead })
+  }
+  dpad.addEventListener('pointerdown', (e) => {
+    e.preventDefault()
+    ac()
+    startMusic()
+    if (padPointer !== null) return
+    padPointer = e.pointerId
+    try {
+      dpad.setPointerCapture(e.pointerId)
+    } catch {
+      // capture is only a nicety
     }
-    b.addEventListener('pointerdown', on)
-    b.addEventListener('pointerup', off)
-    b.addEventListener('pointerleave', off)
-    b.addEventListener('pointercancel', off)
+    steer(e)
   })
-  action.addEventListener('click', onAction)
+  dpad.addEventListener('pointermove', (e) => {
+    if (e.pointerId === padPointer) steer(e)
+  })
+  for (const ev of ['pointerup', 'pointercancel', 'lostpointercapture']) {
+    dpad.addEventListener(ev, (e) => {
+      if (e.pointerId === padPointer) releasePad()
+    })
+  }
+  action.addEventListener('pointerdown', (e) => {
+    e.preventDefault()
+    ac()
+    onAction()
+  })
 }
+
+// Unlock sound on the very first touch anywhere (iOS only plays sound after a tap).
+window.addEventListener('pointerdown', () => ac(), { once: true })
 
 // ---------- Update ----------
 
