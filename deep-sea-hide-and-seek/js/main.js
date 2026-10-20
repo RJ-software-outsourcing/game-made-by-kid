@@ -67,6 +67,12 @@ function saveSettings() {
 const PLAYER_SPEED = 230
 const SEEKER_PLAYER_SPEED = 260
 const CATCH_R = 75 // player seeker finds a hider within this distance
+// The player-seeker's flashlight shines the way they swim.
+const FLASH_R = 300
+const FLASH_HALF = 0.62 // half-angle of the beam, in radians
+// The computer seeker's flashlight (hiders can see it, and it matches what the AI can see).
+const AI_FLASH_R = 260
+const AI_FLASH_HALF = 0.65
 const SEEKER_COUNT_SECS = 3 // when the player seeks, the count is a quick animation, not a real wait
 
 const G = {
@@ -112,7 +118,8 @@ function makeChar(id, isPlayer) {
     dir: 0,
     checked: new Map(),
     sneakT: rand(4, 8),
-    hintT: rand(4, 8),
+    visReal: 1, // how clearly the player-seeker sees this hider (0..1)
+    visGhost: 0, // how strong the faint moving shadow is (0..1)
     giggleT: 0,
     alertCD: 0,
   }
@@ -458,10 +465,14 @@ function beginSeek() {
   s.mode = 'patrol'
   s.goalSpot = null
   s.dir = Math.PI / 2
+  for (const h of G.chars) {
+    h.visReal = h.role === 'hider' ? 0 : 1
+    h.visGhost = 0
+  }
   if (G.player === s) {
     showScreen(null)
-    showBanner('Go find them! 🔍')
-    setTip('Get close to a hiding friend to find them! Watch for sneaky shadows 👀')
+    showBanner('Go find them! 🔦')
+    setTip('Your flashlight shines where you swim 🔦 Watch for faint moving shadows 👀')
   } else {
     showBanner('Ready or not, here I come! 👻')
     s.bubble = { text: 'Here I come!', t: 2 }
@@ -486,6 +497,8 @@ function updateFoundHud() {
 function catchHider(h, by) {
   if (h.found) return
   h.found = true
+  h.visReal = 1
+  h.visGhost = 0
   h.hidden = false
   h.mode = 'follow'
   h.spot = null
@@ -683,7 +696,34 @@ function updatePlayer(dt) {
   p.y = clamp(p.y + p.vy * dt, 80, WORLD_H - 130)
   if (Math.abs(p.vx) > 8) p.facing = Math.sign(p.vx)
   const speed = Math.hypot(p.vx, p.vy)
+  if (isSeeker && speed > 25) {
+    // Turn the flashlight toward the direction of travel.
+    const diff = ((Math.atan2(p.vy, p.vx) - p.dir + Math.PI * 3) % TAU) - Math.PI
+    p.dir += diff * Math.min(1, dt * 10)
+  }
+  p.dir = ((p.dir % TAU) + TAU) % TAU
   p.noise = isSeeker ? 0 : Math.max((speed / PLAYER_SPEED) ** 1.6, p.emoteNoise > 0 ? 1 : 0)
+}
+
+/**
+ * How well the player-seeker can see a hider.
+ * - In the flashlight beam: clearer the closer they are (and fading out at the beam's edges).
+ * - Outside the beam: invisible while still; moving shows a faint shadow, stronger the faster they go.
+ */
+function updateVisibility(h, p) {
+  const d = dist(h, p)
+  const ang = angDiff(Math.atan2(h.y - p.y, h.x - p.x), p.dir)
+  const near = 1 - smooth(45, 95, d) // a tiny glow around the seeker
+  let beam = 0
+  if (d < FLASH_R) {
+    const edge = 1 - smooth(FLASH_HALF * 0.55, FLASH_HALF, ang)
+    const clarity = 1 - 0.75 * (d / FLASH_R) ** 1.5
+    beam = edge * clarity * (1 - smooth(FLASH_R * 0.85, FLASH_R, d))
+  }
+  const lit = Math.max(near, beam)
+  const motion = smooth(15, 170, Math.hypot(h.vx, h.vy))
+  h.visReal = lit
+  h.visGhost = motion * 0.38 * (1 - smooth(260, 560, d)) * (1 - lit)
 }
 
 function updateHiderAI(h, dt) {
@@ -703,7 +743,7 @@ function updateHiderAI(h, dt) {
         const options = G.world.spots.filter(
           (sp) => !taken.has(sp) && sp !== h.goalSpot && dist(sp, h) < 600 && dist(sp, s) > 300,
         )
-        if (options.length) sendToSpot(h, options[Math.floor(Math.random() * options.length)], 75, 'sneak')
+        if (options.length) sendToSpot(h, options[Math.floor(Math.random() * options.length)], rand(65, 130), 'sneak')
       }
     }
   } else if (h.mode === 'follow') {
@@ -893,18 +933,14 @@ function update(dt) {
       for (const h of G.chars) {
         if (h.role !== 'hider' || h.found) continue
         if (dist(h, G.player) < CATCH_R) catchHider(h, G.player)
-        // Hints for little seekers: bubbles rise from occupied spots, giggles when close.
+        if (h.found) continue
+        updateVisibility(h, G.player)
+        // A faint giggle when a hiding friend is really close (a sound clue only, no visual hint).
         if (h.hidden) {
-          h.hintT -= dt
-          if (h.hintT <= 0) {
-            h.hintT = rand(6, 10)
-            for (let i = 0; i < 4; i++) G.particles.push({ x: h.x + rand(-20, 20), y: h.y - 40, vx: rand(-10, 10), vy: rand(-70, -40), life: rand(1.5, 2.5), max: 2.5, type: 'bubble', size: rand(3, 6), rot: 0 })
-          }
           h.giggleT -= dt
-          if (dist(h, G.player) < 230 && h.giggleT <= 0) {
+          if (dist(h, G.player) < 170 && h.giggleT <= 0) {
             h.giggleT = rand(5, 8)
             sfx.giggle()
-            popup(h.x + rand(-30, 30), h.y - 60, '♪', '#ffb3dc')
           }
         }
       }
@@ -976,13 +1012,21 @@ function charOpts(c) {
   return { facing: c.facing, t: G.t + c.id.length, closed, moving: Math.min(1, speed / 250) }
 }
 
+const playerSeekView = () => G.player && G.player === G.seeker && G.phase === 'seek'
+
 function drawCharacter(c) {
   const o = charOpts(c)
   if (c.found && c.role === 'hider') {
     // happy hop when found
     o.scale = 1 + Math.abs(Math.sin(G.t * 6)) * 0.05
   }
+  const prev = ctx.globalAlpha
+  if (c.role === 'hider' && !c.found && !c.isPlayer && playerSeekView()) {
+    if (c.visReal < 0.02) return
+    ctx.globalAlpha = prev * c.visReal
+  }
   drawChar(ctx, c.id, c.x, c.y, o)
+  ctx.globalAlpha = prev
 }
 
 function render() {
@@ -1027,7 +1071,8 @@ function render() {
 
   // darkness with light holes
   // A hider gets a bright sea to watch everyone; a seeker searches in the dark.
-  const dark = playing && playerSeeks && G.phase !== 'hide' ? 0.72 : playing ? 0.32 : 0.6
+  const seekView = playerSeekView()
+  const dark = seekView ? 0.72 : playing ? 0.32 : 0.6
   lctx.setTransform(1, 0, 0, 1, 0, 0)
   lctx.globalCompositeOperation = 'source-over'
   lctx.clearRect(0, 0, lightC.width, lightC.height)
@@ -1044,23 +1089,30 @@ function render() {
     lctx.globalAlpha = 1
   }
   for (const l of G.world.lights(t)) hole(l.x, l.y, l.r, l.a)
-  if (G.player && playing) hole(G.player.x, G.player.y, playerSeeks ? 300 : 260, 1)
   const s = G.seeker
-  const showCone = playing && s && !playerSeeks && G.phase !== 'hide'
+  const showCone = playing && s && G.phase !== 'hide'
+  const coneR = playerSeeks ? FLASH_R : AI_FLASH_R
+  const coneHalf = playerSeeks ? FLASH_HALF : AI_FLASH_HALF
+  if (G.player && playing) hole(G.player.x, G.player.y, seekView ? 95 : playerSeeks ? 300 : 260, 1)
   if (showCone) {
-    hole(s.x, s.y, 140, 0.8)
+    if (!playerSeeks) hole(s.x, s.y, 140, 0.8)
     const [sx, sy] = toScreen(s.x, s.y)
     const k = 0.5
-    const R = 260 * G.cam.scale * k
+    const R = coneR * G.cam.scale * k
     const g = lctx.createRadialGradient(sx * k, sy * k, 0, sx * k, sy * k, R)
-    g.addColorStop(0, 'rgba(0,0,0,0.85)')
+    g.addColorStop(0, 'rgba(0,0,0,1)')
     g.addColorStop(1, 'rgba(0,0,0,0)')
     lctx.fillStyle = g
-    lctx.beginPath()
-    lctx.moveTo(sx * k, sy * k)
-    lctx.arc(sx * k, sy * k, R, s.dir - 0.65, s.dir + 0.65)
-    lctx.closePath()
-    lctx.fill()
+    // Three nested wedges give the beam soft edges and a bright center.
+    for (const f of [1, 0.78, 0.56]) {
+      lctx.globalAlpha = playerSeeks ? 0.55 : 0.42
+      lctx.beginPath()
+      lctx.moveTo(sx * k, sy * k)
+      lctx.arc(sx * k, sy * k, R, s.dir - coneHalf * f, s.dir + coneHalf * f)
+      lctx.closePath()
+      lctx.fill()
+    }
+    lctx.globalAlpha = 1
   }
   ctx.drawImage(lightC, 0, 0, W, H)
 
@@ -1069,23 +1121,23 @@ function render() {
   ctx.globalCompositeOperation = 'lighter'
   G.world.drawGlow(ctx, t)
   if (showCone) {
-    const g = ctx.createRadialGradient(s.x, s.y, 0, s.x, s.y, 260)
-    g.addColorStop(0, 'rgba(255,240,150,0.22)')
+    const g = ctx.createRadialGradient(s.x, s.y, 0, s.x, s.y, coneR)
+    g.addColorStop(0, `rgba(255,240,150,${playerSeeks ? 0.3 : 0.22})`)
     g.addColorStop(1, 'rgba(255,240,150,0)')
     ctx.fillStyle = g
     ctx.beginPath()
     ctx.moveTo(s.x, s.y)
-    ctx.arc(s.x, s.y, 260, s.dir - 0.65, s.dir + 0.65)
+    ctx.arc(s.x, s.y, coneR, s.dir - coneHalf * 0.85, s.dir + coneHalf * 0.85)
     ctx.closePath()
     ctx.fill()
   }
   ctx.globalCompositeOperation = 'source-over'
 
-  // ghostly shadows of hiders sneaking around (only the seeker player sees these hints)
-  if (playerSeeks && G.phase === 'seek') {
+  // faint shadows of hiders moving outside the flashlight: the faster they move, the clearer
+  if (seekView) {
     for (const h of G.chars) {
-      if (h.isPlayer || h.found || h.mode !== 'sneak') continue
-      drawSilhouette(ctx, h.id, h.x, h.y, charOpts(h), '#9fc4ff', 0.28 + 0.1 * Math.sin(t * 6))
+      if (h.isPlayer || h.found || h.visGhost < 0.02) continue
+      drawSilhouette(ctx, h.id, h.x, h.y, charOpts(h), '#a9ccff', h.visGhost)
     }
   }
 
@@ -1134,7 +1186,7 @@ function render() {
       if (c.hidden && !c.isPlayer) continue
       if (c.hidden) continue
       // In the dark, the seeker player only sees tags of hiders inside their light.
-      if (playerSeeks && !c.isPlayer && !c.found && dist(c, G.player) > 300) continue
+      if (seekView && !c.isPlayer && !c.found && c.visReal < 0.6) continue
       if (G.phase === 'hide' && playerSeeks && !c.isPlayer) continue
       const tag = c.isPlayer ? `⭐ ${c.name}` : c.role === 'seeker' ? `👻 ${c.name}` : c.name
       label(c.x, c.y + 62, tag, c.isPlayer ? '#ffd84d' : c.role === 'seeker' ? '#ff9fb8' : '#fff', 15)
