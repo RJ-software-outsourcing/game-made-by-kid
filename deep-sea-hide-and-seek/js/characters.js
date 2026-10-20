@@ -1,4 +1,4 @@
-// The three playable characters, drawn on canvas in local coordinates (about ±50 px).
+// The four playable characters, drawn on canvas in local coordinates (about ±50 px).
 // Blankie Bear (被被熊) is the traced drawing from the kcis-grade1-vocabulary project,
 // rendered once from SVG into an image.
 
@@ -6,8 +6,9 @@ export const CHARS = {
   whale: { id: 'whale', name: 'Mr. Whale', tag: 'Big & gentle', color: '#5aa9ff' },
   sponge: { id: 'sponge', name: 'Mr. Sponge', tag: 'Always giggling', color: '#ffd84d' },
   bear: { id: 'bear', name: 'Blankie Bear', tag: 'Cozy & cuddly', color: '#a9c3f7' },
+  shrimp: { id: 'shrimp', name: 'Golden Shrimp', tag: 'Shiny & speedy', color: '#ffc83d' },
 }
-export const CHAR_IDS = ['whale', 'sponge', 'bear']
+export const CHAR_IDS = ['whale', 'sponge', 'bear', 'shrimp']
 
 const TAU = Math.PI * 2
 
@@ -385,6 +386,137 @@ function sponge(c, f, t, closed, mv) {
   c.stroke()
 }
 
+// ---------- Golden Shrimp ----------
+
+function goldBlob(c, x, y, rx, ry, rot) {
+  const g = c.createRadialGradient(x - rx * 0.3, y - ry * 0.4, 2, x, y, Math.max(rx, ry) * 1.2)
+  g.addColorStop(0, '#fff3a8')
+  g.addColorStop(0.55, '#ffd24a')
+  g.addColorStop(1, '#f0a416')
+  c.fillStyle = g
+  c.strokeStyle = '#b8760c'
+  c.lineWidth = 3
+  c.beginPath()
+  c.ellipse(x, y, rx, ry, rot, 0, TAU)
+  c.fill()
+  c.stroke()
+}
+
+function sparkle(c, x, y, r, a) {
+  c.save()
+  c.globalAlpha = a
+  c.fillStyle = '#fffbe0'
+  c.translate(x, y)
+  c.beginPath()
+  for (let i = 0; i < 8; i++) {
+    const ang = (i / 8) * TAU
+    const rr = i % 2 ? r * 0.28 : r
+    c.lineTo(Math.cos(ang) * rr, Math.sin(ang) * rr)
+  }
+  c.closePath()
+  c.fill()
+  c.restore()
+}
+
+function shrimp(c, f, t, closed, mv) {
+  const wig = Math.sin(t * (5 + mv * 8))
+  c.save()
+  c.scale(f * 0.9, 0.9)
+  c.lineCap = 'round'
+  c.lineJoin = 'round'
+  // antennae
+  c.strokeStyle = '#e8a317'
+  c.lineWidth = 2.5
+  c.beginPath()
+  c.moveTo(24, -26)
+  c.quadraticCurveTo(32, -52, 50 + wig * 3, -56 + wig * 2)
+  c.moveTo(28, -22)
+  c.quadraticCurveTo(46, -38, 62 + wig * 3, -34 + wig * 3)
+  c.stroke()
+  // little legs
+  c.strokeStyle = '#d98f10'
+  c.lineWidth = 3
+  c.beginPath()
+  for (let i = 0; i < 4; i++) {
+    const lx = -6 + i * 9
+    c.moveTo(lx, 20)
+    c.lineTo(lx - 3 + Math.sin(t * (6 + mv * 10) + i) * 3, 31)
+  }
+  c.stroke()
+  // tail fan
+  c.save()
+  c.translate(-40, 24)
+  c.rotate(0.9 + wig * 0.14 * (1 + mv))
+  for (const a of [-0.55, 0, 0.55]) {
+    c.save()
+    c.rotate(a)
+    goldBlob(c, -14, 0, 15, 8, 0)
+    c.restore()
+  }
+  c.restore()
+  // abdomen segments, back to front, then head
+  goldBlob(c, -30, 17, 14, 13, 0.4)
+  goldBlob(c, -17, 11, 18, 16, 0.3)
+  goldBlob(c, -3, 5, 22, 20, 0.1)
+  goldBlob(c, 12, -2, 31, 27, 0)
+  // pointy forehead
+  c.fillStyle = '#ffd24a'
+  c.strokeStyle = '#b8760c'
+  c.lineWidth = 3
+  c.beginPath()
+  c.moveTo(30, -22)
+  c.lineTo(50, -26)
+  c.lineTo(36, -11)
+  c.closePath()
+  c.fill()
+  c.stroke()
+  // shine
+  c.fillStyle = 'rgba(255,255,255,0.7)'
+  c.beginPath()
+  c.ellipse(-2, -16, 9, 4, -0.5, 0, TAU)
+  c.fill()
+  // eye
+  if (closed) {
+    c.strokeStyle = '#4a2c05'
+    c.lineWidth = 3
+    c.beginPath()
+    c.arc(22, -8, 8, 0.15 * Math.PI, 0.85 * Math.PI)
+    c.stroke()
+  } else {
+    c.fillStyle = '#fff'
+    c.strokeStyle = '#b8760c'
+    c.lineWidth = 2
+    c.beginPath()
+    c.arc(22, -8, 11, 0, TAU)
+    c.fill()
+    c.stroke()
+    c.fillStyle = '#3a2204'
+    c.beginPath()
+    c.arc(25, -7, 6.5, 0, TAU)
+    c.fill()
+    c.fillStyle = '#fff'
+    c.beginPath()
+    c.arc(27.5, -10, 2.6, 0, TAU)
+    c.arc(23, -4.5, 1.2, 0, TAU)
+    c.fill()
+  }
+  // blush + smile
+  c.fillStyle = 'rgba(255,120,150,0.6)'
+  c.beginPath()
+  c.ellipse(24, 9, 6, 3.5, 0, 0, TAU)
+  c.fill()
+  c.strokeStyle = '#4a2c05'
+  c.lineWidth = 2.5
+  c.beginPath()
+  c.arc(36, 4, 5.5, 0.2 * Math.PI, 0.8 * Math.PI)
+  c.stroke()
+  // twinkling sparkles
+  sparkle(c, -20, -12, 7, 0.5 + 0.5 * Math.sin(t * 4))
+  sparkle(c, 40, 16, 5, 0.5 + 0.5 * Math.sin(t * 4 + 2))
+  sparkle(c, -44, -2, 5, 0.5 + 0.5 * Math.sin(t * 4 + 4))
+  c.restore()
+}
+
 // ---------- Public drawing API ----------
 
 /**
@@ -399,6 +531,7 @@ export function drawChar(ctx, id, x, y, o = {}) {
   if (bob) ctx.translate(0, Math.sin(t * 2.6 + id.length) * 3)
   if (id === 'whale') whale(ctx, facing, t, closed, moving)
   else if (id === 'sponge') sponge(ctx, facing, t, closed, moving)
+  else if (id === 'shrimp') shrimp(ctx, facing, t, closed, moving)
   else bear(ctx, facing, t, closed, moving)
   ctx.restore()
 }

@@ -9,6 +9,7 @@ export const HOME = { x: WORLD_W / 2, y: WORLD_H / 2 }
 let FLOOR_Y = WORLD_H - 70
 
 export function setWorldSize(screenW, screenH) {
+  if (!(screenW > 0 && screenH > 0)) return // window not laid out yet (e.g. hidden tab)
   const aspect = screenW / screenH
   if (aspect >= 1) {
     WORLD_H = 1000

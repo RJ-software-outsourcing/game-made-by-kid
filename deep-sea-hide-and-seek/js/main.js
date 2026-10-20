@@ -210,7 +210,7 @@ function buildMenu() {
 }
 
 function selectChar(i, silent) {
-  settings.char = (i + 3) % 3
+  settings.char = (i + CHAR_IDS.length) % CHAR_IDS.length
   saveSettings()
   portraits.forEach((p) => p.card.classList.toggle('selected', p.idx === settings.char))
   if (!silent) {
@@ -306,7 +306,7 @@ function startGame() {
 function startRpsRound(contenders) {
   rps.contenders = contenders
   rps.picks = {}
-  $('rps-title').textContent = contenders.length === 3 ? 'Rock, Paper, Scissors!' : 'One more time!'
+  $('rps-title').textContent = contenders.length === CHAR_IDS.length ? 'Rock, Paper, Scissors!' : 'One more time!'
   for (const [id, el] of Object.entries(rps.cards)) {
     el.classList.toggle('out', !contenders.includes(id))
     el.classList.remove('loser')
@@ -423,7 +423,7 @@ function beginHide(seekerId) {
   const hiders = G.chars.filter((c) => c !== G.seeker)
   for (const [i, c] of G.chars.entries()) {
     c.role = c === G.seeker ? 'seeker' : 'hider'
-    c.x = HOME.x + (i - 1) * 90
+    c.x = HOME.x + (i - (G.chars.length - 1) / 2) * 90
     c.y = HOME.y
     c.vx = c.vy = 0
     c.hidden = false
@@ -636,6 +636,7 @@ function emote(c) {
   voice(c.id)
   if (c.id === 'whale') burst(c.x + c.facing * 4, c.y - 40, 'bubble', 10)
   else if (c.id === 'sponge') popup(c.x, c.y - 60, 'Ha ha ha!', '#ffe14d')
+  else if (c.id === 'shrimp') burst(c.x, c.y - 30, 'coin', 8)
   else burst(c.x, c.y - 30, 'heart', 7)
 }
 
@@ -753,7 +754,7 @@ function updateVisibility(h, p) {
   const lit = Math.max(near, beam)
   const motion = smooth(15, 170, Math.hypot(h.vx, h.vy))
   h.visReal = lit
-  h.visGhost = motion * 0.12 * (1 - smooth(260, 560, d)) * (1 - lit)
+  h.visGhost = motion * 0.05 * (1 - smooth(200, 430, d)) * (1 - lit)
 }
 
 function updateHiderAI(h, dt) {

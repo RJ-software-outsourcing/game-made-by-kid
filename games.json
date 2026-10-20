@@ -3,9 +3,9 @@
     {
       "id": "deep-sea-hide-and-seek",
       "title": "Deep Sea Hide & Seek",
-      "description": "Hide and seek in the midnight zone with Mr. Whale, Mr. Sponge and Blankie Bear!",
+      "description": "Hide and seek in the midnight zone with Mr. Whale, Mr. Sponge, Blankie Bear and Golden Shrimp!",
       "path": "deep-sea-hide-and-seek/",
-      "icon": "🐳🧽🧸",
+      "icon": "🐳🧽🧸🦐",
       "colors": ["#0b1f5c", "#3b2a8f"],
       "controls": "Arrow keys"
     }

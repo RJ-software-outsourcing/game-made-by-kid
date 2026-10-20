@@ -158,6 +158,13 @@ export const sfx = {
     )
   },
   // Character voices (Space key).
+  shrimp() {
+    // two bright "pip-pip!" pops and a little glitter
+    tone({ from: 1100, to: 1700, dur: 0.09, gain: 0.07, type: 'triangle' })
+    tone({ from: 1300, to: 2000, start: 0.12, dur: 0.1, gain: 0.07, type: 'triangle' })
+    noise({ start: 0.2, dur: 0.35, gain: 0.025, filter: 'highpass', freqFrom: 5000 })
+    ;[2093, 2637, 3136].forEach((f, i) => tone({ from: f, start: 0.25 + i * 0.06, dur: 0.12, gain: 0.03 }))
+  },
   whale() {
     tone({ from: 220, to: 440, dur: 0.6, gain: 0.08, vib: [5, 15] })
     tone({ from: 440, to: 330, start: 0.55, dur: 0.6, gain: 0.07, vib: [5, 15] })

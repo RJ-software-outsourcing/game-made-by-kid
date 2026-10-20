@@ -113,13 +113,13 @@ kbd {
 
 .cards {
   display: flex;
-  gap: clamp(10px, 2.5vw, 32px);
+  gap: clamp(8px, 2vw, 28px);
   justify-content: center;
   flex-wrap: nowrap;
 }
 
 .card {
-  width: clamp(92px, min(22vh, 28vw), 220px);
+  width: clamp(76px, min(22vh, 21vw), 220px);
   padding: 10px 10px 14px;
   border-radius: 28px;
   background: var(--panel);
@@ -214,11 +214,11 @@ kbd {
 
 .rps-players {
   display: flex;
-  gap: clamp(12px, 3vw, 40px);
+  gap: clamp(8px, 2vw, 32px);
 }
 .rps-player {
   position: relative;
-  width: clamp(92px, min(21vh, 28vw), 200px);
+  width: clamp(76px, min(21vh, 21vw), 200px);
   padding: 8px;
   border-radius: 24px;
   background: var(--panel);
@@ -587,4 +587,8 @@ kbd {
 }
 .back-link:hover {
   border-color: var(--glow);
+}
+
+#screen-menu {
+  padding-top: 64px;
 }
