@@ -512,7 +512,7 @@ function beginSeek() {
   } else {
     showBanner('Ready or not, here I come! 👻')
     s.bubble = { text: 'Here I come!', t: 2 }
-    setTip("Move slowly to stay quiet 🤫 Keep out of the seeker's light!")
+    setTip("Be the last one found to win! Move slowly to stay quiet 🤫 Keep out of the seeker's light!")
     $('noise').classList.remove('hidden')
     $('hud-role').textContent = 'Stay hidden! 🤫'
   }
@@ -526,7 +526,8 @@ function updateFoundHud() {
     const hiders = G.chars.filter((c) => c.role === 'hider')
     el.textContent = 'Found: ' + hiders.map((h) => (h.found ? '✅' : '❓')).join(' ')
   } else if (G.seeker && G.player !== G.seeker) {
-    el.textContent = `Seeker: ${G.seeker.name}`
+    const free = G.chars.filter((c) => c.role === 'hider' && !c.found).length
+    el.textContent = `👻 ${G.seeker.name} · 🙈 ${free} hiding`
   } else el.textContent = ''
 }
 
@@ -548,9 +549,14 @@ function catchHider(h, by) {
     if (left === 0) endGame(true, 'Found everyone! 🎉', 'You are the best seeker ever!')
     else showBanner(`Found ${h.name}! ${left} more to go`, 1600)
   } else {
-    // The first one caught loses.
-    if (h.isPlayer) endGame(false, 'Found you!', 'You were found first… try again! 💪')
-    else endGame(true, 'You win! 🎉', `${h.name} was found first. Super hiding!`)
+    // You win by being the last one found: get caught while a friend is still hiding and you lose.
+    const others = G.chars.filter((c) => c.role === 'hider' && !c.isPlayer && !c.found).length
+    if (h.isPlayer) {
+      if (others > 0) endGame(false, 'Found you!', `${others === 1 ? 'A friend is' : 'Friends are'} still hiding… you need to be the last one found. Try again! 💪`)
+      else endGame(true, 'You win! 🎉', 'You were the last one found. Super hiding!')
+    } else if (others === 0) {
+      endGame(true, 'You win! 🎉', "You're the last one hiding. Super hiding!")
+    } else showBanner(`${h.name} was found! ${others} friend${others === 1 ? '' : 's'} still hiding with you`, 2200)
   }
 }
 
@@ -1381,7 +1387,7 @@ function frame(now) {
   render()
 }
 
-if (location.search.includes('debug')) window.__hs = { G, keys, beginHide, beginSeek, render, update, startGame, assignPicks, rps, beats, step: (sec) => { for (let i = 0; i < sec * 30; i++) update(1 / 30) } }
+if (location.search.includes('debug')) window.__hs = { G, keys, beginHide, beginSeek, catchHider, render, update, startGame, assignPicks, rps, beats, step: (sec) => { for (let i = 0; i < sec * 30; i++) update(1 / 30) } }
 
 loadBear().then(() => {
   goMenu()
