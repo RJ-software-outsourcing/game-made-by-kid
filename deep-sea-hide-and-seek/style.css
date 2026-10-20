@@ -52,7 +52,7 @@ button {
   justify-content: center;
   gap: clamp(8px, 2.2vh, 22px);
   padding: 16px;
-  background: radial-gradient(ellipse at center, rgba(10, 20, 70, 0.35), rgba(2, 4, 20, 0.75));
+  background: radial-gradient(ellipse at center, rgba(6, 12, 45, 0.6), rgba(2, 4, 20, 0.85));
   overflow: hidden;
   text-align: center;
   animation: fadeIn 0.35s ease;
@@ -568,4 +568,23 @@ kbd {
   width: 76px;
   height: 76px;
   font-size: 34px;
+}
+
+/* ---------- Link back to the game list ---------- */
+
+.back-link {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  padding: 6px 16px;
+  border-radius: 999px;
+  background: var(--panel);
+  border: 3px solid rgba(255, 255, 255, 0.18);
+  color: inherit;
+  font-size: clamp(14px, 2.4vh, 20px);
+  font-weight: 800;
+  text-decoration: none;
+}
+.back-link:hover {
+  border-color: var(--glow);
 }

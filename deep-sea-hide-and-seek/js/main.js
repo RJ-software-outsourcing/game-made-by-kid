@@ -1027,7 +1027,7 @@ function render() {
 
   // darkness with light holes
   // A hider gets a bright sea to watch everyone; a seeker searches in the dark.
-  const dark = playing && playerSeeks && G.phase !== 'hide' ? 0.72 : playing ? 0.32 : 0.3
+  const dark = playing && playerSeeks && G.phase !== 'hide' ? 0.72 : playing ? 0.32 : 0.6
   lctx.setTransform(1, 0, 0, 1, 0, 0)
   lctx.globalCompositeOperation = 'source-over'
   lctx.clearRect(0, 0, lightC.width, lightC.height)
