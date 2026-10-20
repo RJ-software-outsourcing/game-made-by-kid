@@ -165,6 +165,10 @@ export const sfx = {
     noise({ start: 0.2, dur: 0.35, gain: 0.025, filter: 'highpass', freqFrom: 5000 })
     ;[2093, 2637, 3136].forEach((f, i) => tone({ from: f, start: 0.25 + i * 0.06, dur: 0.12, gain: 0.03 }))
   },
+  eek() {
+    tone({ from: 700, to: 1500, dur: 0.08, gain: 0.07, type: 'triangle' })
+    tone({ from: 1500, to: 900, start: 0.08, dur: 0.1, gain: 0.06, type: 'triangle' })
+  },
   whale() {
     tone({ from: 220, to: 440, dur: 0.6, gain: 0.08, vib: [5, 15] })
     tone({ from: 440, to: 330, start: 0.55, dur: 0.6, gain: 0.07, vib: [5, 15] })

@@ -70,6 +70,10 @@ const CATCH_R = 75 // player seeker finds a hider within this distance
 // The player-seeker's flashlight shines the way they swim.
 const FLASH_R = 300
 const FLASH_HALF = 0.62 // half-angle of the beam, in radians
+// A hider bolts for a new spot when the player-seeker gets this close and is heading their way.
+const FLEE_R = 175
+const FLEE_CLOSE_R = 100 // ...or this close from any direction
+const FLEE_REACT = 0.15 // seconds of frozen surprise before running
 // The computer seeker's flashlight (hiders can see it, and it matches what the AI can see).
 const AI_FLASH_R = 260
 const AI_FLASH_HALF = 0.65
@@ -118,6 +122,8 @@ function makeChar(id, isPlayer) {
     dir: 0,
     checked: new Map(),
     sneakT: rand(4, 8),
+    fleeCD: 0,
+    startleT: 0,
     visReal: 1, // how clearly the player-seeker sees this hider (0..1)
     visGhost: 0, // how strong the faint moving shadow is (0..1)
     giggleT: 0,
@@ -757,14 +763,62 @@ function updateVisibility(h, p) {
   h.visGhost = motion * 0.05 * (1 - smooth(200, 430, d)) * (1 - lit)
 }
 
+/** Best spot to run to: far from the seeker and in the direction away from them. */
+function escapeSpot(h, s) {
+  const taken = new Set(G.chars.filter((c) => c !== h && c.goalSpot).map((c) => c.goalSpot))
+  const ax = h.x - s.x
+  const ay = h.y - s.y
+  const al = Math.hypot(ax, ay) || 1
+  const scored = G.world.spots
+    .filter((sp) => !taken.has(sp) && sp !== h.goalSpot)
+    .map((sp) => {
+      const dh = dist(sp, h)
+      const ds = dist(sp, s)
+      const heading = ((sp.x - h.x) * ax + (sp.y - h.y) * ay) / ((dh || 1) * al) // 1 = straight away
+      // Prefer spots off to the side of the flashlight beam, so the runner slips out of the light.
+      const side = Math.min(angDiff(Math.atan2(sp.y - s.y, sp.x - s.x), s.dir), 1.6)
+      return { sp, dh, ds, heading, score: ds + heading * 120 + side * 140 + Math.min(dh, 450) * 0.2 }
+    })
+  const good = scored.filter((o) => o.dh > 220 && o.dh < 800 && o.ds > 240 && o.heading > -0.3)
+  const pool = (good.length ? good : scored.filter((o) => o.ds > 150)).sort((a, b) => b.score - a.score).slice(0, 2)
+  return pool.length ? pool[Math.floor(Math.random() * pool.length)].sp : null
+}
+
 function updateHiderAI(h, dt) {
-  if (h.mode === 'goHide' || h.mode === 'sneak') {
+  if (h.mode === 'startle') {
+    // Frozen for a moment, then run!
+    h.vx = h.vy = 0
+    h.noise = 0
+    h.startleT -= dt
+    if (h.startleT <= 0) {
+      const sp = escapeSpot(h, G.seeker)
+      if (sp) {
+        sendToSpot(h, sp, rand(250, 320), 'sneak')
+        h.sneakT = rand(2, 4)
+      } else h.mode = 'hidden'
+    }
+  } else if (h.mode === 'goHide' || h.mode === 'sneak') {
     if (moveToward(h, h.goal.x, h.goal.y, h.speed, dt)) h.mode = 'hidden'
     h.noise = h.mode === 'sneak' ? 0.32 : 0
   } else if (h.mode === 'hidden') {
     h.noise = 0
     h.vx = h.vy = 0
     if (G.phase !== 'seek') return
+    // The player-seeker is about to find us: panic and run to a new hiding spot.
+    h.fleeCD -= dt
+    if (G.player === G.seeker && h.fleeCD <= 0) {
+      const p = G.seeker
+      const d = dist(h, p)
+      const facing = angDiff(Math.atan2(h.y - p.y, h.x - p.x), p.dir) < FLASH_HALF * 1.4
+      if (d < FLEE_CLOSE_R || (d < FLEE_R && facing)) {
+        h.mode = 'startle'
+        h.startleT = FLEE_REACT
+        h.fleeCD = 2.5
+        h.bubble = { text: '!', t: 0.8 }
+        sfx.eek()
+        return
+      }
+    }
     h.sneakT -= dt
     if (h.sneakT <= 0) {
       const s = G.seeker
