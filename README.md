@@ -6,6 +6,7 @@ Live site: https://rj-software-outsourcing.github.io/game-made-by-kid/
 
 | Game | Path |
 |---|---|
+| 🧒🧸🏝️ Coji's Island Adventure | `/coji-island/` |
 | 🐳🧽🧸 Deep Sea Hide & Seek | `/deep-sea-hide-and-seek/` |
 
 ## iPad and phones
@@ -14,6 +15,10 @@ The games work on touch screens. In Deep Sea Hide & Seek, touch and hold anywher
 toward that spot (slide your finger to steer; the longer you hold, the faster you go), and use the 💬 button to
 say hi. A mouse click-and-hold works the same way. For a full-screen experience on iPad, open the
 site in Safari, tap Share → **Add to Home Screen**, and launch it from there.
+
+In Coji's Island Adventure, tap the ground to walk, tap a person, animal or thing to talk to it or use it,
+drag to look around and pinch (or scroll) to zoom. The game design is in
+[`coji-island/SPEC.md`](coji-island/SPEC.md).
 
 ## How it is organized
 

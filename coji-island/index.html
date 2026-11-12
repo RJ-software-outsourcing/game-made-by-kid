@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover, user-scalable=no" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Coji's Island" />
+    <meta name="theme-color" content="#4fb1ee" />
+    <meta name="format-detection" content="telephone=no" />
+    <title>Coji's Island Adventure</title>
+    <meta name="description" content="A cute 3D island adventure: talk to friends in English, solve quests, and help a hungry bear." />
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏝️</text></svg>" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Andika:wght@400;700&family=Baloo+2:wght@600;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="style.css" />
+    <script type="importmap">
+      { "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.min.js" } }
+    </script>
+    <!-- Start downloading the 3D engine while the title screen is showing. -->
+    <link rel="modulepreload" href="https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.min.js" crossorigin="anonymous" />
+  </head>
+  <body>
+    <canvas id="scene" aria-label="Sunny Island"></canvas>
+
+    <div id="hud" class="hud hidden">
+      <div id="quest" class="quest hidden" role="button" tabindex="0" aria-label="Quest card. Tap to see clues.">
+        <div class="q-head"><span class="q-icon"></span><span class="q-title"></span></div>
+        <div class="q-step"></div>
+        <div class="q-dots"></div>
+        <div class="q-clues"></div>
+        <div class="q-toggle"></div>
+      </div>
+
+      <div class="topright">
+      <div class="stats">
+        <div class="stat energy" id="st-energy" title="Energy"><span class="ico">⚡</span><div class="bar"><i></i></div></div>
+        <div class="stat water" id="st-water" title="Water"><span class="ico">💧</span><div class="bar"><i></i></div></div>
+        <div class="coins" title="Coins"><i class="coin-ico"></i><b id="coins">0</b></div>
+      </div>
+
+      <div class="corner">
+        <button id="btn-sound" class="mini" aria-label="Sound on or off">🔊</button>
+        <button id="btn-menu" class="mini" aria-label="Menu">☰</button>
+      </div>
+      </div>
+
+      <div class="actions">
+        <button id="btn-rest" class="act"><span class="e">💤</span><span>Rest</span></button>
+        <button id="btn-map" class="act"><span class="e">🗺️</span><span>Map</span></button>
+        <button id="btn-bag" class="act"><span class="e">🎒</span><span>Bag</span></button>
+      </div>
+
+      <div id="hint" class="hint hidden" aria-live="polite">
+        <div class="hint-face"></div>
+        <div class="hint-text"></div>
+      </div>
+      <div id="toasts" class="toasts"></div>
+    </div>
+
+    <div id="dlg" class="dlg hidden">
+      <div class="dlg-box">
+        <div class="dlg-portrait"><img alt="" /></div>
+        <div class="dlg-main">
+          <div class="dlg-name"></div>
+          <div class="dlg-text"></div>
+          <div class="dlg-choices"></div>
+        </div>
+        <button class="dlg-say" aria-label="Read aloud">🔊</button>
+        <div class="dlg-next">▼</div>
+      </div>
+    </div>
+
+    <div id="bag" class="panel hidden" role="dialog" aria-label="Bag">
+      <div class="sheet">
+        <div class="sheet-head"><h2>🎒 My Bag</h2><div class="coins big"><i class="coin-ico"></i><b class="bag-coins">0</b></div><button class="close" aria-label="Close">✕</button></div>
+        <div class="bag-grid"></div>
+        <div class="bag-info"></div>
+      </div>
+    </div>
+
+    <div id="shop" class="panel hidden" role="dialog" aria-label="Shop">
+      <div class="sheet">
+        <div class="sheet-head"><h2 class="shop-title"></h2><div class="coins big"><i class="coin-ico"></i><b class="shop-coins">0</b></div><button class="close" aria-label="Close">✕</button></div>
+        <div class="shop-body"></div>
+        <div class="shop-msg"></div>
+      </div>
+    </div>
+
+    <div id="map" class="panel hidden" role="dialog" aria-label="Map">
+      <div class="map-wrap">
+        <canvas class="map-canvas"></canvas>
+        <div class="map-note">You are here: <b class="map-here"></b></div>
+        <button class="close" aria-label="Close">✕</button>
+      </div>
+    </div>
+
+    <div id="menu" class="panel hidden" role="dialog" aria-label="Menu">
+      <div class="sheet small">
+        <div class="sheet-head"><h2>☰ Menu</h2><button class="close" aria-label="Close">✕</button></div>
+        <div class="menu-list">
+          <button data-act="resume" class="big-btn">▶ Keep playing</button>
+          <button data-act="restart" class="big-btn soft">🔄 Start over</button>
+          <a href="../" class="big-btn soft">🏠 All games</a>
+        </div>
+      </div>
+    </div>
+
+    <div id="finale" class="finale hidden">
+      <div class="finale-card">
+        <div class="finale-burst">🎉</div>
+        <h1>Hooray! You did it!</h1>
+        <p>Coji helped Bruno the bear and lit up the lighthouse.</p>
+        <p>Now ships can find Sunny Island at night!</p>
+        <p class="finale-thanks">⭐ Thank you for playing! More adventures are coming soon. ⭐</p>
+        <div class="finale-btns">
+          <button data-act="explore" class="big-btn">🏝️ Keep exploring</button>
+          <button data-act="again" class="big-btn soft">🔄 Play again</button>
+        </div>
+      </div>
+    </div>
+
+    <section id="title" class="title">
+      <a class="back-link" href="../">← All games</a>
+      <div class="title-inner">
+        <div class="title-art" aria-hidden="true">
+          <div class="sun"></div>
+          <div class="isle"><span>🌴</span><span>🗼</span><span>🌲</span></div>
+          <div class="waves"></div>
+        </div>
+        <h1><small>Coji's</small>Island Adventure</h1>
+        <p class="tagline">Make friends. Solve quests. Explore Sunny Island!</p>
+        <div class="title-btns">
+          <button id="btn-continue" class="big-btn hidden" disabled>▶ Continue</button>
+          <button id="btn-new" class="big-btn" disabled>▶ Play</button>
+        </div>
+        <div class="loading"><div class="load-bar"><i id="load-fill"></i></div><span id="load-text">Getting ready…</span></div>
+        <p class="how"><span class="touch-only">👆 Tap to walk and talk · ✌️ Drag to look around</span><span class="mouse-only">🖱️ Click to walk and talk · Drag to look · Scroll to zoom</span></p>
+      </div>
+    </section>
+
+    <div id="confirm" class="panel hidden" role="dialog">
+      <div class="sheet small">
+        <h2 class="confirm-q"></h2>
+        <div class="menu-list">
+          <button data-act="yes" class="big-btn">Yes</button>
+          <button data-act="no" class="big-btn soft">No</button>
+        </div>
+      </div>
+    </div>
+
+    <noscript><p style="position:fixed;top:40%;width:100%;text-align:center">Please turn on JavaScript to play.</p></noscript>
+    <script type="module" src="js/boot.js"></script>
+  </body>
+</html>
