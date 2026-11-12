@@ -1,6 +1,6 @@
 // Buildings and objects. Each builder returns a Group whose door/front faces +z.
 import * as THREE from 'three'
-import { Parts, MAT, GLOW, box, cyl, cone, ico, sphere, torus, textCanvas } from './build.js'
+import { Parts, MAT, SMOOTH, GLOW, SHINE, box, cyl, cone, ico, sphere, torus, textCanvas } from './build.js'
 
 // Triangular prism: triangle (base d along z, apex height h) extruded along x by w. Base at y = 0.
 export function prism(w, h, d) {
@@ -25,15 +25,25 @@ export function prism(w, h, d) {
 }
 
 // Two roof slabs over a gable.
+// Two roof slabs over a gable, with tile rows and a ridge cap.
 function roof(p, w, d, wallH, h, hex, over = 0.45) {
   const a = Math.atan2(h, d / 2)
   const L = Math.hypot(d / 2, h) + over
   const t = 0.18
+  const dark = new THREE.Color(hex).multiplyScalar(0.82)
   for (const s of [1, -1]) {
     const nY = Math.cos(a) * (t / 2)
     const nZ = Math.sin(a) * (t / 2) * s
-    p.add(box(w + over * 1.6, t, L), hex, { y: wallH + h / 2 + nY, z: (s * d) / 4 + nZ, rx: s * a, jitter: 0.04 })
+    p.add(box(w + over * 1.6, t, L), hex, { y: wallH + h / 2 + nY, z: (s * d) / 4 + nZ, rx: s * a, jitter: 0.03 })
+    // tile rows
+    for (let k = 1; k <= 4; k++) {
+      const f = k / 5 - 0.5
+      const yy = wallH + h / 2 - Math.sin(a) * f * L + Math.cos(a) * (t + 0.02)
+      const zz = (s * d) / 4 + s * Math.cos(a) * f * L + Math.sin(a) * (t + 0.02) * s
+      p.add(box(w + over * 1.6, 0.05, 0.08), dark, { y: yy, z: zz, rx: s * a, jitter: 0 })
+    }
   }
+  p.add(cyl(0.16, 0.16, w + over * 1.6 + 0.05, 8), dark, { y: wallH + h + 0.12, rz: Math.PI / 2, jitter: 0 })
 }
 
 function windowAt(p, x, y, z, ry = 0, w = 0.9, h = 0.85) {
@@ -71,6 +81,17 @@ export function house(colorIdx = 0, w = 5.5, d = 5) {
     for (let i = 0; i < 4; i++) p.add(ico(0.12, 0), ['#ff6b8a', '#ffd23f', '#ff9f43', '#ffffff'][i], { x: s * 1.65 - 0.36 + i * 0.24, y: 1.55, z: d / 2 + 0.2 })
   }
   p.add(box(0.6, 1.2, 0.6), '#b5654a', { x: w / 4, y: H + 1.6, z: -d / 5 })
+  p.add(box(0.72, 0.12, 0.72), '#8e4c37', { x: w / 4, y: H + 2.25, z: -d / 5 })
+  // door frame, shutters, porch lamp and a mailbox
+  p.add(box(1.3, 0.12, 0.16), '#ffffff', { y: 2.15, z: d / 2 + 0.05, jitter: 0 })
+  for (const s of [-1, 1]) {
+    p.add(box(0.12, 2.0, 0.16), '#ffffff', { x: s * 0.6, y: 1.15, z: d / 2 + 0.05, jitter: 0 })
+    for (const k of [-1, 1]) p.add(box(0.28, 0.9, 0.06), new THREE.Color(rf).multiplyScalar(0.9), { x: s * 1.65 + k * 0.62, y: 1.9, z: d / 2 + 0.08, jitter: 0 })
+  }
+  p.add(ico(0.12, 1), '#fff2b0', { x: -0.85, y: 2.0, z: d / 2 + 0.16, mat: GLOW, jitter: 0 })
+  p.add(cyl(0.05, 0.05, 1.0, 6), '#6b4a2b', { x: 1.6, y: 0.5, z: d / 2 + 1.4 })
+  p.add(box(0.36, 0.3, 0.5), '#3b7dd8', { x: 1.6, y: 1.1, z: d / 2 + 1.4 })
+  p.add(box(0.05, 0.22, 0.12), '#e94b3c', { x: 1.8, y: 1.3, z: d / 2 + 1.5 })
   return p.build()
 }
 
@@ -152,17 +173,21 @@ export function burgerHut() {
   // inside: grill + menu board
   p.add(box(2.4, 1.0, 0.8), '#7d7d86', { x: -1.8, y: 0.7, z: -d / 2 + 0.8 })
   p.add(box(1.8, 0.12, 0.6), '#2b2b2b', { x: -1.8, y: 1.25, z: -d / 2 + 0.8 })
-  // giant burger on the roof
+  // giant burger on the back of the roof, so the sign in front stays readable
   const y0 = H + 0.5
-  p.add(sphere(1.3, 12, 6, 0, Math.PI / 2), '#e8a33d', { y: y0 + 1.0, sy: 0.75 })
-  p.add(cyl(1.35, 1.35, 0.15, 12), '#6ec43f', { y: y0 + 0.95 })
-  p.add(cyl(1.25, 1.25, 0.12, 12), '#ffd23f', { y: y0 + 0.82 })
-  p.add(cyl(1.28, 1.28, 0.38, 12), '#7a3e1f', { y: y0 + 0.6 })
-  p.add(cyl(1.25, 1.2, 0.38, 12), '#e8a33d', { y: y0 + 0.22 })
+  const bz = -1.6
+  p.add(sphere(1.3, 16, 8, 0, Math.PI / 2), '#e8a33d', { y: y0 + 1.0, z: bz, sy: 0.75 })
+  p.add(cyl(1.35, 1.35, 0.15, 16), '#6ec43f', { y: y0 + 0.95, z: bz })
+  p.add(cyl(1.25, 1.25, 0.12, 16), '#ffd23f', { y: y0 + 0.82, z: bz })
+  p.add(cyl(1.28, 1.28, 0.38, 16), '#7a3e1f', { y: y0 + 0.6, z: bz })
+  p.add(cyl(1.25, 1.2, 0.38, 16), '#e8a33d', { y: y0 + 0.22, z: bz })
   for (let i = 0; i < 7; i++) {
     const a = i * 0.9
-    p.add(ico(0.06, 0), '#fff5d6', { x: Math.cos(a) * 0.7, y: y0 + 1.75, z: Math.sin(a) * 0.7, jitter: 0 })
+    p.add(ico(0.06, 0), '#fff5d6', { x: Math.cos(a) * 0.7, y: y0 + 1.75, z: bz + Math.sin(a) * 0.7, jitter: 0 })
   }
+  // sign board standing on the front edge of the roof
+  p.add(box(5.0, 1.05, 0.14), '#ffffff', { y: H + 1.05, z: d / 2 + 0.3 })
+  for (const s of [-1, 1]) p.add(box(0.12, 0.6, 0.12), '#ffffff', { x: s * 2.0, y: H + 0.45, z: d / 2 + 0.3 })
   // tables outside
   for (const z of [-1.8, 1.8]) {
     p.add(cyl(0.7, 0.7, 0.08, 10), '#ffffff', { x: w / 2 + 2.4, y: 1.0, z })
@@ -509,4 +534,318 @@ export function glassesMesh() {
   for (const s of [-1, 1]) p.add(torus(0.16, 0.035, 5, 12), '#3a3030', { x: s * 0.2, rx: -Math.PI / 2 + 0.4, y: 0.06 })
   p.add(box(0.12, 0.03, 0.03), '#3a3030', { y: 0.12 })
   return p.build()
+}
+
+// ---------- ring road buildings ----------
+
+export function postOffice() {
+  const p = new Parts()
+  const w = 7
+  const d = 6
+  const H = 3.0
+  p.add(box(w + 0.3, 0.3, d + 0.3), '#cfc6b3', { y: 0.1 })
+  p.add(box(w, H, d), '#fdf0e0', { y: H / 2 + 0.2, jitter: 0.03 })
+  p.add(box(w + 0.05, 0.35, d + 0.05), '#3b7dd8', { y: 0.55 })
+  p.add(prism(w, 1.7, d), '#fdf0e0', { y: H + 0.2 })
+  roof(p, w, d, H + 0.2, 1.7, '#e94b3c')
+  p.add(box(1.3, 2.1, 0.12), '#3b7dd8', { y: 1.25, z: d / 2 + 0.03 })
+  windowAt(p, -2.2, 1.9, d / 2 + 0.03)
+  windowAt(p, 2.2, 1.9, d / 2 + 0.03)
+  // big red mailbox and a stack of parcels
+  p.add(cyl(0.45, 0.45, 1.3, 14), '#e94b3c', { x: 2.6, y: 0.85, z: d / 2 + 1.5 })
+  p.add(sphere(0.45, 14, 6, 0, Math.PI / 2), '#e94b3c', { x: 2.6, y: 1.5, z: d / 2 + 1.5 })
+  p.add(box(0.5, 0.08, 0.1), '#2b2b2b', { x: 2.6, y: 1.2, z: d / 2 + 1.95, jitter: 0 })
+  for (let i = 0; i < 3; i++) p.add(box(0.7 - i * 0.12, 0.45, 0.6 - i * 0.1), '#c89a5a', { x: -2.6, y: 0.45 + i * 0.45, z: d / 2 + 1.0, ry: i * 0.3 })
+  // envelope on the roof
+  p.add(box(1.5, 1.0, 0.12), '#ffffff', { y: H + 2.4, z: 0.2 })
+  p.add(prism(0.13, 0.5, 1.5), '#f0e2c8', { y: H + 2.4, z: 0.28, rx: Math.PI / 2, ry: Math.PI / 2 })
+  return p.build()
+}
+
+export function school() {
+  const g = new THREE.Group()
+  const p = new Parts()
+  const w = 10
+  const d = 6.5
+  const H = 3.4
+  p.add(box(w + 0.3, 0.3, d + 0.3), '#cfc6b3', { y: 0.1 })
+  p.add(box(w, H, d), '#fff4d6', { y: H / 2 + 0.2, jitter: 0.03 })
+  p.add(prism(w, 2.0, d), '#fff4d6', { y: H + 0.2 })
+  roof(p, w, d, H + 0.2, 2.0, '#3b7dd8')
+  p.add(box(1.0, 2.2, 0.12), '#8b5a2b', { x: -0.55, y: 1.3, z: d / 2 + 0.03 })
+  p.add(box(1.0, 2.2, 0.12), '#8b5a2b', { x: 0.55, y: 1.3, z: d / 2 + 0.03 })
+  for (const x of [-3.6, -2.0, 2.0, 3.6]) windowAt(p, x, 2.0, d / 2 + 0.03, 0, 1.0, 1.0)
+  p.add(box(2.6, 0.15, 0.9), '#cfc6b3', { y: 0.3, z: d / 2 + 0.55 })
+  // clock on the gable
+  p.add(cyl(0.5, 0.5, 0.08, 18), '#ffffff', { y: H + 0.95, z: d / 2 + 0.06, rx: Math.PI / 2 })
+  p.add(box(0.05, 0.36, 0.04), '#333333', { y: H + 1.08, z: d / 2 + 0.12, jitter: 0 })
+  p.add(box(0.26, 0.05, 0.04), '#333333', { x: 0.1, y: H + 0.95, z: d / 2 + 0.12, jitter: 0 })
+  // bell tower
+  p.add(box(1.4, 1.4, 1.4), '#fff4d6', { y: H + 2.6, z: -0.6 })
+  p.add(cone(1.2, 1.4, 4), '#e94b3c', { y: H + 4.0, z: -0.6, ry: Math.PI / 4 })
+  p.add(sphere(0.32, 12, 8, 0, Math.PI / 1.6), '#f1c232', { y: H + 2.75, z: 0.12 })
+  // flag pole
+  p.add(cyl(0.06, 0.06, 5.5, 6), '#cccccc', { x: w / 2 + 1.4, y: 2.75, z: d / 2 + 0.8 })
+  p.add(box(1.1, 0.7, 0.03), '#3b7dd8', { x: w / 2 + 1.95, y: 5.0, z: d / 2 + 0.8 })
+  p.add(ico(0.12, 0), '#f1c232', { x: w / 2 + 1.95, y: 5.0, z: d / 2 + 0.83, jitter: 0 })
+  // a swing
+  for (const s of [-1, 1]) p.add(cyl(0.08, 0.08, 2.6, 6), '#e94b3c', { x: -w / 2 - 2 + s * 1.1, y: 1.3, z: d / 2 + 1.5 })
+  p.add(cyl(0.07, 0.07, 2.4, 6), '#e94b3c', { x: -w / 2 - 2, y: 2.6, z: d / 2 + 1.5, rz: Math.PI / 2 })
+  for (const s of [-1, 1]) p.add(box(0.03, 1.8, 0.03), '#888888', { x: -w / 2 - 2 + s * 0.3, y: 1.7, z: d / 2 + 1.5, jitter: 0 })
+  p.add(box(0.8, 0.08, 0.35), '#ffd23f', { x: -w / 2 - 2, y: 0.8, z: d / 2 + 1.5 })
+  g.add(p.build())
+  return g
+}
+
+export function iceCreamStand() {
+  const p = new Parts()
+  const w = 4.5
+  const d = 3.6
+  p.add(box(w, 1.1, 0.4), '#ffffff', { y: 0.55, z: d / 2 - 0.2 })
+  for (let i = 0; i < 6; i++) p.add(box(w / 6 - 0.04, 1.0, 0.05), i % 2 ? '#ff8fb1' : '#ffffff', { x: -w / 2 + w / 12 + (i * w) / 6, y: 0.55, z: d / 2 + 0.02, jitter: 0 })
+  p.add(box(w + 0.1, 0.12, 0.6), '#9be7ff', { y: 1.16, z: d / 2 - 0.15 })
+  p.add(box(w, 2.6, 0.2), '#ffffff', { y: 1.3, z: -d / 2 + 0.1 })
+  for (const s of [-1, 1]) p.add(box(0.2, 2.6, d), '#ffffff', { x: (s * (w - 0.2)) / 2, y: 1.3 })
+  // ice cream tubs in the counter
+  const flav = ['#ff8fb1', '#7a4a2a', '#fff6dc', '#b6ef8a', '#ffe066']
+  for (let i = 0; i < 5; i++) p.add(ico(0.18, 1), flav[i], { x: -1.6 + i * 0.8, y: 1.28, z: d / 2 - 0.15, sy: 0.6, jitter: 0 })
+  // striped canopy
+  for (let i = 0; i < 8; i++) p.add(box(w / 8 + 0.02, 0.08, 2.0), i % 2 ? '#ffffff' : '#ff8fb1', { x: -w / 2 + w / 16 + (i * w) / 8, y: 2.75, z: d / 2 - 0.2, rx: 0.22, jitter: 0 })
+  p.add(box(w + 0.2, 0.25, d + 0.2), '#ff8fb1', { y: 2.7, z: -0.3 })
+  // giant cone on top
+  p.add(cone(0.55, 1.5, 12), '#e8b26a', { y: 3.55, rx: Math.PI })
+  p.add(ico(0.62, 2), '#ff8fb1', { y: 4.45, mat: SMOOTH })
+  p.add(ico(0.52, 2), '#fff6dc', { y: 5.05, mat: SMOOTH })
+  p.add(ico(0.4, 2), '#7a4a2a', { y: 5.55, mat: SMOOTH })
+  p.add(ico(0.12, 1), '#e94b3c', { y: 5.95, mat: SMOOTH })
+  return p.build()
+}
+
+// ---------- the castle ----------
+
+const STONE = '#ebe4d4'
+const STONE2 = '#ddd4c1'
+const ROYAL = '#3f63c9'
+const GOLD = '#f1c232'
+
+export function castle() {
+  const g = new THREE.Group()
+  const p = new Parts()
+  const h = 10 // half size
+  const W = 5.2 // wall height
+  const T = 1.2 // wall thickness
+  const merlons = (x0, z0, x1, z1, y) => {
+    const len = Math.hypot(x1 - x0, z1 - z0)
+    const n = Math.floor(len / 1.1)
+    const ry = Math.atan2(x1 - x0, z1 - z0)
+    for (let i = 0; i <= n; i++) {
+      const t = i / n
+      p.add(box(0.6, 0.65, 0.6), STONE2, { x: x0 + (x1 - x0) * t, y: y + 0.32, z: z0 + (z1 - z0) * t, ry, jitter: 0.04 })
+    }
+  }
+  // walls (the front one has the gate opening)
+  p.add(box(2 * h, W, T), STONE, { y: W / 2, z: -h, jitter: 0.04 })
+  for (const s of [-1, 1]) p.add(box(T, W, 2 * h), STONE, { x: s * h, y: W / 2, jitter: 0.04 })
+  for (const s of [-1, 1]) p.add(box(h - 2, W, T), STONE, { x: s * (h / 2 + 1), y: W / 2, z: h, jitter: 0.04 })
+  p.add(box(4.4, 1.6, T + 0.2), STONE, { y: W - 0.8, z: h })
+  merlons(-h + 1.8, -h, h - 1.8, -h, W)
+  merlons(-h + 1.8, h, -2.4, h, W)
+  merlons(2.4, h, h - 1.8, h, W)
+  for (const s of [-1, 1]) merlons(s * h, -h + 1.8, s * h, h - 1.8, W)
+  p.add(box(2 * h + 0.3, 0.5, 2 * h + 0.3), '#cfc6b3', { y: 0.2 })
+  // the gate: closed wooden doors under an arch, with a portcullis
+  p.add(box(3.4, 3.3, 0.3), '#7a4e27', { y: 1.65, z: h + 0.05 })
+  p.add(box(0.08, 3.3, 0.34), '#5a3a1a', { y: 1.65, z: h + 0.08, jitter: 0 })
+  for (let i = 0; i < 4; i++) p.add(box(3.4, 0.1, 0.36), '#4a4a52', { y: 0.5 + i * 0.85, z: h + 0.12, jitter: 0 })
+  p.add(torus(1.75, 0.25, 6, 16, Math.PI), STONE2, { y: 3.3, z: h + 0.35 })
+  p.add(ico(0.3, 1), GOLD, { y: 4.4, z: h + 0.62, sz: 0.5 })
+  // gate towers
+  for (const s of [-1, 1]) {
+    p.add(cyl(1.45, 1.6, 7, 14), STONE, { x: s * 3.1, y: 3.5, z: h + 0.4, jitter: 0.03 })
+    p.add(cone(1.85, 2.4, 14), ROYAL, { x: s * 3.1, y: 8.2, z: h + 0.4 })
+    windowAt(p, s * 3.1, 4.8, h + 1.95, 0, 0.45, 0.8)
+  }
+  // corner towers
+  const flags = []
+  for (const sx of [-1, 1])
+    for (const sz of [-1, 1]) {
+      const x = sx * h
+      const z = sz * h
+      p.add(cyl(2.3, 2.5, 8.5, 16), STONE, { x, y: 4.25, z, jitter: 0.03 })
+      p.add(cyl(2.7, 2.6, 0.7, 16), STONE2, { x, y: 8.6, z })
+      for (let i = 0; i < 10; i++) {
+        const a = (i / 10) * Math.PI * 2
+        p.add(box(0.5, 0.6, 0.5), STONE2, { x: x + Math.cos(a) * 2.45, y: 9.25, z: z + Math.sin(a) * 2.45, ry: -a })
+      }
+      p.add(cone(2.8, 3.8, 16), ROYAL, { x, y: 10.9, z })
+      p.add(cyl(0.05, 0.05, 2.0, 5), '#888888', { x, y: 13.6, z })
+      for (const y of [3.5, 6.0]) windowAt(p, x + sx * 0.2 * 0, y, z + 2.45, 0, 0.45, 0.8)
+      const fp = new Parts()
+      fp.add(prism(0.04, 1.3, 0.7), sx === sz ? '#e94b3c' : GOLD, { x: 0.65, y: 0, z: 0, rz: -Math.PI / 2, jitter: 0 })
+      const flag = fp.build({ shadow: false })
+      flag.position.set(x, 14.2, z)
+      flags.push(flag)
+      g.add(flag)
+    }
+  // the keep
+  const kz = -2
+  p.add(box(9, 8.5, 7.5), STONE, { y: 4.25, z: kz, jitter: 0.03 })
+  p.add(box(9.4, 0.5, 7.9), STONE2, { y: 8.6, z: kz })
+  p.add(cone(6.6, 4.6, 4), ROYAL, { y: 11.1, z: kz, ry: Math.PI / 4, sz: 0.85 })
+  p.add(cyl(0.06, 0.06, 2.2, 5), '#888888', { y: 14.4, z: kz })
+  const kflag = new Parts()
+  kflag.add(prism(0.04, 1.6, 0.9), GOLD, { x: 0.8, rz: -Math.PI / 2, jitter: 0 })
+  const kf = kflag.build({ shadow: false })
+  kf.position.set(0, 15.0, kz)
+  flags.push(kf)
+  g.add(kf)
+  for (const x of [-3, 3]) for (const y of [3.0, 6.4]) windowAt(p, x, y, kz + 3.8, 0, 0.7, 1.1)
+  // balcony where the King comes out
+  const by = 5.6
+  p.add(box(3.4, 0.3, 1.6), STONE2, { y: by, z: kz + 4.5 })
+  p.add(box(3.4, 0.7, 0.15), STONE2, { y: by + 0.5, z: kz + 5.25 })
+  for (const s of [-1, 1]) p.add(box(0.15, 0.7, 1.6), STONE2, { x: s * 1.65, y: by + 0.5, z: kz + 4.5 })
+  p.add(box(1.4, 2.2, 0.15), '#7a4e27', { y: by + 1.25, z: kz + 3.78 })
+  p.add(torus(0.7, 0.12, 5, 12, Math.PI), STONE2, { y: by + 2.35, z: kz + 3.82 })
+  // royal banners with a crown
+  for (const s of [-1, 1]) {
+    p.add(box(1.1, 3.0, 0.08), ROYAL, { x: s * 3.0, y: 4.6, z: kz + 3.82 })
+    p.add(prism(0.08, 0.5, 1.1), ROYAL, { x: s * 3.0, y: 3.1, z: kz + 3.82, rx: Math.PI, ry: Math.PI / 2 })
+    p.add(cyl(0.3, 0.3, 0.06, 5), GOLD, { x: s * 3.0, y: 5.3, z: kz + 3.88, rx: Math.PI / 2, jitter: 0 })
+  }
+  // banner on each outer wall
+  for (const s of [-1, 1]) {
+    p.add(box(1.0, 2.2, 0.08), ROYAL, { x: s * (h / 2 + 1), y: 3.2, z: h + 0.65 })
+    p.add(cyl(0.28, 0.28, 0.06, 5), GOLD, { x: s * (h / 2 + 1), y: 3.6, z: h + 0.71, rx: Math.PI / 2, jitter: 0 })
+  }
+  g.add(p.build())
+  g.userData = { balcony: new THREE.Vector3(0, by + 0.15, kz + 4.6), flags }
+  return g
+}
+
+// ---------- the spooky graveyard ----------
+
+export function gravestone(type = 0) {
+  const p = new Parts()
+  const c = '#a19eae'
+  if (type === 0) {
+    p.add(box(0.9, 1.0, 0.25), c, { y: 0.55 })
+    p.add(cyl(0.45, 0.45, 0.25, 12, false), c, { y: 1.05, rx: Math.PI / 2 })
+  } else if (type === 1) {
+    p.add(box(0.22, 1.5, 0.22), c, { y: 0.8 })
+    p.add(box(0.8, 0.22, 0.22), c, { y: 1.15 })
+  } else {
+    p.add(box(1.0, 1.2, 0.3), c, { y: 0.6 })
+    p.add(box(1.1, 0.15, 0.36), '#8f8c9c', { y: 1.25 })
+  }
+  p.add(box(1.2, 0.18, 0.5), '#8f8c9c', { y: 0.09 })
+  p.add(ico(0.12, 0), '#6f8f5a', { x: 0.3, y: 0.3, z: 0.14, sz: 0.4 })
+  p.add(ico(0.1, 0), '#6f8f5a', { x: -0.25, y: 0.75, z: 0.13, sz: 0.4 })
+  p.add(sphere(0.55, 10, 4, 0, Math.PI / 2), '#5b4a3c', { z: 0.9, sx: 0.9, sy: 0.3, sz: 1.4 })
+  return p.build()
+}
+
+export function graveyardFence(r, rot) {
+  const g = new THREE.Group()
+  const p = new Parts()
+  const iron = '#3b3546'
+  const n = 96
+  const gateA = rot
+  const gap = 0.2
+  const ang = (a) => Math.atan2(Math.sin(a - gateA), Math.cos(a - gateA))
+  for (let i = 0; i < n; i++) {
+    const a = (i / n) * Math.PI * 2
+    if (Math.abs(ang(a)) < gap) continue
+    const x = Math.sin(a) * r
+    const z = Math.cos(a) * r
+    p.add(box(0.07, 1.6, 0.07), iron, { x, y: 0.8, z, jitter: 0 })
+    p.add(cone(0.08, 0.22, 4), iron, { x, y: 1.7, z, jitter: 0 })
+    const a2 = ((i + 1) / n) * Math.PI * 2
+    if (Math.abs(ang(a2)) < gap) continue
+    const mx = (Math.sin(a) + Math.sin(a2)) * 0.5 * r
+    const mz = (Math.cos(a) + Math.cos(a2)) * 0.5 * r
+    const len = (Math.PI * 2 * r) / n
+    for (const y of [0.45, 1.3]) p.add(box(0.05, 0.06, len), iron, { x: mx, y, z: mz, ry: (a + a2) / 2 + Math.PI / 2, jitter: 0 })
+  }
+  // gate pillars and an iron arch with the sign
+  const gx = Math.sin(gateA) * r
+  const gz = Math.cos(gateA) * r
+  const cx = Math.cos(gateA)
+  const sx = -Math.sin(gateA)
+  for (const s of [-1, 1]) {
+    const x = gx + cx * s * 2.6
+    const z = gz + sx * s * 2.6
+    p.add(box(0.8, 2.6, 0.8), '#8f8c9c', { x, y: 1.3, z, ry: gateA })
+    p.add(box(1.0, 0.2, 1.0), '#7b7888', { x, y: 2.7, z, ry: gateA })
+  }
+  p.add(torus(2.6, 0.08, 4, 18, Math.PI), iron, { x: gx, y: 2.6, z: gz, ry: gateA })
+  g.add(p.build())
+  const sign = shopSign('SPOOKY GRAVEYARD', 3.6, 0.6, '#4a2f6b', '#ffb347')
+  sign.position.set(gx + Math.sin(gateA) * 0.05, 4.0, gz + Math.cos(gateA) * 0.05)
+  sign.rotation.y = gateA
+  g.add(sign)
+  const back = sign.clone()
+  back.rotation.y = gateA + Math.PI
+  back.position.set(gx - Math.sin(gateA) * 0.05, 4.0, gz - Math.cos(gateA) * 0.05)
+  g.add(back)
+  return g
+}
+
+export function deadTree() {
+  const p = new Parts()
+  const c = '#4b3a3f'
+  p.add(cyl(0.18, 0.32, 3.2, 7), c, { y: 1.6, rz: 0.08 })
+  p.add(cyl(0.1, 0.16, 1.8, 6), c, { x: 0.55, y: 3.3, rz: -0.7 })
+  p.add(cyl(0.08, 0.13, 1.6, 6), c, { x: -0.6, y: 3.0, rz: 0.8, ry: 0.5 })
+  p.add(cyl(0.06, 0.1, 1.2, 5), c, { x: 0.1, y: 3.9, rz: 0.25 })
+  p.add(cyl(0.05, 0.07, 0.8, 5), c, { x: 1.15, y: 3.95, rz: -1.2 })
+  p.add(cyl(0.05, 0.07, 0.7, 5), c, { x: -1.15, y: 3.55, rz: 1.3 })
+  return p.build()
+}
+
+export function pumpkin(s = 1) {
+  const p = new Parts()
+  for (let i = 0; i < 6; i++) {
+    const a = (i / 6) * Math.PI * 2
+    p.add(ico(0.26 * s, 2), i % 2 ? '#ff8a1f' : '#f77a12', { x: Math.cos(a) * 0.12 * s, y: 0.24 * s, z: Math.sin(a) * 0.12 * s, sy: 0.85, mat: SMOOTH, jitter: 0 })
+  }
+  p.add(cyl(0.04 * s, 0.06 * s, 0.22 * s, 6), '#5d7a2b', { y: 0.5 * s, rz: 0.2 })
+  return p.build()
+}
+export function pumpkinVine() {
+  const p = new Parts()
+  for (let i = 0; i < 4; i++) {
+    const a = i * 1.7
+    p.add(ico(0.22, 1), '#4f8f3a', { x: Math.cos(a) * 0.45, y: 0.05, z: Math.sin(a) * 0.45, sy: 0.2, sx: 1.3 })
+  }
+  return p.build()
+}
+
+export function jackOLantern(s = 1) {
+  const g = new THREE.Group()
+  g.add(pumpkin(s * 1.2))
+  const f = new Parts()
+  const z = 0.36 * s
+  for (const x of [-0.11, 0.11]) f.add(cone(0.07 * s, 0.1 * s, 3), '#ffd447', { x: x * s, y: 0.33 * s, z, rx: Math.PI / 2, mat: SHINE, jitter: 0 })
+  f.add(box(0.26 * s, 0.06 * s, 0.04), '#ffd447', { y: 0.2 * s, z, mat: SHINE, jitter: 0 })
+  g.add(f.build({ shadow: false }))
+  return g
+}
+
+export function bat() {
+  const g = new THREE.Group()
+  const p = new Parts()
+  p.add(ico(0.15, 1), '#2a2433', { sz: 1.3 })
+  for (const s of [-1, 1]) p.add(cone(0.05, 0.12, 3), '#2a2433', { x: s * 0.07, y: 0.14 })
+  g.add(p.build({ shadow: false }))
+  const wings = []
+  for (const s of [-1, 1]) {
+    const wp = new Parts()
+    wp.add(prism(0.02, 0.45, 0.35), '#2a2433', { x: s * 0.05, rz: (-s * Math.PI) / 2, jitter: 0 })
+    const w = wp.build({ shadow: false })
+    g.add(w)
+    wings.push(w)
+  }
+  g.userData.wings = wings
+  return g
 }

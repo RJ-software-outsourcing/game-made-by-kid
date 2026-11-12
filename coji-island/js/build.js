@@ -4,8 +4,13 @@ import * as THREE from 'three'
 
 export const MAT = new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true })
 export const MAT2 = new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true, side: THREE.DoubleSide })
+// Smooth shading for round things (characters, tree tops) so they look less blocky.
+export const SMOOTH = new THREE.MeshLambertMaterial({ vertexColors: true })
+export const SMOOTH2 = new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide })
 // Windows and lamps: they glow at night (emissive is turned up by the day/night code).
 export const GLOW = new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true, emissive: 0xffd27a, emissiveIntensity: 0 })
+// Always glowing (jack-o'-lanterns, magic).
+export const SHINE = new THREE.MeshBasicMaterial({ vertexColors: true })
 
 const _m = new THREE.Matrix4()
 const _q = new THREE.Quaternion()
@@ -38,14 +43,15 @@ export const plane = (w, h) => cached(`p${w},${h}`, () => new THREE.PlaneGeometr
 export const color = (hex) => new THREE.Color(hex)
 
 export class Parts {
-  constructor() {
+  constructor(mat = MAT) {
     this.groups = new Map()
+    this.mat = mat
   }
 
   // Add a primitive. o: {x,y,z, rx,ry,rz, sx,sy,sz, s (uniform scale), jitter, mat}
   add(geo, hex, o = {}) {
     const g = geo.index ? geo.toNonIndexed() : geo.clone()
-    _e.set(o.rx || 0, o.ry || 0, o.rz || 0)
+    _e.set(o.rx || 0, o.ry || 0, o.rz || 0, o.order || 'XYZ')
     _q.setFromEuler(_e)
     const s = o.s ?? 1
     _s.set((o.sx ?? 1) * s, (o.sy ?? 1) * s, (o.sz ?? 1) * s)
@@ -53,12 +59,12 @@ export class Parts {
     _m.compose(_p, _q, _s)
     if (o.matrix) _m.premultiply(o.matrix)
     g.applyMatrix4(_m)
-    this.push(g, hex, o.jitter ?? 0.05, o.mat || MAT)
+    this.push(g, hex, o.jitter ?? 0.05, o.mat || this.mat)
     return this
   }
 
   // Add an already-positioned geometry.
-  push(g, hex, jitter = 0.05, mat = MAT) {
+  push(g, hex, jitter = 0.05, mat = this.mat) {
     if (g.index) g = g.toNonIndexed()
     let grp = this.groups.get(mat)
     if (!grp) {

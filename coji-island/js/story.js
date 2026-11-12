@@ -26,7 +26,7 @@ export const QUESTS = {
       shells: { text: 'The Bank swaps shells 🐚 for coins.', place: 'bank' },
       apples: { text: 'Granny Bee buys apples 🍎. Apple trees grow at the Farm.', place: 'farm' },
       momo: { text: 'Momo the cat has coins. Momo wants a fish 🐟.', place: 'harbor' },
-      bridge: { text: 'Bear is on the bridge in the forest.', place: 'bridge' },
+      bridge: { text: 'Bear sits on Bear Bridge. Take the forest trail to the sea.', place: 'bridge' },
     },
   },
   light: {
@@ -39,7 +39,7 @@ export const QUESTS = {
       { text: 'Bring the bulb to Grandpa Gus.' },
     ],
     clues: {
-      path: { text: 'The lighthouse is across Bear Bridge, up the hill.', place: 'lighthouse' },
+      path: { text: 'The lighthouse is on Lighthouse Island, across Bear Bridge.', place: 'lighthouse' },
       lamp: { text: 'Grandpa Gus needs a big, bright bulb 💡.' },
       toyshop: { text: "Tina's Toy Shop has a big bulb.", place: 'toyshop' },
       price: { text: 'The bulb costs 8 coins. Or trade a soft feather 🪶.' },
@@ -50,7 +50,21 @@ export const QUESTS = {
     },
   },
 }
-export const QUEST_ORDER = ['bear', 'light']
+QUESTS.boo = {
+  title: "Boo's Pumpkin Lantern",
+  icon: '🎃',
+  steps: [
+    { text: 'Find a pumpkin. 🎃', done: (g) => g.has('pumpkin') },
+    { text: 'Find a candle. 🕯️', done: (g) => g.has('candle') },
+    { text: 'Bring the pumpkin and the candle to Boo.' },
+  ],
+  clues: {
+    pumpkin: { text: 'Pumpkins grow in the Spooky Graveyard. 🎃', place: 'graveyard' },
+    candle: { text: 'Granny Bee sells candles at the Market. 🕯️', place: 'market' },
+    lantern: { text: 'A pumpkin + a candle = a pumpkin lantern!' },
+  },
+}
+export const QUEST_ORDER = ['bear', 'light', 'boo']
 
 // What Blankie Bear says when nothing has happened for a while.
 export function stepTip(g) {
@@ -62,7 +76,7 @@ export function stepTip(g) {
       return 'What does Bear like to eat? Tap people and ask them! 💬'
     case 'bear.1':
       if (!g.knows('granny')) return 'Who has honey? Ask people in the village. 💬'
-      if (g.coins < 5) return `Honey costs 5 coins. You have ${g.coins}. Let's find more coins! 🐚🍎`
+      if (g.coins < 5) return `Honey costs 5 coins. You have ${g.coins}. Find shells 🐚, sell apples 🍎, or do a job 💼!`
       return "Let's buy honey from Granny Bee at the Market! 🍯"
     case 'bear.2':
       return "Let's take the honey to Bear on the bridge! Open the map 🗺️ to find it."
@@ -72,11 +86,19 @@ export function stepTip(g) {
       return 'Where is a big, bright bulb? Ask people in the village! 💡'
     case 'light.2':
       if (g.coins >= 8 || g.has('feather')) return "Let's go to the Toy Shop and get the bulb! 💡"
-      return `Tina wants 8 coins or a soft feather. You have ${g.coins} coins. 🪙🪶`
+      return `Tina wants 8 coins or a soft feather. You have ${g.coins} coins. Jobs 💼 pay coins too!`
     case 'light.3':
       return "Let's take the bulb to Grandpa Gus! 🗼"
+    case 'free':
+      return 'Boo the little ghost needs a friend! Visit the Spooky Graveyard. 👻'
+    case 'boo.0':
+      return 'Find a pumpkin. Pumpkins grow in the Spooky Graveyard! 🎃'
+    case 'boo.1':
+      return g.knows('candle') ? "Let's buy a candle from Granny Bee at the Market! 🕯️" : 'Who has candles? Ask people in the village. 🕯️'
+    case 'boo.2':
+      return "Let's take the pumpkin and the candle to Boo! 👻"
     default:
-      return 'You can explore the island! 🏝️'
+      return 'Explore the island, and do jobs to earn coins! 💼'
   }
 }
 
@@ -94,6 +116,8 @@ export function targets(g) {
   if (g.has('carrot')) t.add('bun')
   if (g.has('glasses')) t.add('hoot')
   if (g.has('shell')) t.add('penny')
+  if (s === 'free' || (s === 'boo.2' && g.has('pumpkin') && g.has('candle'))) t.add('boo')
+  if (s === 'boo.1' && g.knows('candle')) t.add('granny')
   return t
 }
 
@@ -111,7 +135,7 @@ export const CAST = {
           onShow: () => g.startQuest('bear'),
         })
       const ask = () =>
-        N(['Oh, I have a problem, Coji.', 'A big bear sits on the bridge in the forest.', 'He is very hungry. Nobody can cross the bridge!', 'Can you help the bear?'], [
+        N(['Oh, I have a problem, Coji.', 'A big bear sits on Bear Bridge.', 'He is very hungry. Nobody can cross the bridge!', 'Can you help the bear?'], [
           { text: 'Yes! I can help!', go: accept },
           {
             text: 'A bear? I am scared...',
@@ -133,7 +157,7 @@ export const CAST = {
       ])
     },
     greet: () => 'Ahoy, Coji!',
-    chat: { q: 'Tell me about the island.', a: ['Sunny Island has a village, a farm and a forest.', 'Tap the map 🗺️ button to see it all!'] },
+    chat: { q: 'Tell me about the island.', a: ['Sunny Island has a castle, a village, a farm and a forest.', 'Tap the map 🗺️ button to see it all!'] },
     topics: {
       'bear.0': {
         q: 'What does Bear like to eat?',
@@ -146,11 +170,11 @@ export const CAST = {
         a: ['Go to the village.', 'Look for the market.'],
         more: { q: 'Who sells honey?', a: ['Granny Bee! She has a yellow stall.'], clue: 'granny' },
       },
-      'bear.2': { q: 'I have honey!', a: ['Great job, Coji!', 'Bear is on the bridge in the forest.', 'Go north from the village.'], clue: 'bridge' },
+      'bear.2': { q: 'I have honey!', a: ['Great job, Coji!', 'Bear is on Bear Bridge.', 'Take the forest trail. It goes to the sea.'], clue: 'bridge' },
       'light.0': {
         q: 'Do you know Grandpa Gus?',
         a: ['Yes! He lives in the lighthouse.', 'But the light is off.', 'My boat can not sail at night!'],
-        more: { q: 'How do I get there?', a: ['Cross Bear Bridge.', 'Then walk up the hill.'], clue: 'path' },
+        more: { q: 'How do I get there?', a: ['Cross Bear Bridge.', 'The lighthouse is on the little island.'], clue: 'path' },
       },
       'light.1': {
         q: 'Where can I find a big bulb?',
@@ -255,8 +279,8 @@ export const CAST = {
         a: ['No honey here. Just burgers and fries!'],
         more: { q: 'Who has honey?', a: ['Granny Bee at the market!'], clue: 'granny' },
       },
-      'bear.2': { q: 'I have honey for Bear!', a: ['The bear will be so happy!', 'Go to the bridge in the forest.'], clue: 'bridge' },
-      'light.0': { q: 'Where is the lighthouse?', a: ['Go to the forest and cross Bear Bridge.', 'Then walk up the hill!'], clue: 'path' },
+      'bear.2': { q: 'I have honey for Bear!', a: ['The bear will be so happy!', 'Go to Bear Bridge. Take the forest trail!'], clue: 'bridge' },
+      'light.0': { q: 'Where is the lighthouse?', a: ['Take the forest trail and cross Bear Bridge.', 'The lighthouse is on the little island!'], clue: 'path' },
       'light.1': { q: 'Do you have a big bulb?', a: ['My lights are small.', 'Try the Toy Shop! Tina has lots of things.'], clue: 'toyshop' },
       'light.2': { q: 'How can I get coins?', a: ['Sell apples to Granny Bee.', 'Or swap shells at the bank!'], clue: 'shells' },
       'light.3': { q: 'I have the bulb!', a: ['Go, Coji, go!'] },
@@ -278,8 +302,8 @@ export const CAST = {
         clue: ['granny', 'coins'],
         more: { q: g.coins >= 5 ? 'How can I get more coins?' : 'I do not have 5 coins.', a: ['I buy apples. One apple is one coin.', 'Apple trees grow at the farm.'], clue: 'apples' },
       }),
-      'bear.2': { q: 'Thank you for the honey!', a: ['You are welcome, dear.', 'Bear is on the bridge. Go north!'], clue: 'bridge' },
-      'light.0': { q: 'Where is the lighthouse?', a: ['Past Bear Bridge, dear.', 'It is on the big hill.'], clue: 'path' },
+      'bear.2': { q: 'Thank you for the honey!', a: ['You are welcome, dear.', 'Bear is on Bear Bridge. Take the forest trail!'], clue: 'bridge' },
+      'light.0': { q: 'Where is the lighthouse?', a: ['On Lighthouse Island, dear.', 'Cross Bear Bridge.'], clue: 'path' },
       'light.1': {
         q: 'Do you sell bulbs?',
         a: ['No, dear. Only food.'],
@@ -324,7 +348,7 @@ export const CAST = {
       },
       'bear.1': { q: 'I need coins for honey.', a: ['Find shells on the beach.', 'Bring them to me. One shell is one coin!'], clue: 'shells' },
       'bear.2': { q: 'Do you like bears?', a: ['Yes, from far away! Ha ha.'] },
-      'light.0': { q: 'Where is the lighthouse?', a: ['Cross the bridge in the forest.', 'Then go up the hill.'], clue: 'path' },
+      'light.0': { q: 'Where is the lighthouse?', a: ['Cross Bear Bridge.', 'The lighthouse is on the little island.'], clue: 'path' },
       'light.1': { q: 'Do you have a big bulb?', a: ['No.', 'But I saw a big bulb in the Toy Shop window.'], clue: 'toyshop' },
       'light.2': { q: 'I need 8 coins.', a: ['Find shells on the beach.', 'I will swap them for coins!'], clue: 'shells' },
       'light.3': { q: 'I have the bulb!', a: ['Good job! Go to the lighthouse!'] },
@@ -375,7 +399,7 @@ export const CAST = {
       },
       'bear.1': { q: 'Where can I get honey?', a: ['Granny Bee!', 'She has a yellow stall in the village.'], clue: 'granny' },
       'bear.2': { q: 'I have honey!', a: ['Yay! Go give it to the bear!'], clue: 'bridge' },
-      'light.0': { q: 'Where is the lighthouse?', a: ['Cross Bear Bridge in the forest.', 'Then go up the hill.'], clue: 'path' },
+      'light.0': { q: 'Where is the lighthouse?', a: ['Cross Bear Bridge to Lighthouse Island.'], clue: 'path' },
       'light.1': {
         q: 'Do you have a big light bulb?',
         a: ['Yes! Look in my window!', 'It is the Super Bright Bulb! 💡', 'It costs 8 coins.', 'Or... bring me a soft feather for my toy owl.'],
@@ -423,13 +447,13 @@ export const CAST = {
         more: { q: 'Where is the farm?', a: ['Go west from the village.', 'Look for the red barn!'] },
       },
       'bear.2': { q: 'Do you want to see the bear?', a: ['No way! He is too big!', 'You are so brave, Coji!'] },
-      'light.0': { q: 'Where is the lighthouse?', a: ['Look up! You can see it on the hill.', 'Go to the forest and cross the bridge.'], clue: 'path' },
+      'light.0': { q: 'Where is the lighthouse?', a: ['Look! It is on the little island.', 'Take the forest trail and cross Bear Bridge.'], clue: 'path' },
       'light.1': { q: 'Where can I get a big bulb?', a: ['The Toy Shop!', 'I saw a big, shiny bulb there.'], clue: 'toyshop' },
       'light.2': {
         q: 'Where can I find a feather?',
         a: ['Birds have feathers!', 'Ask Hoot the owl.'],
         clue: 'hoot',
-        more: { q: 'Where is Hoot?', a: ['In the big tree in the forest.', 'Go north!'] },
+        more: { q: 'Where is Hoot?', a: ['In the big tree in the forest.', 'Take the forest trail!'] },
       },
       'light.3': { q: 'I have the bulb!', a: ['Run, Coji, run!'] },
       end: { q: 'Look at the light!', a: ['It is so cool!', 'Now let us play tag!'] },
@@ -519,8 +543,8 @@ export const CAST = {
         clue: 'granny',
         more: { q: 'I need coins.', a: ['Shells on the beach are like coins.', 'Take them to the bank!'], clue: 'shells' },
       },
-      'bear.2': { q: 'Where is the bear?', a: ['On the bridge!', 'Follow the forest road east.'], clue: 'bridge' },
-      'light.0': { q: 'Where is the lighthouse?', a: ['Cross the bridge, then go up the hill. Who-who!'], clue: 'path' },
+      'bear.2': { q: 'Where is the bear?', a: ['On Bear Bridge!', 'Follow the forest trail to the sea.'], clue: 'bridge' },
+      'light.0': { q: 'Where is the lighthouse?', a: ['Cross Bear Bridge to the little island. Who-who!'], clue: 'path' },
       'light.1': (g) =>
         g.flag('hootHappy')
           ? { q: 'Where can I find a big bulb?', a: ['I can see far now!', 'There is a big bulb in the Toy Shop window.'], clue: 'toyshop' }
@@ -559,7 +583,7 @@ export const CAST = {
                 { text: 'I will help Grandpa Gus!', go: accept },
                 {
                   text: 'Where is the lighthouse?',
-                  go: () => N(['Cross my bridge. Walk up the hill.', 'It is the tall red and white tower!'], [{ text: 'Okay! I will go!', go: accept }]),
+                  go: () => N(['Cross my bridge to the little island.', 'It is the tall red and white tower!'], [{ text: 'Okay! I will go!', go: accept }]),
                 },
               ])
             return N(['Honey! Yum, yum, yum!', 'Mmm... So sweet!', 'Thank you, Coji! My tummy is happy now.', 'I will move. You can cross the bridge!'], [
@@ -591,7 +615,7 @@ export const CAST = {
       },
       'bear.1': { q: 'I will get honey for you!', a: ['Honey... yes... please hurry...', 'Grrr... my tummy...'] },
       'bear.2': { q: 'Are you still hungry?', a: ['Yes... so hungry...'] },
-      'light.0': { q: 'Where is the lighthouse?', a: ['Cross the bridge. Walk up the hill!'], clue: 'path' },
+      'light.0': { q: 'Where is the lighthouse?', a: ['Cross my bridge to the little island!'], clue: 'path' },
       'light.1': { q: 'Where can I find a bulb?', a: ['Hmm. Bears do not use bulbs.', 'Ask in the village!'] },
       'light.2': { q: 'Do you have a feather?', a: ['No, I have fur! Ha ha!', 'Owls have feathers.'], clue: 'hoot' },
       'light.3': { q: 'I have the bulb!', a: ['Go, go! Grandpa Gus is waiting!'] },
@@ -666,15 +690,17 @@ export const CAST = {
 
 function topicFor(C, g) {
   const s = g.stage()
-  let tp = C.topics?.[s]
+  let tp = C.topics?.[s] ?? (s === 'free' ? C.topics?.free ?? FREE_TOPIC : null) ?? (s === 'end' ? null : null)
   if (typeof tp === 'function') tp = tp(g)
   return tp || null
 }
+// After the lighthouse: everyone points at the graveyard, where Boo is waiting.
+const FREE_TOPIC = { q: 'What can I do now?', a: ['Did you hear?', 'A little ghost lives in the Spooky Graveyard.', 'Her name is Boo. She looks sad!'] }
 
 function chain(g, id, tp) {
   const choices = []
   if (tp.more) choices.push({ text: tp.more.q, go: () => chain(g, id, tp.more) })
-  choices.push({ text: 'Thank you!', go: () => hub(g, id, 'You are welcome! Anything else?') })
+  choices.push({ text: 'Thank you!', go: () => hub(g, id, CAST[id].animal ? 'Anything else?' : 'You are welcome! Anything else?') })
   return N(tp.a, choices, {
     onShow: () => {
       if (tp.clue) for (const c of [].concat(tp.clue)) g.clue(c)
@@ -689,9 +715,18 @@ export function hub(g, id, line) {
   const tp = topicFor(C, g)
   if (tp) opts.push({ text: tp.q, go: () => chain(g, id, tp), pri: 5 })
   else if (C.chat) opts.push({ text: C.chat.q, go: () => chain(g, id, C.chat), pri: 2 })
+  // Something already asked in this talk moves down, so other choices get a turn.
+  const asked = g.asked()
+  for (const o of opts) if (asked.has(o.text)) o.pri = (o.pri ?? 3) - 4
   opts.sort((a, b) => (b.pri ?? 3) - (a.pri ?? 3))
-  const pick = opts.slice(0, 2)
-  pick.push({ text: 'Bye!', go: () => N(C.animal ? 'Bye-bye, Coji!' : 'Bye, Coji!') })
+  const pick = opts.slice(0, 2).map((o) => ({
+    ...o,
+    go: () => {
+      asked.add(o.text)
+      return o.go()
+    },
+  }))
+  pick.push({ text: 'Bye!', go: () => N(C.bye ? C.bye(g) : C.animal ? 'Bye-bye, Coji!' : 'Bye, Coji!', null, { auto: true }) })
   return N(line, pick)
 }
 
@@ -700,9 +735,225 @@ export function talk(g, id) {
   const C = CAST[id]
   const s = g.stage()
   // Pip's welcome repeats until the first quest is taken; Gus explains his lamp when Coji arrives.
-  if ((id === 'pip' && s === 'start') || (id === 'gus' && s === 'light.0')) {
+  if ((id === 'pip' && s === 'start') || (id === 'gus' && s === 'light.0') || (id === 'boo' && s === 'free') || (id === 'lance' && !g.met('lance'))) {
     const n = C.first(g)
     if (n) return n
   }
+  if (C.greetNode) return C.greetNode(g)
   return hub(g, id, C.greet(g))
 }
+
+// ---------- jobs ----------
+
+const job = (id, ask, yes) => (g) =>
+  g.jobReady(id)
+    ? { text: ask, pri: 4.5, go: () => N(yes, null, { onShow: () => g.later(() => g.openJob(id)) }) }
+    : { text: ask, pri: 1, go: () => N(['Thank you! We are all done for now.', 'Come back a little later!']) }
+
+// ---------- new friends ----------
+
+Object.assign(CAST, {
+  coco: {
+    name: 'Coco',
+    voice: 1.35,
+    greet: (g) => (g.met('coco') ? 'Hi, Coji! Ice cream time? 🍦' : 'Hello! I am Coco. I sell ice cream! 🍦'),
+    specials: (g) => [job('icecream', 'Can I work here? 💼', ['Yes! Help me scoop ice cream.', 'Read the order. Tap the right scoops!', 'One coin for each right order.'])(g)],
+    chat: { q: 'What flavors do you have?', a: ['Pink strawberry, brown chocolate,', 'white vanilla, green mint and yellow lemon!'] },
+    topics: {
+      'bear.0': { q: 'What do bears like?', a: ['Bears love sweet things!', 'Like ice cream... and honey!'], clue: ['sweet', 'honey'] },
+      'bear.1': { q: 'Where can I get honey?', a: ['Granny Bee sells honey at the Market.'], clue: 'granny', more: { q: 'I need coins.', a: ['You can work here!', 'I pay one coin for each right order.'] } },
+      'bear.2': { q: 'I have honey for Bear!', a: ['Yay! Bear Bridge is up north-east.', 'Follow the ring road!'], clue: 'bridge' },
+      'light.0': { q: 'Where is the lighthouse?', a: ['On Lighthouse Island!', 'Cross Bear Bridge.'], clue: 'path' },
+      'light.1': { q: 'Where can I find a big bulb?', a: ['Hmm... the Toy Shop has a shiny bulb!'], clue: 'toyshop' },
+      'light.2': { q: 'How can I get coins?', a: ['Work here! Scoop ice cream for coins.', 'Or swap shells at the bank.'], clue: 'shells' },
+      'light.3': { q: 'I have the bulb!', a: ['Go, go, Coji!'] },
+      'boo.0': { q: 'Do you have pumpkins?', a: ['Pumpkin ice cream? No...', 'But pumpkins grow in the graveyard!'], clue: 'pumpkin' },
+      'boo.1': { q: 'Do you have a candle?', a: ['No, only ice cream!', 'Granny Bee sells candles, I think.'], clue: 'candle' },
+      'boo.2': { q: 'I have a pumpkin and a candle!', a: ['Spooky and fun! Go see Boo!'] },
+      end: { q: 'Can I have ice cream?', a: ['Ha ha! Work with me and earn coins first!'] },
+    },
+  },
+  max: {
+    name: 'Max the Mailman',
+    voice: 0.95,
+    greet: (g) => (g.met('max') ? 'Hi, Coji! Any mail today?' : 'Hello! I am Max. I bring the mail! 📮'),
+    specials: (g) => [job('post', 'Can I work here? 💼', ['Yes! Help me sort the letters.', 'Read who the letter is for. Tap the right friend!', 'One coin for each right letter.'])(g)],
+    chat: { q: 'What do you do?', a: ['I take letters to everyone on the island!', 'I walk a lot. My legs are strong!'] },
+    topics: {
+      'bear.0': { q: 'What do bears eat?', a: ['I took a letter to the bear once!', 'It smelled like honey!'], clue: 'honey' },
+      'bear.1': { q: 'Where can I get coins?', a: ['Work here! Sort letters for coins.', 'Or find shells for the bank.'], clue: 'shells' },
+      'bear.2': { q: 'Where is the bear?', a: ['On Bear Bridge, up north-east.'], clue: 'bridge' },
+      'light.0': { q: 'Where is the lighthouse?', a: ['On the little island.', 'Cross Bear Bridge to get there.'], clue: 'path' },
+      'light.1': { q: 'Where can I find a big bulb?', a: ['I took a big box to the Toy Shop.', 'It said BULB on it!'], clue: 'toyshop' },
+      'light.2': { q: 'Where can I find a feather?', a: ['Hoot the owl has soft feathers.', 'She lives in the forest.'], clue: 'hoot' },
+      'light.3': { q: 'I have the bulb!', a: ['Hurry to the lighthouse!'] },
+      'boo.0': { q: 'Where are the pumpkins?', a: ['In the Spooky Graveyard!', 'I do not go there. Too spooky!'], clue: 'pumpkin' },
+      'boo.1': { q: 'Who has candles?', a: ['Granny Bee sells candles.', 'I took a box of candles to her!'], clue: 'candle' },
+      'boo.2': { q: 'I have a pumpkin and a candle!', a: ['Great! Take them to Boo.'] },
+      end: { q: 'Is there mail for me?', a: ['Yes! A thank-you card from Grandpa Gus!'] },
+    },
+  },
+  kim: {
+    name: 'Teacher Kim',
+    voice: 1.1,
+    greet: (g) => (g.met('kim') ? 'Hello, Coji! Ready to read?' : 'Hello! I am Teacher Kim. Welcome to my school! 🏫'),
+    specials: (g) => [job('school', 'Can I help you? 💼', ['Yes! Help me check words.', 'Look at the picture. Tap the right word!', 'One coin for each right word.'])(g)],
+    chat: { q: 'What do you teach?', a: ['Reading, writing and math!', 'And I read lots of stories.'] },
+    topics: {
+      'bear.0': { q: 'What do bears eat?', a: ['Bears eat fish, berries and honey.', 'Honey is their favorite!'], clue: 'honey' },
+      'bear.1': { q: 'Where can I get honey?', a: ['Granny Bee sells honey at the Market.'], clue: 'granny', more: { q: 'I need coins.', a: ['Help me here! I pay one coin for each right word.'] } },
+      'bear.2': { q: 'Where is the bear?', a: ['On Bear Bridge. It is east of here.'], clue: 'bridge' },
+      'light.0': { q: 'Where is the lighthouse?', a: ['Look east! It is on a little island.'], clue: 'path' },
+      'light.1': { q: 'Where can I find a big bulb?', a: ['B-U-L-B, bulb!', 'Try the Toy Shop in the village.'], clue: 'toyshop' },
+      'light.2': { q: 'Where can I find a feather?', a: ['F-E-A-T-H-E-R, feather!', 'Owls have soft feathers.'], clue: 'hoot' },
+      'light.3': { q: 'I have the bulb!', a: ['Wonderful! Go, go!'] },
+      'boo.0': { q: 'Where can I find a pumpkin?', a: ['P-U-M-P-K-I-N!', 'The graveyard has a pumpkin patch.'], clue: 'pumpkin' },
+      'boo.1': { q: 'Where can I find a candle?', a: ['C-A-N-D-L-E!', 'Granny Bee sells them at the Market.'], clue: 'candle' },
+      'boo.2': { q: 'I have a pumpkin and a candle!', a: ['Pumpkin plus candle makes a lantern!'], clue: 'lantern' },
+      end: { q: 'Can I learn more words?', a: ['Yes! Help me check words for coins.'] },
+    },
+  },
+  lance: {
+    name: 'Sir Lance',
+    voice: 0.85,
+    first: (g) => {
+      const meet = () =>
+        N(['Hello, Coji. I am Sir Lance, the King\'s knight.', 'I guard the castle. ⚔️'], [
+          { text: 'Can I see the King?', go: () => N(['Not today, Coji.', 'The King is very busy.', 'Maybe one day he will need your help!']) },
+          { text: 'Wow! A real knight!', go: () => N(['Yes! I keep the castle safe.', 'Look up! The King waves from his balcony.']) },
+        ])
+      return N(['Halt! Who goes there? 🛡️'], [
+        { text: 'I am Coji!', go: meet },
+        { text: 'Hello! My name is Coji.', go: meet },
+      ])
+    },
+    greet: () => 'Hello, Coji! Stand tall! 🛡️',
+    chat: { q: 'Can I see the King?', a: ['Not today, Coji. The King is very busy.', 'Maybe one day he will need your help!'] },
+    topics: {
+      'bear.0': { q: 'What do bears eat?', a: ['I am not scared of bears!', 'But I know they love honey.'], clue: 'honey' },
+      'bear.1': { q: 'Where can I get honey?', a: ['At the Market in the village.', 'It is right behind me.'], clue: 'granny' },
+      'bear.2': { q: 'Where is Bear Bridge?', a: ['Take the forest trail.', 'Then follow the ring road east.'], clue: 'bridge' },
+      'light.0': { q: 'Where is the lighthouse?', a: ['On Lighthouse Island.', 'Cross Bear Bridge.'], clue: 'path' },
+      'light.1': { q: 'Where can I find a big bulb?', a: ['A knight does not need bulbs!', 'Ask Tina at the Toy Shop.'], clue: 'toyshop' },
+      'light.2': { q: 'How can I get coins?', a: ['Work hard, like a knight!', 'Jobs pay coins: burgers, ice cream, mail, and school.'] },
+      'light.3': { q: 'I have the bulb!', a: ['Brave work, Coji!'] },
+      'boo.0': { q: 'Are you scared of ghosts?', a: ['A knight is never scared!', '...Well, a little.', 'Pumpkins grow in the graveyard.'], clue: 'pumpkin' },
+      'boo.1': { q: 'Where can I find a candle?', a: ['The castle has many candles, but I must guard the gate.', 'Granny Bee sells candles!'], clue: 'candle' },
+      'boo.2': { q: 'I have a pumpkin and a candle!', a: ['Take them to Boo, brave Coji!'] },
+      end: { q: 'Can I see the King now?', a: ['Not yet. Soon, Coji. Soon!', 'The King has a big job for a hero.'] },
+    },
+  },
+  boo: {
+    name: 'Boo the Ghost',
+    voice: 1.55,
+    animal: true,
+    first: (g) => {
+      const yes = () => N(['Yay! Thank you, Coji!', 'I need a pumpkin and a candle.', 'Then I can make a pumpkin lantern!'], null, { onShow: () => g.startQuest('boo') })
+      return N(['Boo! Hee hee. Did I scare you?'], [
+        {
+          text: 'A little!',
+          go: () =>
+            N(['Sorry! I am Boo. I am a little ghost.', 'But I am scared of the dark! 😢', 'I want a pumpkin lantern. Can you help me?'], [
+              { text: 'Yes! I will help you!', go: yes },
+              { text: 'A ghost scared of the dark?', go: () => N(['Yes... it is so dark here at night!', 'Please help me?'], [{ text: 'Okay! I will help!', go: yes }]) },
+            ]),
+        },
+        {
+          text: 'No! You are cute!',
+          go: () =>
+            N(['Hee hee! Thank you! I am Boo.', 'But I am scared of the dark! 😢', 'I want a pumpkin lantern. Can you help me?'], [
+              { text: 'Yes! I will help you!', go: yes },
+              { text: 'Sure, Boo!', go: yes },
+            ]),
+        },
+      ])
+    },
+    greet: (g) => (g.done('boo') ? 'Boo-hoo-ray! My lantern is so bright!' : g.quest() === 'boo' ? 'Boo! Did you find them?' : 'Boo! Hee hee. Hello!'),
+    bye: () => 'Bye-bye! Boo!',
+    specials: (g) => [
+      g.stage() === 'boo.2' &&
+        g.has('pumpkin') &&
+        g.has('candle') && {
+          text: 'Here is a pumpkin and a candle!',
+          pri: 9,
+          go: () =>
+            N(['Oooh! Let me make my lantern...', 'Pumpkin... candle... and... ta-da! 🎃✨', 'It is so bright! I am not scared now!', 'Thank you! Here are 5 coins!'], null, {
+              onShow: () => {
+                g.take('pumpkin')
+                g.take('candle')
+                g.completeQuest('boo')
+                g.addCoins(5)
+                g.mood('boo', 'happy')
+                g.sfx('happy')
+                g.later(() => g.booLantern())
+              },
+            }),
+        },
+      ['bear', 'light'].includes(g.quest()) && {
+        text: 'Are you okay, Boo?',
+        pri: 3,
+        go: () => N(['I am a little scared of the dark...', 'But you are busy helping a friend.', 'Come back later, okay?']),
+      },
+    ],
+    chat: { q: 'What do ghosts do?', a: ['We float and say BOO!', 'And we play hide and seek. Hee hee!'] },
+    topics: {
+      'bear.0': { q: 'Boo, what do bears eat?', a: ['Bears love honey! Boo!'], clue: 'honey' },
+      'bear.1': { q: 'Where can I get coins?', a: ['Ghosts do not have coins!', 'But there is a shiny coin in my graveyard...'] },
+      'light.1': { q: 'Do you have a bulb?', a: ['I wish! I am scared of the dark.', 'The Toy Shop has a big bulb.'], clue: 'toyshop' },
+      'boo.0': { q: 'Where can I find a pumpkin?', a: ['Look behind the gravestones!', 'Pumpkins grow at the back.'], clue: 'pumpkin' },
+      'boo.1': { q: 'Where can I find a candle?', a: ['Hmm... Granny Bee has candles!', 'She is at the Market in the village.'], clue: 'candle' },
+      'boo.2': { q: 'Is a pumpkin and a candle enough?', a: ['Yes! Pumpkin plus candle makes a lantern!'], clue: 'lantern' },
+      end: { q: 'Are you happy now?', a: ['Yes! Thank you, Coji!', 'Come and play hide and seek!'] },
+    },
+  },
+  bones: {
+    name: 'Mr. Bones',
+    voice: 0.7,
+    animal: true,
+    greetNode: (g) => {
+      const greet = pick(['Rattle, rattle! Hello there!', 'Oh! A visitor! Rattle!', 'Hee hee! I am out for a walk!'])
+      const help = () => {
+        const s = g.stage()
+        if (s === 'boo.0' && Math.random() < 0.4) return N(['Pumpkins? I use them as hats!', 'They grow at the back of the graveyard.'], null, { onShow: () => g.clue('pumpkin') })
+        if (s === 'boo.1' && Math.random() < 0.4) return N(['A candle? Granny Bee has candles!', 'Rattle! I know things!'], null, { onShow: () => g.clue('candle') })
+        return N(pick([['Help? Hmm...', 'I forgot. Rattle, rattle!'], ['I can not help.', 'I am too busy looking for my other sock.'], ['Do you have milk?', 'Milk is good for bones!'], ['Help? Sure!', '...What were we talking about?']]))
+      }
+      return N([greet], [
+        { text: 'Who are you?', go: () => N(pick([['I am Mr. Bones!', 'I am not scary. I am just bony!'], ['My name? It is on the tip of my tongue...', 'Oh! I have no tongue! Ha ha!']])) },
+        { text: 'Can you help me?', go: help },
+        { text: 'Bye!', go: () => N('Bye! Rattle, rattle!', null, { auto: true }) },
+      ])
+    },
+    greet: () => 'Rattle, rattle!',
+  },
+})
+
+const pick = (arr) => arr[Math.floor(Math.random() * arr.length)]
+
+// Lines about Boo's quest for the friends from before.
+const BOO_TOPICS = {
+  pip: { 'boo.0': { q: 'Do you have a pumpkin?', a: ['On my boat? No!', 'Pumpkins grow in the graveyard, Coji.'], clue: 'pumpkin' }, 'boo.1': { q: 'Do you have a candle?', a: ['I use a lamp on my boat.', 'Ask Granny Bee for candles.'], clue: 'candle' } },
+  finn: { 'boo.0': { q: 'Do you have a pumpkin?', a: ['I only catch fish!', 'Try the graveyard. Brr!'], clue: 'pumpkin' }, 'boo.1': { q: 'Do you have a candle?', a: ['No, sorry. Ask in the village.'] } },
+  momo: { 'boo.0': { q: 'Did you see pumpkins?', a: ['Meow! Orange balls in the graveyard!'], clue: 'pumpkin' }, 'boo.1': { q: 'Did you see a candle?', a: ['Meow? Candles are hot. No, thank you!'] } },
+  ben: { 'boo.0': { q: 'Do you have a pumpkin?', a: ['No pumpkin burgers here! Ha ha!', 'The graveyard has pumpkins.'], clue: 'pumpkin' }, 'boo.1': { q: 'Do you have a candle?', a: ['Granny Bee sells candles!'], clue: 'candle' } },
+  granny: {
+    'boo.0': { q: 'Do you sell pumpkins?', a: ['Not today, dear.', 'The graveyard has big pumpkins!'], clue: 'pumpkin' },
+    'boo.1': { q: 'Do you sell candles?', a: ['Yes, dear! A candle is 2 coins.', 'Look in my shop!'], clue: 'candle' },
+  },
+  penny: { 'boo.0': { q: 'Where are pumpkins?', a: ['In the graveyard. I do not go there!'], clue: 'pumpkin' }, 'boo.1': { q: 'I need coins for a candle.', a: ['Find shells on the beach!', 'Or do a job.'], clue: 'candle' } },
+  tina: { 'boo.0': { q: 'Do you have a pumpkin?', a: ['A toy pumpkin? No...', 'Real pumpkins grow in the graveyard!'], clue: 'pumpkin' }, 'boo.1': { q: 'Do you have a candle?', a: ['Birthday candles are too small!', 'Granny Bee has big candles.'], clue: 'candle' } },
+  leo: { 'boo.0': { q: 'Where can I find a pumpkin?', a: ['The graveyard! But it is spooky!', 'You are so brave, Coji!'], clue: 'pumpkin' }, 'boo.1': { q: 'Where can I find a candle?', a: ['Granny Bee sells candles!', 'I got one for my birthday cake.'], clue: 'candle' } },
+  bun: { 'boo.0': { q: 'Did you see pumpkins?', a: ['Hop! Big orange pumpkins in the graveyard!'], clue: 'pumpkin' }, 'boo.1': { q: 'Did you see a candle?', a: ['No... I only look for carrots!'] } },
+  hoot: { 'boo.0': { q: 'Where can I find a pumpkin?', a: ['Who-who! I see pumpkins in the graveyard!'], clue: 'pumpkin' }, 'boo.1': { q: 'Where can I find a candle?', a: ['Granny Bee sells candles. Who-who!'], clue: 'candle' } },
+  bruno: { 'boo.0': { q: 'Do you like pumpkins?', a: ['Yum! Big pumpkins grow in the graveyard.'], clue: 'pumpkin' }, 'boo.1': { q: 'Do you have a candle?', a: ['A bear with a candle? Ha ha! No.'] } },
+  gus: { 'boo.0': { q: 'Do you have a pumpkin?', a: ['No, but the graveyard has some.'], clue: 'pumpkin' }, 'boo.1': { q: 'Do you have a candle?', a: ['My light is a big bulb now!', 'Granny Bee sells candles.'], clue: 'candle' } },
+}
+for (const [id, t] of Object.entries(BOO_TOPICS)) Object.assign(CAST[id].topics, t)
+for (const id of Object.keys(CAST)) {
+  const t = CAST[id].topics
+  if (t && !t['boo.2'] && id !== 'bones') t['boo.2'] = { q: 'I have a pumpkin and a candle!', a: ['Great! Take them to Boo in the graveyard.'] }
+}
+
+// Jobs for Burger Ben.
+const benSpecials = CAST.ben.specials
+CAST.ben.specials = (g) => [...benSpecials(g), job('burger', 'Can I work here? 💼', ['Yes! Help me make burgers.', 'Read the order. Tap what goes on the burger!', 'One coin for each right burger.'])(g)]

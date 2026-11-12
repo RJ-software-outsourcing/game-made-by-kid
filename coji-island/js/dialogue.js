@@ -1,7 +1,8 @@
-// The dialogue box: the character's lines type out, tap to go on, then Coji picks an answer.
+// The dialogue box. All of a character's lines appear together (they type out quickly; tap to show
+// them at once), then Coji's answers appear as buttons. No arrows to tap through.
 import { sfx, voice, speak } from './audio.js'
 
-const CHARS_PER_SEC = 42
+const CHARS_PER_SEC = 60
 
 export class Dialogue {
   constructor({ portrait, nameOf, voiceOf, onChange, onClose, onTalk }) {
@@ -10,7 +11,6 @@ export class Dialogue {
     this.nameEl = this.el.querySelector('.dlg-name')
     this.textEl = this.el.querySelector('.dlg-text')
     this.choicesEl = this.el.querySelector('.dlg-choices')
-    this.nextEl = this.el.querySelector('.dlg-next')
     this.portrait = portrait
     this.nameOf = nameOf
     this.voiceOf = voiceOf
@@ -19,23 +19,28 @@ export class Dialogue {
     this.onTalk = onTalk
     this.open = false
     this.el.querySelector('.dlg-box').addEventListener('click', (e) => {
-      if (e.target.closest('.choice') || e.target.closest('.dlg-say')) return
-      this.next()
+      if (e.target.closest('button')) return
+      this.tapBox()
     })
     this.el.querySelector('.dlg-say').addEventListener('click', (e) => {
       e.stopPropagation()
       speak(this.fullText || '', this.who === 'coji' ? 1.3 : this.voiceOf(this.who))
     })
+    this.el.querySelector('.dlg-close').addEventListener('click', (e) => {
+      e.stopPropagation()
+      sfx('close')
+      this.close()
+    })
     window.addEventListener('keydown', (e) => {
       if (!this.open) return
+      if (e.key === 'Escape') return this.close()
       if (e.key === ' ' || e.key === 'Enter') {
         e.preventDefault()
-        if (this.choices && !this.typing) {
-          this.choose(this.choices[0])
-        } else this.next()
+        if (this.typing || this.cojiLine) this.tapBox()
+        else if (this.buttons?.length) this.buttons[0].click()
       }
       const n = parseInt(e.key, 10)
-      if (n >= 1 && this.choices && !this.typing && this.choices[n - 1]) this.choose(this.choices[n - 1])
+      if (n >= 1 && !this.typing && this.buttons?.[n - 1]) this.buttons[n - 1].click()
     })
   }
 
@@ -51,13 +56,12 @@ export class Dialogue {
     this.node = node
     node.onShow?.()
     this.onChange?.()
-    this.lines = node.say.slice()
-    this.choices = null
-    this.lineIdx = 0
-    this.speak(this.npc, this.lines[0])
+    this.cojiLine = null
+    this.speakAll(this.npc, node.say.join('\n'))
   }
 
-  speak(who, text) {
+  // Type out the text; when done, show the answers.
+  speakAll(who, text) {
     this.who = who
     this.fullText = text
     this.el.classList.toggle('coji', who === 'coji')
@@ -65,20 +69,20 @@ export class Dialogue {
     const src = this.portrait(who)
     if (src && this.img.getAttribute('src') !== src) this.img.src = src
     this.choicesEl.innerHTML = ''
-    this.nextEl.classList.add('hidden')
+    this.buttons = []
     this.typing = true
-    this.shown = 0
     this.textEl.textContent = ''
-    this.typeStart = performance.now()
+    const start = performance.now()
     if (who !== 'coji') this.onTalk?.(who)
     cancelAnimationFrame(this.raf)
     let lastBlip = 0
+    let shown = 0
     const step = () => {
-      const n = Math.min(text.length, Math.floor(((performance.now() - this.typeStart) / 1000) * CHARS_PER_SEC))
-      if (n !== this.shown) {
-        this.shown = n
+      const n = Math.min(text.length, Math.floor(((performance.now() - start) / 1000) * CHARS_PER_SEC))
+      if (n !== shown) {
+        shown = n
         this.textEl.textContent = text.slice(0, n)
-        if (who !== 'coji' && n - lastBlip >= 3) {
+        if (who !== 'coji' && n - lastBlip >= 4) {
           lastBlip = n
           voice(this.voiceOf(who))
         }
@@ -91,62 +95,68 @@ export class Dialogue {
 
   doneTyping() {
     this.typing = false
+    cancelAnimationFrame(this.raf)
     this.textEl.textContent = this.fullText
     if (this.cojiLine) {
-      // Coji's own answer: go on by itself after a moment.
+      // Coji's own answer moves on by itself after a moment.
       clearTimeout(this.autoT)
-      this.autoT = setTimeout(() => this.next(), 900)
+      this.autoT = setTimeout(() => this.afterCoji(), 750)
       return
     }
-    const last = this.lineIdx >= this.lines.length - 1
-    if (last && this.node.choices?.length) {
-      this.choices = this.node.choices
-      this.choicesEl.innerHTML = ''
-      for (const c of this.choices) {
-        const b = document.createElement('button')
-        b.className = 'choice'
-        b.textContent = c.text
-        b.addEventListener('click', (e) => {
-          e.stopPropagation()
-          this.choose(c)
-        })
-        this.choicesEl.append(b)
-      }
+    const node = this.node
+    if (node.choices?.length) {
+      for (const c of node.choices) this.addButton(c.text, () => this.choose(c), true)
+    } else if (node.auto) {
+      clearTimeout(this.autoT)
+      this.autoT = setTimeout(() => this.close(), 1300)
+    } else if (node.then) {
+      this.addButton('OK! 👍', () => {
+        sfx('tap')
+        this.show(node.then())
+      })
     } else {
-      this.nextEl.classList.remove('hidden')
+      this.addButton('OK! 👍', () => {
+        sfx('tap')
+        this.close()
+      })
     }
   }
 
-  next() {
+  addButton(text, fn, isAnswer = false) {
+    const b = document.createElement('button')
+    b.className = isAnswer ? 'choice' : 'choice ok'
+    b.textContent = text
+    b.addEventListener('click', (e) => {
+      e.stopPropagation()
+      fn()
+    })
+    this.choicesEl.append(b)
+    this.buttons.push(b)
+  }
+
+  tapBox() {
     if (!this.open) return
     if (this.typing) {
-      cancelAnimationFrame(this.raf)
-      this.shown = this.fullText.length
       this.doneTyping()
       return
     }
     if (this.cojiLine) {
       clearTimeout(this.autoT)
-      const go = this.cojiLine
-      this.cojiLine = null
-      return this.show(go())
+      this.afterCoji()
     }
-    if (this.choices) return // waiting for an answer
-    sfx('tap')
-    if (this.lineIdx < this.lines.length - 1) {
-      this.lineIdx++
-      return this.speak(this.npc, this.lines[this.lineIdx])
-    }
-    if (this.node.then) return this.show(this.node.then())
-    this.close()
   }
 
   choose(c) {
-    if (!this.choices) return
+    if (this.typing || this.cojiLine) return
     sfx('choice')
-    this.choices = null
     this.cojiLine = c.go
-    this.speak('coji', c.text)
+    this.speakAll('coji', c.text)
+  }
+
+  afterCoji() {
+    const go = this.cojiLine
+    this.cojiLine = null
+    if (go) this.show(go())
   }
 
   close() {

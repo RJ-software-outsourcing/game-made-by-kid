@@ -1,7 +1,7 @@
 // The map screen (loaded the first time it is opened). North is up.
 import * as L from './land.js'
 
-const R = 128 // world units from the center to the map edge
+const R = 138 // world units from the center to the map edge
 let base = null
 
 function makeBase(sample, trees) {
@@ -18,13 +18,17 @@ function makeBase(sample, trees) {
       const z = -R + ((j + 0.5) / N) * R * 2
       const h = sample(x, z)
       let c
-      if (L.inStream(x, z, 0.3) || L.inPond(x, z, 0.3)) c = [87, 196, 234]
+      if (L.inStream(x, z, 0.3) || L.inPond(x, z, 0.3) || L.inMoat(x, z)) c = [87, 196, 234]
+      else if (L.spookiness(x, z) > 0.5 && h > 0.5) c = [120, 110, 140]
       else if (h < 0) {
         const k = Math.min(1, -h / 5)
         c = [95 - 50 * k, 208 - 65 * k, 230 - 15 * k]
       } else if (Math.hypot(x - M.x, z - M.z) < M.r - 2 && h > 2) c = h > 15 ? [240, 237, 232] : [180, 173, 163]
       else if (h < 0.95 && L.inland(x, z) < 18) c = [242, 224, 168]
-      else {
+      else if (L.spookiness(x, z) > 0) {
+        const f = L.spookiness(x, z)
+        c = [154 - 40 * f, 214 - 100 * f, 113 + 10 * f]
+      } else {
         const f = L.forestness(x, z)
         c = [154 - 50 * f, 214 - 34 * f, 113 - 21 * f]
       }
@@ -83,10 +87,30 @@ export function drawMap(canvas, opts) {
   ctx.beginPath()
   ctx.arc(px0, py0, L.PLAZA.r * s, 0, Math.PI * 2)
   ctx.fill()
-  // pier and bridge
+  // pier, drawbridge and Bear Bridge
   ctx.fillStyle = '#b98a5e'
   ctx.fillRect(...P(L.PIER.x0, L.PIER.z0), (L.PIER.x1 - L.PIER.x0) * s, (L.PIER.z1 - L.PIER.z0) * s)
-  ctx.fillRect(...P(L.BRIDGE.x0, L.BRIDGE.z0), (L.BRIDGE.x1 - L.BRIDGE.x0) * s, (L.BRIDGE.z1 - L.BRIDGE.z0) * s)
+  const D = L.DRAWBRIDGE
+  ctx.fillRect(...P(D.x0, L.CASTLE.z + D.z0), (D.x1 - D.x0) * s, (D.z1 - D.z0) * s)
+  ctx.strokeStyle = '#b98a5e'
+  ctx.lineWidth = Math.max(4, L.BRIDGE.w * s)
+  ctx.lineCap = 'butt'
+  ctx.beginPath()
+  ctx.moveTo(...P(L.BRIDGE.ax, L.BRIDGE.az))
+  ctx.lineTo(...P(L.BRIDGE.bx, L.BRIDGE.bz))
+  ctx.stroke()
+  // graveyard: fence circle and little gravestones
+  const [gx, gy] = P(L.GRAVEYARD.x, L.GRAVEYARD.z)
+  ctx.strokeStyle = '#3b3546'
+  ctx.lineWidth = 2
+  ctx.beginPath()
+  ctx.arc(gx, gy, L.GRAVEYARD.r * s, 0, Math.PI * 2)
+  ctx.stroke()
+  ctx.fillStyle = '#9e9aa8'
+  for (const g of L.GRAVES) {
+    const [x, y] = P(g.x, g.z)
+    ctx.fillRect(x - 1.5, y - 2, 3, 4)
+  }
 
   // buildings
   for (const b of L.BUILDINGS) {
@@ -94,12 +118,22 @@ export function drawMap(canvas, opts) {
     ctx.save()
     ctx.translate(x, y)
     ctx.rotate(-b.rot)
-    ctx.fillStyle = b.kind === 'lighthouse' ? (lit ? '#fff1a6' : '#e94b3c') : b.kind === 'house' ? '#f0705f' : '#ffb22e'
+    ctx.fillStyle = b.kind === 'lighthouse' ? (lit ? '#fff1a6' : '#e94b3c') : b.kind === 'castle' ? '#e8e0cf' : b.kind === 'house' ? '#f0705f' : '#ffb22e'
     ctx.strokeStyle = '#fff'
     ctx.lineWidth = 2
     const w = Math.max(6, b.w * s)
     const d = Math.max(6, b.d * s)
-    if (b.round) {
+    if (b.kind === 'castle') {
+      ctx.fillRect(-w / 2, -d / 2, w, d)
+      ctx.strokeRect(-w / 2, -d / 2, w, d)
+      ctx.fillStyle = '#3f63c9'
+      for (const [cx, cz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) {
+        ctx.beginPath()
+        ctx.arc((cx * w) / 2, (cz * d) / 2, 2.4 * s, 0, Math.PI * 2)
+        ctx.fill()
+      }
+      ctx.fillRect(-2.2 * s, -2.8 * s, 4.4 * s, 4 * s)
+    } else if (b.round) {
       ctx.beginPath()
       ctx.arc(0, 0, w / 2, 0, Math.PI * 2)
       ctx.fill()
@@ -126,18 +160,18 @@ export function drawMap(canvas, opts) {
     ctx.textBaseline = 'middle'
     ctx.fillText(text, lx, top + h / 2 + 1)
   }
-  const small = new Set(['market', 'bank', 'toyshop'])
-  const offsets = { village: 22, harbor: -16, burger: -16, lighthouse: 20, bridge: 18, pond: -16, mountain: 0, forest: 0, farm: -18, beach: -20 }
+  const small = new Set(['market', 'bank', 'toyshop', 'icecream'])
+  const offsets = { village: 40, castle: 0, harbor: -16, burger: -18, post: -18, school: 18, graveyard: -24, lighthouse: -26, bridge: 12, pond: -16, mountain: 0, forest: 0, farm: -20, beach: 22 }
   for (const [k, p] of Object.entries(L.PLACES)) {
     if (small.has(k)) continue
     label(p.x, p.z, `${p.icon} ${p.name}`, true, offsets[k] ?? 0)
   }
   for (const k of small) {
     const p = L.PLACES[k]
-    label(p.x, p.z, `${p.icon} ${p.name}`, false, k === 'market' ? 0 : 0)
+    label(p.x, p.z, `${p.icon} ${p.name}`, false, { icecream: -16, market: -10, bank: -8, toyshop: 10 }[k] ?? 0)
   }
   if (bearOnBridge) {
-    const [bx, by] = P(L.BRIDGE.x, (L.BRIDGE.z0 + L.BRIDGE.z1) / 2)
+    const [bx, by] = P(L.BRIDGE_MID[0], L.BRIDGE_MID[1])
     ctx.font = '22px sans-serif'
     ctx.textAlign = 'center'
     ctx.textBaseline = 'middle'

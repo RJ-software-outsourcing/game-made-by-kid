@@ -6,11 +6,13 @@ const TAP_MOVE = 10 // px: more than this is a drag
 const TAP_TIME = 650 // ms
 
 export class FollowCam {
-  constructor(camera, canvas, { onTap, groundY }) {
+  constructor(camera, canvas, { onTap, groundY, clear }) {
     this.cam = camera
     this.canvas = canvas
     this.onTap = onTap
     this.groundY = groundY
+    this.clear = clear
+    this.clearK = 1
     this.yaw = 0
     this.pitch = 0.62
     this.dist = 15
@@ -103,6 +105,13 @@ export class FollowCam {
     const look = this.focus.clone()
     look.y += 1.1
     const pos = new THREE.Vector3(look.x + Math.sin(this.cy) * cp * this.cd, look.y + Math.sin(this.cp) * this.cd, look.z + Math.cos(this.cy) * cp * this.cd)
+    // Don't hide behind tree tops: move in front of them.
+    if (this.clear && !o) {
+      const k = this.clear(look, pos)
+      const want = k < 1 ? Math.max(0.3, k - 0.12) : 1
+      this.clearK += (want - this.clearK) * Math.min(1, dt * (want < this.clearK ? 10 : 3))
+      if (this.clearK < 0.999) pos.lerpVectors(look, pos, this.clearK)
+    }
     const floor = this.groundY(pos.x, pos.z) + 1.2
     if (pos.y < floor) pos.y = floor
     this.cam.position.copy(pos)

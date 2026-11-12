@@ -152,6 +152,18 @@ const SFX = {
     ;[523, 659, 784].forEach((f) => tone({ type: 'sine', f, at: 1.2, dur: 1.6, gain: 0.1 }))
   },
   boom: () => noise({ dur: 0.7, gain: 0.25, type: 'lowpass', f: 900, f2: 80, q: 1 }),
+  ghost: () => {
+    tone({ type: 'sine', f: 320, f2: 640, dur: 0.6, gain: 0.12 })
+    tone({ type: 'sine', f: 640, f2: 420, at: 0.5, dur: 0.6, gain: 0.08 })
+    noise({ dur: 0.9, gain: 0.06, type: 'bandpass', f: 600, f2: 1400, q: 3 })
+  },
+  boo: () => {
+    tone({ type: 'triangle', f: 520, f2: 780, dur: 0.18, gain: 0.12 })
+    tone({ type: 'triangle', f: 660, f2: 990, at: 0.16, dur: 0.22, gain: 0.12 })
+  },
+  rattle: () => {
+    for (let i = 0; i < 6; i++) noise({ at: i * 0.06, dur: 0.05, gain: 0.18, type: 'bandpass', f: 2400 + (i % 2) * 600, q: 6 })
+  },
 }
 
 export function sfx(name) {
@@ -171,13 +183,34 @@ let musicOn = false
 let nextTime = 0
 let beat = 0
 let timer = null
-const CHORDS = [
-  [262, 330, 392],
-  [220, 262, 330],
-  [175, 220, 262],
-  [196, 247, 294],
-]
-const MELODY = [523, 587, 659, 784, 659, 587, 523, 440, 523, 659, 784, 880, 784, 659, 587, 523]
+const SONGS = {
+  happy: {
+    chords: [
+      [262, 330, 392],
+      [220, 262, 330],
+      [175, 220, 262],
+      [196, 247, 294],
+    ],
+    melody: [523, 587, 659, 784, 659, 587, 523, 440, 523, 659, 784, 880, 784, 659, 587, 523],
+  },
+  // a little spooky, still friendly (A minor, slow walk)
+  spooky: {
+    chords: [
+      [220, 262, 330],
+      [175, 220, 262],
+      [196, 233, 294],
+      [165, 208, 247],
+    ],
+    melody: [440, 0, 523, 494, 440, 0, 415, 0, 392, 0, 440, 415, 392, 0, 330, 0],
+  },
+}
+let song = SONGS.happy
+let mood = 'happy'
+export function setMood(m) {
+  if (m === mood || !SONGS[m]) return
+  mood = m
+  song = SONGS[m]
+}
 
 function pluck(f, t, gain) {
   const c = ctx
@@ -199,11 +232,12 @@ function schedule() {
   const spb = 60 / 100 / 2
   while (nextTime < c.currentTime + 0.4) {
     const bar = Math.floor(beat / 8) % 4
-    const ch = CHORDS[bar]
+    const ch = song.chords[bar]
     if (beat % 2 === 0) pluck(ch[(beat / 2) % 3] / 2, nextTime, 0.5)
     if (beat % 4 === 2) for (const f of ch) pluck(f, nextTime, 0.18)
-    if (beat % 2 === 0 && Math.floor(beat / 32) % 2 === 1) pluck(MELODY[(beat / 2) % 16], nextTime, 0.22)
-    nextTime += spb
+    const m = song.melody[(beat / 2) % 16]
+    if (beat % 2 === 0 && m && (mood === 'spooky' || Math.floor(beat / 32) % 2 === 1)) pluck(m, nextTime, 0.22)
+    nextTime += mood === 'spooky' ? spb * 1.35 : spb
     beat++
   }
 }

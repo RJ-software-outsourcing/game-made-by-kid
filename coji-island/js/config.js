@@ -11,8 +11,20 @@ export const UNIFORM = {
   crest: '#e0b23a',
   shorts: '#1c2340',
   socks: '#ffffff',
-  shoes: '#2a3768',
+  shoes: '#2a3768', // sneakers: navy upper, white toe cap, stripe, strap and sole
+  toe: '#ffffff',
+  shoeStripe: '#ffffff',
+  strap: '#ffffff',
   soles: '#ffffff',
+}
+
+// Coji's backpack.
+export const BACKPACK = {
+  main: '#ef5a4c',
+  pocket: '#ff8a76',
+  dark: '#c43c2e',
+  straps: '#3b3b4a',
+  charm: '#ffd23f',
 }
 
 // Blankie Bear (被被熊): pale gray knit blanket with light-blue stripes and a little bear head.

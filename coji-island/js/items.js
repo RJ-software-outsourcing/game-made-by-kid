@@ -14,6 +14,8 @@ export const ITEMS = {
   glasses: { name: 'Round Glasses', icon: '👓', quest: true, desc: 'Round glasses. Who lost them?' },
   feather: { name: 'Owl Feather', icon: '🪶', quest: true, desc: 'A big, soft owl feather.' },
   bulb: { name: 'Super Bright Bulb', icon: '💡', quest: true, desc: 'A big, bright light bulb!' },
+  pumpkin: { name: 'Pumpkin', icon: '🎃', energy: 20, desc: 'A round orange pumpkin. Yummy, and good for lanterns!' },
+  candle: { name: 'Candle', icon: '🕯️', desc: 'A little candle. It makes a warm light.' },
 }
 
 export const SHOPS = {
@@ -35,6 +37,7 @@ export const SHOPS = {
       ['honey', 5],
       ['carrot', 1],
       ['milk', 2],
+      ['candle', 2],
     ],
     sell: [
       ['apple', 1],

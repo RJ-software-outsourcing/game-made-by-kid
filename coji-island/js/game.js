@@ -2,14 +2,15 @@
 import * as THREE from 'three'
 import * as L from './land.js'
 import { World } from './world.js'
-import { Person, LOOKS } from './characters.js'
+import { Person, LOOKS, Skeleton } from './characters.js'
 import { FollowCam } from './camera.js'
 import { UI } from './ui.js'
 import { Dialogue } from './dialogue.js'
 import { CAST, QUESTS, talk, stepTip, targets } from './story.js'
 import { ITEMS } from './items.js'
 import { TUNE, energyCostFactor, restFactor } from './config.js'
-import { sfx, unlock, startMusic } from './audio.js'
+import { sfx, unlock, startMusic, setMood } from './audio.js'
+import { JobRunner, JOB_REST } from './jobs.js'
 import { makeSprite, roundRect } from './build.js'
 
 const SAVE_KEY = 'coji-island-save-v1'
@@ -35,6 +36,7 @@ export function freshState() {
     face: L.START.face,
     harvest: {},
     taken: {},
+    jobs: {},
     play: 0,
   }
 }
@@ -54,6 +56,8 @@ function clearSave() {
     // ignore
   }
 }
+
+const regrowOf = (kind) => ({ appletree: TUNE.treeRegrow, berrybush: TUNE.bushRegrow, carrots: TUNE.carrotRegrow, pumpkin: 80 })[kind]
 
 const angleTo = (a, b) => {
   let d = (b - a) % (Math.PI * 2)
@@ -92,6 +96,10 @@ class Game {
     this.tipT = 0
     this.streamT = 0
     this.frames = []
+    this.skeletons = []
+    this.spook = 0
+    this.nightK = 0
+    this.asked = new Set()
     const touch = matchMedia('(pointer: coarse)').matches
     this.maxPR = Math.min(window.devicePixelRatio || 1, touch ? 1.5 : 1.75)
     this.pr = this.maxPR
@@ -118,6 +126,7 @@ class Game {
     this.cam = new FollowCam(this.camera, this.canvas, {
       onTap: (x, y) => this.onTap(x, y),
       groundY: (x, z) => this.world.groundY(x, z),
+      clear: (f, c) => this.world.cameraClear(f, c),
     })
     this.cam.override = this.titleView(0)
     this.cam.snap(this.cam.override.focus)
@@ -138,6 +147,7 @@ class Game {
       },
     })
     this.g = this.makeApi()
+    this.jobs = new JobRunner(this)
 
     progress(0.9, 'Waking up the animals…')
     this.world.buildAllNear(L.START.x, L.START.z)
@@ -193,6 +203,7 @@ class Game {
     this.world.setBridgeBlocked(!s.done.includes('bear'))
     if (s.done.includes('light')) this.world.lightUp()
     for (const e of Object.values(this.world.npcs)) this.applyNpcState(e)
+    if (this.world.booLantern) this.world.booLantern.visible = s.done.includes('boo')
     this.mode = 'play'
     this.cam.override = null
     this.cam.yaw = s.face + Math.PI
@@ -272,13 +283,21 @@ class Game {
         game.addCoins(3)
       },
       finale: () => game.finale(),
+      quest: () => S().quest,
+      asked: () => game.asked,
+      jobReady: (id) => S().jobs[id] === undefined || S().play - S().jobs[id] > JOB_REST,
+      openJob: (id) => game.jobs.start(id),
+      booLantern: () => {
+        if (game.world.booLantern) game.world.booLantern.visible = true
+      },
     }
   }
 
   stage() {
     const s = this.state
     if (s.quest) return `${s.quest}.${s.step}`
-    if (s.done.includes('light')) return 'end'
+    if (s.done.includes('boo')) return 'end'
+    if (s.done.includes('light')) return 'free'
     if (s.done.includes('bear')) return 'light.0'
     return 'start'
   }
@@ -466,6 +485,11 @@ class Game {
     for (const h of hits) {
       const e = h.object.userData.entity
       if (!this.active(e)) continue
+      if (e.kind === 'grave') return this.tapGrave(e)
+      if (e.kind === 'king') {
+        sfx('tap')
+        return this.ui.tip("That's King Arlo! 👑 He waves from his castle. Sir Lance guards the gate.", { key: 'king', cooldown: 3, force: true })
+      }
       return this.goTo(e)
     }
     const g = ray.intersectObjects(this.world.groundMeshes, false)[0]
@@ -552,6 +576,7 @@ class Game {
       case 'appletree':
       case 'berrybush':
       case 'carrots':
+      case 'pumpkin':
         return this.harvest(e)
       case 'sign':
         return this.readSign(e)
@@ -578,10 +603,10 @@ class Game {
 
   harvest(e) {
     const s = this.state
-    const regrow = e.kind === 'appletree' ? TUNE.treeRegrow : e.kind === 'berrybush' ? TUNE.bushRegrow : TUNE.carrotRegrow
+    const regrow = regrowOf(e.kind)
     const t = s.harvest[e.id]
     if (t !== undefined && s.play - t < regrow) {
-      const what = e.kind === 'appletree' ? 'apples' : e.kind === 'berrybush' ? 'berries' : 'carrots'
+      const what = { appletree: 'apples', berrybush: 'berries', carrots: 'carrots', pumpkin: 'pumpkins' }[e.kind]
       this.ui.tip(`No ${what} now. They will grow back soon! 🌱`, { key: 'regrow-' + e.kind, cooldown: 5, force: true })
       return
     }
@@ -589,6 +614,7 @@ class Game {
     if (e.kind === 'appletree') this.give('apple', 2)
     if (e.kind === 'berrybush') this.give('berries', 3)
     if (e.kind === 'carrots') this.give('carrot', 1)
+    if (e.kind === 'pumpkin') this.give('pumpkin', 1)
     e.shake = 0.7
     this.coji.cheer = 0.6
     this.save()
@@ -646,8 +672,9 @@ class Game {
   // ---------- talking ----------
 
   startTalk(e) {
-    const id = e.id
+    const id = e.cast || e.id
     const ch = e.ch
+    this.asked = new Set()
     const p = this.player
     this.talking = e
     document.body.classList.add('talking')
@@ -657,6 +684,8 @@ class Game {
     if (id === 'hoot') sfx('hoot')
     if (id === 'bun') sfx('hop')
     if (id === 'bruno' && !this.state.done.includes('bear')) sfx('growl')
+    if (id === 'boo') sfx('boo')
+    if (id === 'bones') sfx('rattle')
     p.face = Math.atan2(e.x - p.x, e.z - p.z)
     e.talkFace = Math.atan2(p.x - ch.root.position.x, p.z - ch.root.position.z)
     const node = talk(this.g, id)
@@ -682,6 +711,7 @@ class Game {
 
   portraitOf(id) {
     if (this.portraits[id]) return this.portraits[id]
+    if (id === 'bones') return this.world.portrait(this.talking.ch)
     const ch = id === 'coji' ? this.coji : this.world.npcs[id]?.ch
     if (!ch) return ''
     const savedHead = ch.head?.rotation.clone()
@@ -766,7 +796,7 @@ class Game {
     const e = this.world.npcs.bruno
     if (!e) return
     const from = { x: L.NPCS.bruno.x, z: L.NPCS.bruno.z }
-    const to = { x: 40, z: -48.5 }
+    const to = L.BEAR_SPOT
     const x = L.lerp(from.x, to.x, k)
     const z = L.lerp(from.z, to.z, k)
     const y = L.lerp(this.world.groundY(from.x, from.z), this.world.groundY(to.x, to.z), k) + Math.sin(Math.min(1, k * 3) * Math.PI) * 0.6 * (k < 1 ? 1 : 0)
@@ -774,8 +804,8 @@ class Game {
     e.ch.baseY = this.world.groundY(to.x, to.z)
     if (k >= 1) {
       e.ch.root.position.y = e.ch.baseY
-      e.ch.homeFace = 0.73
-      e.ch.root.rotation.y = 0.73
+      e.ch.homeFace = L.BEAR_SPOT.face
+      e.ch.root.rotation.y = L.BEAR_SPOT.face
     }
     e.x = x
     e.z = z
@@ -864,6 +894,11 @@ class Game {
     this.coji.speed = this.player.speed
     this.coji.update(dt, t)
     this.updateNpcs(dt, t)
+    this.updateSkeletons(dt, t)
+    const sp = this.mode === 'title' ? 0 : L.spookiness(this.player.x, this.player.z)
+    this.spook += (sp - this.spook) * Math.min(1, dt * 1.5)
+    this.world.setEnv(this.nightK, this.spook)
+    setMood(this.spook > 0.45 ? 'spooky' : 'happy')
     this.updateMarkers(t)
     // the tap ring fades
     if (this.ringT > 0) {
@@ -997,13 +1032,13 @@ class Game {
         e.mesh.visible = has
         if (e.sparkle) e.sparkle.visible = has
       } else if (e.fruit && e.fruitMesh) {
-        const regrow = e.kind === 'appletree' ? TUNE.treeRegrow : e.kind === 'berrybush' ? TUNE.bushRegrow : TUNE.carrotRegrow
+        const regrow = regrowOf(e.kind)
         const t = s.harvest[e.id]
         e.fruitMesh.visible = t === undefined || s.play - t >= regrow
-        if (e.shake > 0) {
-          e.shake -= dt
-          e.mesh.rotation.z = Math.sin(e.shake * 40) * 0.05 * e.shake
-        }
+      }
+      if (e.shake > 0) {
+        e.shake -= dt
+        e.mesh.rotation.z = Math.sin(e.shake * 40) * 0.06 * e.shake
       }
     }
   }
@@ -1047,6 +1082,8 @@ class Game {
       berrybush: 'A berry bush! Tap it to pick berries. 🫐',
       carrots: 'Carrots! Tap to pick one. 🥕',
       sign: 'A signpost! Tap it to read where to go. 🪧',
+      grave: 'A gravestone... Tap it if you dare! 👻',
+      pumpkin: 'Pumpkins! Tap one to pick it. 🎃',
       shell: 'A shiny shell! Walk to it to pick it up. 🐚',
       coin: 'A shiny coin! Walk to it to pick it up. 🪙',
     }
@@ -1058,6 +1095,8 @@ class Game {
       }
       if (Math.hypot(p.x - e.x, p.z - e.z) < 7 && ui.tip(msg, { key: 'thing-' + e.kind, once: true })) return
     }
+    if (this.spook > 0.6 && ui.tip('Ooh, it is spooky here! 👻 Do not worry, the ghosts are friendly.', { key: 'spooky', once: true })) return
+    if (this.skeletons.some((k) => Math.hypot(k.e.x - p.x, k.e.z - p.z) < 9) && ui.tip('A skeleton! 💀 It is friendly. Tap it to talk!', { key: 'skeleton', once: true })) return
     // nothing happening: what to do next
     if (performance.now() - this.lastAction > 28000) {
       if (ui.tip(stepTip(g), { key: 'idle', cooldown: 40 })) this.lastAction = performance.now() - 8000
@@ -1147,7 +1186,7 @@ class Game {
     const f = this.fin
     f.t += dt
     if (!f.back) {
-      this.world.setNight(L.smoothstep(0.5, 4, f.t))
+      this.nightK = L.smoothstep(0.5, 4, f.t)
       if (f.t > 3 && !f.lit) {
         f.lit = true
         this.world.lightUp()
@@ -1170,7 +1209,7 @@ class Game {
       }
     } else {
       f.bt += dt
-      this.world.setNight(1 - L.smoothstep(0, 8, f.bt))
+      this.nightK = 1 - L.smoothstep(0, 8, f.bt)
       if (f.bt > 6 && this.world.fw) this.world.fireworks(false)
       if (f.bt > 8) this.fin = null
     }
@@ -1207,5 +1246,100 @@ class Game {
       sh.map?.dispose()
       sh.map = null
     }
+  }
+}
+
+// ---------- the graveyard: ghosts and skeletons ----------
+
+Game.prototype.tapGrave = function (e) {
+  const now = performance.now()
+  if (e.lastPop && now - e.lastPop < 900) return
+  e.lastPop = now
+  sfx('ghost')
+  this.world.popGhost(e.x, e.y + 0.6, e.z)
+  if (e.mesh) e.shake = 0.5
+  if (Math.random() < 0.3 && this.skeletons.length < 2) this.spawnSkeleton(e)
+}
+
+Game.prototype.spawnSkeleton = function (grave) {
+  const ch = new Skeleton()
+  const ux = Math.sin(grave.rot) * 1.3
+  const uz = Math.cos(grave.rot) * 1.3
+  const x = grave.x + ux
+  const z = grave.z + uz
+  const y = this.world.groundY(x, z)
+  ch.root.position.set(x, y - 1.9, z)
+  ch.root.rotation.y = grave.rot
+  this.scene.add(ch.root)
+  const e = this.world.addEntity({ id: `bones-${Date.now()}`, cast: 'bones', kind: 'npc', x, z, y, reach: 2.0, tapR: 1.0, tapH: 2.2, zone: 'graveyard' })
+  e.ch = ch
+  this.skeletons.push({ e, ch, state: 'rise', t: 0, life: 45 + Math.random() * 20, target: null })
+  sfx('rattle')
+}
+
+Game.prototype.updateSkeletons = function (dt, t) {
+  const G = L.GRAVEYARD
+  for (let i = this.skeletons.length - 1; i >= 0; i--) {
+    const k = this.skeletons[i]
+    const { ch, e } = k
+    const r = ch.root
+    const gy = this.world.groundY(e.x, e.z)
+    k.t += dt
+    if (k.state === 'rise') {
+      r.position.y = gy - 1.9 * (1 - L.smoothstep(0, 1.4, k.t))
+      if (k.t > 1.4) {
+        k.state = 'walk'
+        k.t = 0
+      }
+    } else if (k.state === 'walk') {
+      k.life -= dt
+      if (this.talking === e) {
+        ch.speed = 0
+        r.rotation.y += angleTo(r.rotation.y, Math.atan2(this.player.x - e.x, this.player.z - e.z)) * Math.min(1, dt * 6)
+      } else {
+        if (!k.target || Math.hypot(k.target[0] - e.x, k.target[1] - e.z) < 0.4) {
+          for (let tries = 0; tries < 8; tries++) {
+            const a = Math.random() * Math.PI * 2
+            const rr = Math.random() * 9
+            const tx = G.x + Math.cos(a) * rr
+            const tz = G.z + Math.sin(a) * rr
+            if (this.world.nav.okAt(tx, tz) && this.world.nav.clear(e.x, e.z, tx, tz)) {
+              k.target = [tx, tz]
+              break
+            }
+          }
+          if (!k.target) k.target = [G.x, G.z]
+        }
+        const dx = k.target[0] - e.x
+        const dz = k.target[1] - e.z
+        const d = Math.hypot(dx, dz) || 1
+        const step = Math.min(d, 1.3 * dt)
+        e.x += (dx / d) * step
+        e.z += (dz / d) * step
+        ch.speed = 1.3
+        r.rotation.y += angleTo(r.rotation.y, Math.atan2(dx, dz)) * Math.min(1, dt * 5)
+      }
+      r.position.set(e.x, this.world.groundY(e.x, e.z), e.z)
+      if (k.life <= 0 && this.talking !== e) {
+        k.state = 'sink'
+        k.t = 0
+        sfx('rattle')
+      }
+    } else if (k.state === 'sink') {
+      ch.speed = 0
+      r.position.y = gy - 1.9 * L.smoothstep(0, 1.2, k.t)
+      if (k.t > 1.2) {
+        this.scene.remove(r)
+        this.scene.remove(e.proxy)
+        this.world.proxies.splice(this.world.proxies.indexOf(e.proxy), 1)
+        this.world.entities.splice(this.world.entities.indexOf(e), 1)
+        this.skeletons.splice(i, 1)
+        continue
+      }
+    }
+    e.proxy.position.set(e.x, r.position.y + 1.1, e.z)
+    e.proxy.updateMatrixWorld()
+    ch.lookYaw = Math.hypot(this.player.x - e.x, this.player.z - e.z) < 6 ? Math.max(-1, Math.min(1, angleTo(r.rotation.y, Math.atan2(this.player.x - e.x, this.player.z - e.z)))) : 0
+    ch.update(dt, t)
   }
 }

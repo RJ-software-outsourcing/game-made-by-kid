@@ -1,7 +1,12 @@
 // Island shape, heights and layout. Pure JavaScript (no three.js), so the map and tools can use it too.
 // Coordinates: x goes east, z goes south, y is up. 1 unit ≈ 1 meter. The world spans -HALF..HALF.
+//
+// Layout: the King's castle (with a moat) sits in the middle, the village just south of it. A ring
+// road circles the island just inside the beach, and the places along it are spread evenly (one every
+// 45°). A small loop road goes around the moat; spokes join it to the ring.
+// Lighthouse Island is a small island of its own, reached only over Bear Bridge.
 
-export const HALF = 130
+export const HALF = 145
 
 // ---------- small math helpers ----------
 export const clamp = (v, a, b) => (v < a ? a : v > b ? b : v)
@@ -61,161 +66,21 @@ export function polyDist(x, z, pts) {
   return { d: Math.sqrt(best), seg, t: bt }
 }
 
-// ---------- layout ----------
+const DEG = Math.PI / 180
+// A spot at an angle (degrees, atan2(z, x): 0 = east, 90 = south, 180 = west, 270 = north) and radius.
+export const polar = (deg, r) => [Math.cos(deg * DEG) * r, Math.sin(deg * DEG) * r]
+// Rotation so a door looks outward (away from the island center) or inward.
+export const faceOut = (deg) => Math.atan2(Math.cos(deg * DEG), Math.sin(deg * DEG))
+export const faceIn = (deg) => Math.atan2(-Math.cos(deg * DEG), -Math.sin(deg * DEG))
+// The point `dist` in front of something at (x, z) facing `rot`.
+export const ahead = (x, z, rot, dist) => [x + Math.sin(rot) * dist, z + Math.cos(rot) * dist]
 
-// Coast radius every 15°, angle = atan2(z, x): 0 = east, 90 = south, 180 = west, 270 = north.
-const COAST = [88, 89, 92, 95, 95, 94, 93, 94, 96, 98, 99, 100, 101, 100, 98, 99, 103, 106, 108, 108, 110, 121, 112, 95]
+// ---------- coast and ring road ----------
 
-export const MOUNTAIN = { x: -18, z: -92, r: 27, h: 24, block: 21.5 }
-export const PLATEAU = { x: 66, z: -79, r: 11, fall: 16, h: 4.4 }
-export const POND = { x: -44, z: -34, r: 7.5 }
-// The stream runs from the foot of Mount Puff to the east sea. Only the bridge crosses it.
-export const STREAM = [[-9, -74], [3, -66], [18, -59], [32, -55], [46, -53], [60, -51], [76, -46], [94, -40], [118, -36]]
-export const STREAM_HALF = 2.4
+// Coast radius every 15°.
+const COAST = [100, 101, 103, 104, 102, 99, 97, 99, 102, 104, 103, 101, 100, 102, 104, 105, 103, 101, 102, 104, 103, 100, 101, 100]
 
-export const PLACES = {
-  harbor: { name: 'Harbor', icon: '⚓', x: 0, z: 84 },
-  burger: { name: 'Burger Hut', icon: '🍔', x: -16, z: 50 },
-  village: { name: 'Village', icon: '🏡', x: 0, z: 0 },
-  market: { name: 'Market', icon: '🍯', x: -15, z: -4 },
-  bank: { name: 'Bank', icon: '🏦', x: 18, z: -10 },
-  toyshop: { name: 'Toy Shop', icon: '🧸', x: 18, z: 11 },
-  farm: { name: 'Farm', icon: '🥕', x: -58, z: 8 },
-  beach: { name: 'Sunny Beach', icon: '🏖️', x: 74, z: 12 },
-  forest: { name: 'Forest', icon: '🌲', x: -12, z: -48 },
-  pond: { name: 'Pond', icon: '🦆', x: -44, z: -34 },
-  bridge: { name: 'Bear Bridge', icon: '🌉', x: 46, z: -53 },
-  lighthouse: { name: 'Lighthouse', icon: '🗼', x: 66, z: -80 },
-  mountain: { name: 'Mount Puff', icon: '⛰️', x: -18, z: -92 },
-}
-
-export const ROADS = [
-  { w: 4.4, pts: [[0, 88], [0, 66], [0, 42], [0, 13]] }, // harbor → village
-  { w: 3.2, pts: [[0, 50], [-10, 50]] }, // burger hut
-  { w: 3.8, pts: [[-13, 1], [-30, 4], [-46, 7], [-54, 8]] }, // village → farm
-  { w: 3.8, pts: [[13, 1], [30, 5], [48, 10], [66, 12]] }, // village → beach
-  { w: 3.8, pts: [[0, -13], [2, -24], [4, -36]] }, // village → forest fork
-  { w: 3.2, pts: [[4, -36], [24, -40], [46, -44.5]] }, // fork → bridge (south end)
-  { w: 3.2, pts: [[46, -61.5], [50, -68], [60, -74]] }, // bridge (north end) → lighthouse
-  { w: 3.0, pts: [[4, -36], [-14, -38], [-28, -36], [-35, -35]] }, // fork → pond
-]
-export const PLAZA = { x: 0, z: 0, r: 13 }
-
-// Walkable decks over water: their own floor height.
-export const PIER = { x0: -2.6, x1: 2.6, z0: 86, z1: 113, y: 1.05 }
-export const BRIDGE = { x: 46, x0: 44.1, x1: 47.9, z0: -62, z1: -44 }
-
-// Flat pads for buildings and open places. h is filled in from the terrain if missing.
-export const PADS = [
-  { x: 0, z: 0, r: 17, blend: 9 }, // village
-  { x: 0, z: 80, r: 11, blend: 7, h: 1.05 }, // harbor quay
-  { x: -16, z: 50, r: 7, blend: 5 }, // burger hut
-  { x: -58, z: 8, r: 11, blend: 8 }, // farm
-  { x: 74, z: 12, r: 9, blend: 7, h: 0.75 }, // beach area
-  { x: 52, z: -78, r: 5, blend: 4 }, // Gus's cottage
-  { x: -21, z: 18, r: 4.5, blend: 4 }, // houses
-  { x: -26, z: -16, r: 4.5, blend: 4 },
-  { x: 12, z: -26, r: 4.5, blend: 4 },
-  { x: -12, z: 26, r: 4.5, blend: 4 },
-  { x: 13, z: 27, r: 4.5, blend: 4 },
-  { x: 30, z: -8, r: 4.5, blend: 4 },
-]
-
-// Buildings: footprint is used for path-finding. rot faces the door (0 = door looks south, +z).
-export const BUILDINGS = [
-  { kind: 'burger', x: -16, z: 50, rot: Math.PI / 2, w: 8, d: 7 },
-  { kind: 'market', x: -16.5, z: -4, rot: Math.PI / 2, w: 6, d: 4 },
-  { kind: 'bank', x: 18, z: -10, rot: -1.064, w: 7, d: 6 },
-  { kind: 'toyshop', x: 18, z: 11, rot: -2.119, w: 7, d: 6 },
-  { kind: 'house', x: -21, z: 18, rot: 2.29, w: 5.5, d: 5, color: 0 },
-  { kind: 'house', x: -26, z: -16, rot: 1.02, w: 5.5, d: 5, color: 1 },
-  { kind: 'house', x: 12, z: -26, rot: -0.43, w: 5.5, d: 5, color: 2 },
-  { kind: 'house', x: -12, z: 26, rot: 2.0, w: 5.5, d: 5, color: 3 },
-  { kind: 'house', x: 13, z: 27, rot: -1.9, w: 5.5, d: 5, color: 4 },
-  { kind: 'house', x: 30, z: -8, rot: -1.3, w: 5.5, d: 5, color: 0 },
-  { kind: 'shed', x: -66, z: 2, rot: Math.PI / 2, w: 5, d: 4 },
-  { kind: 'cottage', x: 52, z: -79, rot: 0.6, w: 5.5, d: 5 },
-  { kind: 'lighthouse', x: 68, z: -83, rot: -2.4, w: 7, d: 7, round: true },
-  { kind: 'warehouse', x: -13, z: 80, rot: Math.PI / 2, w: 6, d: 8 },
-]
-
-// Things to tap that are not characters.
-export const OBJECTS = [
-  { id: 'well', kind: 'well', x: 0, z: 0 },
-  { id: 'spring', kind: 'spring', x: 10, z: -31 },
-  { id: 'fountain', kind: 'fountain', x: 70, z: 6 },
-  { id: 'bench-harbor', kind: 'bench', x: -6, z: 74, rot: 0 },
-  { id: 'bench-plaza1', kind: 'bench', x: -8, z: 8, rot: 2.4 },
-  { id: 'bench-plaza2', kind: 'bench', x: 8, z: -8, rot: -0.8 },
-  { id: 'bench-farm', kind: 'bench', x: -50, z: 16, rot: Math.PI },
-  { id: 'bench-beach', kind: 'bench', x: 78, z: 6, rot: -Math.PI / 2 },
-  { id: 'bench-lighthouse', kind: 'bench', x: 60, z: -84, rot: 0.6 },
-  { id: 'apple1', kind: 'appletree', x: -48, z: -6 },
-  { id: 'apple2', kind: 'appletree', x: -57, z: -5 },
-  { id: 'apple3', kind: 'appletree', x: -66, z: -4 },
-  { id: 'apple4', kind: 'appletree', x: -52, z: -14 },
-  { id: 'apple5', kind: 'appletree', x: -62, z: -13 },
-  { id: 'berry1', kind: 'berrybush', x: -16, z: -30 },
-  { id: 'berry2', kind: 'berrybush', x: 14, z: -48 },
-  { id: 'berry3', kind: 'berrybush', x: -32, z: -46 },
-  { id: 'berry4', kind: 'berrybush', x: 22, z: -32 },
-  { id: 'berry5', kind: 'berrybush', x: -6, z: -58 },
-  { id: 'carrots', kind: 'carrots', x: -62, z: 16 },
-  { id: 'sign-harbor', kind: 'sign', x: 4, z: 62, boards: ['village', 'burger', 'harbor'] },
-  { id: 'sign-village', kind: 'sign', x: 5, z: -14, boards: ['forest', 'farm', 'beach', 'harbor'] },
-  { id: 'sign-forest', kind: 'sign', x: 8, z: -33, boards: ['lighthouse', 'pond', 'village'] },
-  { id: 'sign-bridge', kind: 'sign', x: 50, z: -64, boards: ['lighthouse', 'village'] },
-]
-// Where each signpost board points (the place it names).
-export const SIGN_TARGETS = {
-  village: [0, 0],
-  burger: [-16, 50],
-  harbor: [0, 84],
-  forest: [3, -40],
-  farm: [-58, 8],
-  beach: [74, 12],
-  lighthouse: [66, -80],
-  pond: [-44, -34],
-}
-
-// Characters: position, facing (radians, 0 = looking south) and which zone they belong to.
-export const NPCS = {
-  pip: { x: 1.2, z: 102.5, face: 0, zone: 'harbor' },
-  finn: { x: -2.1, z: 95, face: -Math.PI / 2, zone: 'harbor', sit: true },
-  momo: { x: 8, z: 84.5, face: -2.6, zone: 'harbor' },
-  ben: { x: -13.4, z: 50, face: Math.PI / 2, zone: 'burger' },
-  granny: { x: -16.3, z: -4, face: Math.PI / 2, zone: 'village' },
-  penny: { x: 14.6, z: -8.1, face: -1.064, zone: 'village' },
-  tina: { x: 14.7, z: 8.9, face: -2.119, zone: 'village' },
-  leo: { x: 5.5, z: 4.5, face: -2.2, zone: 'village' },
-  bun: { x: -56, z: 20, face: 0.6, zone: 'farm' },
-  hoot: { x: -28, z: -50, face: 0.4, zone: 'forest', perch: 4.6 },
-  bruno: { x: 46, z: -53, face: Math.PI * 0.95, zone: 'forest' },
-  gus: { x: 62, z: -77, face: -0.9, zone: 'lighthouse' },
-}
-
-export const OWL_TREE = { x: -28, z: -50.8 }
-export const GLASSES_SPOT = { x: -36.5, z: -40.5 }
-export const HIDDEN_COINS = [
-  [-30, 22], [24, -20], [-70, 12], [86, 22], [-4, -66], [70, -66],
-]
-export const START = { x: -0.6, z: 108, face: Math.PI }
-
-// Zones: details (plants, characters, pickups) are built when Coji gets near.
-export const ZONES = [
-  { id: 'harbor', x: 0, z: 78, r: 34 },
-  { id: 'burger', x: -14, z: 48, r: 22 },
-  { id: 'village', x: 0, z: 2, r: 36 },
-  { id: 'farm', x: -60, z: 6, r: 32 },
-  { id: 'beach', x: 72, z: 14, r: 34 },
-  { id: 'forest', x: -10, z: -48, r: 50 },
-  { id: 'lighthouse', x: 62, z: -78, r: 36 },
-  { id: 'wild', x: 0, z: 0, r: 999 }, // everything else (scattered trees and flowers)
-]
-
-// ---------- heights ----------
-
-export function coastRadius(a) {
+function coastSmooth(a) {
   let u = (a / (Math.PI * 2)) * 24
   u = ((u % 24) + 24) % 24
   const i = Math.floor(u)
@@ -227,14 +92,175 @@ export function coastRadius(a) {
   const p3 = COAST[(i + 2) % n]
   const t2 = t * t
   const t3 = t2 * t
-  const r = 0.5 * (2 * p1 + (-p0 + p2) * t + (2 * p0 - 5 * p1 + 4 * p2 - p3) * t2 + (-p0 + 3 * p1 - 3 * p2 + p3) * t3)
-  return r + 2.0 * Math.sin(a * 11 + 0.7) + 1.3 * Math.sin(a * 17 + 2.1)
+  return 0.5 * (2 * p1 + (-p0 + p2) * t + (2 * p0 - 5 * p1 + 4 * p2 - p3) * t2 + (-p0 + 3 * p1 - 3 * p2 + p3) * t3)
 }
-
-// How far inside the coast a point is (negative = in the sea).
+export function coastRadius(a) {
+  return coastSmooth(a) + 2.0 * Math.sin(a * 11 + 0.7) + 1.3 * Math.sin(a * 17 + 2.1)
+}
 export function inland(x, z) {
   return coastRadius(Math.atan2(z, x)) - Math.hypot(x, z)
 }
+
+const RING_INSET = 21
+export const ringRadius = (deg) => coastSmooth(deg * DEG) - RING_INSET
+export const ringPos = (deg, off = 0) => polar(deg, ringRadius(deg) + off)
+export const RING = []
+for (let i = 0; i <= 64; i++) RING.push(ringPos((i / 64) * 360))
+
+// ---------- landmarks ----------
+
+export const MOUNTAIN = { x: -10, z: -47, r: 19, h: 20, block: 15.5 }
+export const POND = { x: -29, z: -25, r: 7 }
+// A little creek runs from the foot of Mount Puff into the pond.
+export const STREAM = [[-18, -37], [-22.5, -32], [-26, -28]]
+export const STREAM_HALF = 1.4
+
+const ISLE_DEG = 315
+export const ISLET = (() => {
+  const [x, z] = polar(ISLE_DEG, 124)
+  return { x, z, r: 16, h: 4.2 }
+})()
+export const BRIDGE = (() => {
+  const [ax, az] = polar(ISLE_DEG, 94.5)
+  const [bx, bz] = polar(ISLE_DEG, 110.5)
+  return { ax, az, bx, bz, w: 3.8 }
+})()
+export const BRIDGE_MID = [(BRIDGE.ax + BRIDGE.bx) / 2, (BRIDGE.az + BRIDGE.bz) / 2]
+
+export const GRAVEYARD = (() => {
+  const deg = 225
+  const [x, z] = ringPos(deg, -15)
+  const rot = faceOut(deg)
+  return { x, z, r: 13, rot, deg }
+})()
+// Gravestones in neat-ish rows, leaving a path from the gate to the middle.
+export const GRAVES = (() => {
+  const out = []
+  const g = GRAVEYARD
+  const c = Math.cos(g.rot)
+  const s = Math.sin(g.rot)
+  let k = 0
+  for (let row = -2; row <= 2; row++)
+    for (let col = -3; col <= 3; col++) {
+      if (Math.abs(col) <= 0) continue
+      if (row === 0 && Math.abs(col) <= 1) continue
+      const lx = col * 3.0 + (row % 2) * 0.6
+      const lz = row * 3.4 - 1
+      if (Math.hypot(lx, lz) > 10.5) continue
+      // local → world (local +z points out of the gate)
+      const x = g.x + lx * c + lz * s
+      const z = g.z - lx * s + lz * c
+      out.push({ id: `grave-${k}`, x, z, rot: g.rot + (((k * 37) % 7) - 3) * 0.05, type: k % 3 })
+      k++
+    }
+  return out
+})()
+export const PUMPKINS = (() => {
+  const g = GRAVEYARD
+  return [0, 1, 2, 3, 4, 5].map((i) => {
+    const a = g.rot + Math.PI + (i - 2.5) * 0.22
+    return { id: `pumpkin-${i}`, x: g.x + Math.sin(a) * 10.2, z: g.z + Math.cos(a) * 10.2 }
+  })
+})()
+
+// The castle: square walls (half size `half`), corner towers, a keep, and a moat around it.
+export const CASTLE = { x: 0, z: 0, half: 10, moatIn: 17.5, moatOut: 20.5, loop: 23.5 }
+export const DRAWBRIDGE = { x0: -2.2, x1: 2.2, z0: 16.6, z1: 21.6 }
+export const VILLAGE = { x: 0, z: 40 }
+export const PLAZA = { x: 0, z: 40, r: 11 }
+export const PIER = { x0: -2.6, x1: 2.6, z0: 93, z1: 120, y: 1.05 }
+export const HARBOR = { x: 0, z: 85 }
+
+// Ring stops, one every 45°. `in`: the building sits inside the ring, facing out to the road.
+const STOP = {
+  burger: 135,
+  farm: 180,
+  graveyard: 225,
+  school: 270,
+  bridge: 315,
+  beach: 0,
+  post: 45,
+  harbor: 90,
+}
+const at = (deg, off) => ringPos(deg, off)
+
+const [burgerX, burgerZ] = at(STOP.burger, -12)
+const [postX, postZ] = at(STOP.post, -12)
+const [schoolX, schoolZ] = at(STOP.school, -10)
+const [iceX, iceZ] = at(STOP.beach, 9)
+const [farmX, farmZ] = at(STOP.farm, -14)
+const [lightX, lightZ] = [ISLET.x + 3.5, ISLET.z - 3.5]
+
+export const PLACES = {
+  harbor: { name: 'Harbor', icon: '⚓', x: 0, z: 88 },
+  burger: { name: 'Burger Hut', icon: '🍔', x: burgerX, z: burgerZ },
+  castle: { name: 'Castle', icon: '🏰', x: 0, z: 0 },
+  village: { name: 'Village', icon: '🏡', x: 0, z: 40 },
+  market: { name: 'Market', icon: '🍯', x: -13, z: 40 },
+  bank: { name: 'Bank', icon: '🏦', x: 13, z: 34 },
+  toyshop: { name: 'Toy Shop', icon: '🧸', x: 13, z: 47 },
+  farm: { name: 'Farm', icon: '🥕', x: farmX, z: farmZ },
+  beach: { name: 'Sunny Beach', icon: '🏖️', x: iceX + 2, z: iceZ + 8 },
+  icecream: { name: 'Ice Cream', icon: '🍦', x: iceX, z: iceZ },
+  post: { name: 'Post Office', icon: '📮', x: postX, z: postZ },
+  school: { name: 'School', icon: '🏫', x: schoolX, z: schoolZ },
+  graveyard: { name: 'Spooky Graveyard', icon: '👻', x: GRAVEYARD.x, z: GRAVEYARD.z },
+  forest: { name: 'Forest', icon: '🌲', x: 24, z: -34 },
+  pond: { name: 'Pond', icon: '🦆', x: POND.x, z: POND.z },
+  bridge: { name: 'Bear Bridge', icon: '🌉', x: BRIDGE_MID[0], z: BRIDGE_MID[1] },
+  lighthouse: { name: 'Lighthouse', icon: '🗼', x: lightX, z: lightZ },
+  mountain: { name: 'Mount Puff', icon: '⛰️', x: MOUNTAIN.x, z: MOUNTAIN.z },
+}
+
+// ---------- roads ----------
+
+const [rS] = [ringPos(90)]
+const [rW] = [ringPos(180)]
+const [rE] = [ringPos(0)]
+const [rNE] = [ringPos(315)]
+const CASTLE_LOOP = []
+for (let i = 0; i <= 40; i++) {
+  const a = (i / 40) * Math.PI * 2
+  CASTLE_LOOP.push([CASTLE.x + Math.cos(a) * CASTLE.loop, CASTLE.z + Math.sin(a) * CASTLE.loop])
+}
+const lp = (deg) => polar(deg, CASTLE.loop)
+export const ROADS = [
+  { w: 4.4, loop: true, pts: RING }, // the ring road
+  { w: 3.6, loop: true, pts: CASTLE_LOOP }, // around the castle moat
+  { w: 4.0, pts: [[0, DRAWBRIDGE.z1], [0, 50], [rS[0], rS[1]], [0, 95]] }, // castle → village → harbor
+  { w: 3.8, pts: [lp(180), [-40, 1], [rW[0], rW[1]]] }, // west spoke (farm)
+  { w: 3.8, pts: [lp(0), [40, 1], [rE[0], rE[1]]] }, // east spoke (beach)
+  { w: 3.4, pts: [lp(315), [24, -30], [38, -44], [rNE[0], rNE[1]]] }, // forest trail
+  { w: 3.4, pts: [[rNE[0], rNE[1]], [BRIDGE.ax, BRIDGE.az]] }, // spur to Bear Bridge
+  { w: 3.0, pts: [[BRIDGE.bx, BRIDGE.bz], [ISLET.x - 1, ISLET.z + 1]] }, // up to the lighthouse
+  { w: 2.8, pts: [[-33, 1], [-30, -12], [-28, -16.5]] }, // pond trail
+  ...[STOP.burger, STOP.post, STOP.school].map((d) => ({ w: 3.0, pts: [ringPos(d, -2), ringPos(d, -7.5)] })), // driveways
+]
+
+// ---------- heights ----------
+
+// Village houses: [x, z, rot, color]
+const HOUSES = [
+  [-15, 54, 2.32, 0],
+  [15, 58, -2.45, 1],
+  [-27, 31, 1.2, 2],
+  [27, 27, -1.08, 3],
+  [-31, 14, 2.0, 4],
+  [31, 13, -2.0, 0],
+]
+
+export const PADS = [
+  { x: CASTLE.x, z: CASTLE.z, r: 16, blend: 8 }, // castle
+  { x: PLAZA.x, z: PLAZA.z, r: 15, blend: 8 }, // village plaza
+  { x: HARBOR.x, z: HARBOR.z, r: 11, blend: 7, h: 1.05 }, // harbor quay
+  { x: burgerX, z: burgerZ, r: 8, blend: 5 },
+  { x: postX, z: postZ, r: 7, blend: 5 },
+  { x: schoolX, z: schoolZ, r: 8, blend: 5 },
+  { x: iceX, z: iceZ, r: 7, blend: 6, h: 0.7 },
+  { x: farmX, z: farmZ, r: 12, blend: 8 },
+  { x: GRAVEYARD.x, z: GRAVEYARD.z, r: 14, blend: 6 },
+  ...HOUSES.map((h) => ({ x: h[0], z: h[1], r: 4.5, blend: 4 })),
+]
 
 function baseHeight(x, z) {
   const t = inland(x, z)
@@ -243,26 +269,30 @@ function baseHeight(x, z) {
     h = Math.max(-7, 0.3 + t * 0.3)
   } else {
     h = 0.3 + 1.25 * smoothstep(2, 16, t)
-    h += 1.7 * (fbm(x * 0.021 + 3, z * 0.021 - 7) - 0.45) * smoothstep(8, 30, t)
+    h += 1.6 * (fbm(x * 0.021 + 3, z * 0.021 - 7) - 0.45) * smoothstep(10, 30, t)
     h = Math.max(h, 0.3 + 0.4 * smoothstep(2, 12, t))
   }
   const md = Math.hypot(x - MOUNTAIN.x, z - MOUNTAIN.z)
   if (md < MOUNTAIN.r) {
     const k = 1 - md / MOUNTAIN.r
-    h = Math.max(h, MOUNTAIN.h * Math.pow(k, 1.25) * (0.86 + 0.28 * vnoise(x * 0.16, z * 0.16)) + 0.4 * k)
+    h = Math.max(h, MOUNTAIN.h * Math.pow(k, 1.2) * (0.88 + 0.24 * vnoise(x * 0.16, z * 0.16)) + 0.4 * k)
   }
-  const pd = Math.hypot(x - PLATEAU.x, z - PLATEAU.z)
-  if (pd < PLATEAU.r + PLATEAU.fall) h = Math.max(h, PLATEAU.h * smoothstep(PLATEAU.r + PLATEAU.fall, PLATEAU.r, pd))
+  // Lighthouse Island
+  const id = Math.hypot(x - ISLET.x, z - ISLET.z)
+  if (id < ISLET.r + 25) {
+    const it = ISLET.r - id
+    const ih = it < 0 ? Math.max(-7, 0.3 + it * 0.3) : 0.3 + (ISLET.h - 0.3) * smoothstep(3, 10, it)
+    h = Math.max(h, ih)
+  }
   return h
 }
 
-// Water level along the stream: follows the land downhill, never rising.
 let streamLevels = null
 function streamLevel(seg, t) {
   if (!streamLevels) {
-    streamLevels = STREAM.map(([x, z]) => baseHeight(x, z) - 0.7)
+    streamLevels = STREAM.map(([x, z]) => baseHeight(x, z) - 0.6)
     for (let i = 1; i < streamLevels.length; i++) streamLevels[i] = Math.min(streamLevels[i], streamLevels[i - 1] - 0.05)
-    for (let i = 0; i < streamLevels.length; i++) streamLevels[i] = Math.max(streamLevels[i], 0.05)
+    streamLevels[streamLevels.length - 1] = Math.max(streamLevels[streamLevels.length - 1], getPondLevel())
   }
   return lerp(streamLevels[seg], streamLevels[seg + 1], t)
 }
@@ -290,32 +320,67 @@ export function heightAt(x, z) {
     if (d < p.r + p.blend) h = lerp(h, p.h, smoothstep(p.r + p.blend, p.r, d))
   }
   const s = polyDist(x, z, STREAM)
-  if (s.d < STREAM_HALF + 3) {
-    const bed = streamLevel(s.seg, s.t) - 1.0
-    h = lerp(h, Math.min(h, bed), smoothstep(STREAM_HALF + 3, STREAM_HALF - 0.8, s.d))
+  if (s.d < STREAM_HALF + 2.5) {
+    const bed = streamLevel(s.seg, s.t) - 0.8
+    h = lerp(h, Math.min(h, bed), smoothstep(STREAM_HALF + 2.5, STREAM_HALF - 0.5, s.d))
   }
   const pd = Math.hypot(x - POND.x, z - POND.z)
   if (pd < POND.r + 3) {
     const bed = getPondLevel() - 1.3
     h = lerp(h, Math.min(h, bed), smoothstep(POND.r + 3, POND.r - 2.5, pd))
   }
+  // the moat
+  const cd = Math.hypot(x - CASTLE.x, z - CASTLE.z)
+  if (cd > CASTLE.moatIn - 2 && cd < CASTLE.moatOut + 2) {
+    const mid = (CASTLE.moatIn + CASTLE.moatOut) / 2
+    const half = (CASTLE.moatOut - CASTLE.moatIn) / 2
+    const bed = getMoatLevel() - 1.2
+    h = lerp(h, Math.min(h, bed), smoothstep(half + 1.6, half - 0.6, Math.abs(cd - mid)))
+  }
   return h
 }
-
-// Height of the bridge deck at z (an arch from bank to bank).
-export function bridgeDeckY(z, groundAt) {
-  const yS = groundAt(BRIDGE.x, BRIDGE.z1 + 0.5)
-  const yN = groundAt(BRIDGE.x, BRIDGE.z0 - 0.5)
-  const t = clamp((z - BRIDGE.z1) / (BRIDGE.z0 - BRIDGE.z1), 0, 1)
-  return lerp(yS, yN, t) + 0.7 * Math.sin(Math.PI * t) + 0.12
+let moatLevel = null
+export function getMoatLevel() {
+  if (moatLevel === null) {
+    if (!padsReady) preparePads()
+    moatLevel = PADS[0].h - 0.75
+  }
+  return moatLevel
 }
+
+// ---------- decks (pier, bridge) ----------
 
 export function onPier(x, z) {
   return x > PIER.x0 && x < PIER.x1 && z > PIER.z0 && z < PIER.z1
 }
-export function onBridge(x, z) {
-  return x > BRIDGE.x0 && x < BRIDGE.x1 && z > BRIDGE.z0 && z < BRIDGE.z1
+export function onDrawbridge(x, z) {
+  const D = DRAWBRIDGE
+  return x > D.x0 && x < D.x1 && z > CASTLE.z + D.z0 && z < CASTLE.z + D.z1
 }
+export function inMoat(x, z, margin = 0) {
+  const cd = Math.hypot(x - CASTLE.x, z - CASTLE.z)
+  return cd > CASTLE.moatIn - margin && cd < CASTLE.moatOut + margin
+}
+// Where along Bear Bridge (t 0..1), or null when not on it.
+export function bridgeT(x, z, pad = 0) {
+  const { ax, az, bx, bz, w } = BRIDGE
+  const dx = bx - ax
+  const dz = bz - az
+  const len = Math.hypot(dx, dz)
+  const t = ((x - ax) * dx + (z - az) * dz) / (len * len)
+  if (t < -pad / len || t > 1 + pad / len) return null
+  const side = Math.abs(((x - ax) * dz - (z - az) * dx) / len)
+  return side < w / 2 ? clamp(t, 0, 1) : null
+}
+export function onBridge(x, z) {
+  return bridgeT(x, z) !== null
+}
+export function bridgeDeckY(t, groundAt) {
+  const ya = groundAt(BRIDGE.ax, BRIDGE.az)
+  const yb = groundAt(BRIDGE.bx, BRIDGE.bz)
+  return lerp(ya, yb, t) + 1.1 * Math.sin(Math.PI * t) + 0.14
+}
+
 export function inStream(x, z, margin = 0) {
   return polyDist(x, z, STREAM).d < STREAM_HALF + margin
 }
@@ -325,19 +390,132 @@ export function inPond(x, z, margin = 0) {
 export function inMountain(x, z) {
   return Math.hypot(x - MOUNTAIN.x, z - MOUNTAIN.z) < MOUNTAIN.block
 }
-// How much a spot is "forest" (0..1), with a wobbly edge instead of a straight line.
-export function forestness(x, z) {
-  const zEdge = -24 - 7 * (vnoise(x * 0.045 + 11, 2.5) - 0.5) * 2
-  const xEdge = 40 + 9 * (vnoise(4.5, z * 0.045 + 7) - 0.5) * 2
-  const zFar = -82 + 6 * (vnoise(x * 0.05 - 3, 9.5) - 0.5) * 2
-  const a = smoothstep(zEdge + 2.5, zEdge - 2.5, z)
-  const b = smoothstep(xEdge + 2.5, xEdge - 2.5, x)
-  const c = smoothstep(zFar - 2.5, zFar + 2.5, z)
-  const m = smoothstep(MOUNTAIN.r - 3, MOUNTAIN.r + 1, Math.hypot(x - MOUNTAIN.x, z - MOUNTAIN.z))
-  return a * b * c * m
-}
-
 export function nearRoad(x, z, extra = 0) {
   for (const r of ROADS) if (polyDist(x, z, r.pts).d < r.w / 2 + extra) return true
   return Math.hypot(x - PLAZA.x, z - PLAZA.z) < PLAZA.r + extra
 }
+// How spooky a spot is (0..1): the graveyard and a little around it.
+export function spookiness(x, z) {
+  return smoothstep(GRAVEYARD.r + 9, GRAVEYARD.r - 3, Math.hypot(x - GRAVEYARD.x, z - GRAVEYARD.z))
+}
+// How much a spot is "forest" (0..1), with a wobbly edge.
+export function forestness(x, z) {
+  const r = Math.hypot(x, z)
+  const zEdge = -20 - 7 * (vnoise(x * 0.045 + 11, 2.5) - 0.5) * 2
+  const a = smoothstep(zEdge + 2.5, zEdge - 2.5, z)
+  const b = smoothstep(ringRadius(Math.atan2(z, x) / DEG) - 6, ringRadius(Math.atan2(z, x) / DEG) - 11, r)
+  const c = 1 - smoothstep(GRAVEYARD.r + 4, GRAVEYARD.r - 2, Math.hypot(x - GRAVEYARD.x, z - GRAVEYARD.z))
+  const m = smoothstep(MOUNTAIN.r - 3, MOUNTAIN.r + 1, Math.hypot(x - MOUNTAIN.x, z - MOUNTAIN.z))
+  const sch = smoothstep(9, 14, Math.hypot(x - schoolX, z - schoolZ))
+  const cas = smoothstep(CASTLE.loop + 1, CASTLE.loop + 6, Math.hypot(x - CASTLE.x, z - CASTLE.z))
+  return a * b * c * m * sch * cas
+}
+
+// ---------- buildings, objects, characters ----------
+
+const out = (deg) => faceOut(deg)
+export const BUILDINGS = [
+  { kind: 'burger', x: burgerX, z: burgerZ, rot: out(STOP.burger), w: 8, d: 7 },
+  { kind: 'post', x: postX, z: postZ, rot: out(STOP.post), w: 7, d: 6 },
+  { kind: 'school', x: schoolX, z: schoolZ, rot: out(STOP.school), w: 10, d: 6.5 },
+  { kind: 'icecream', x: iceX, z: iceZ, rot: faceIn(STOP.beach), w: 4.5, d: 3.6 },
+  { kind: 'castle', x: CASTLE.x, z: CASTLE.z, rot: 0, w: CASTLE.half * 2 + 1, d: CASTLE.half * 2 + 1 },
+  { kind: 'market', x: -13.5, z: 40, rot: Math.PI / 2, w: 6, d: 4 },
+  { kind: 'bank', x: 13, z: 34, rot: -1.14, w: 7, d: 6 },
+  { kind: 'toyshop', x: 13, z: 47, rot: -2.06, w: 7, d: 6 },
+  ...HOUSES.map(([x, z, rot, color]) => ({ kind: 'house', x, z, rot, w: 5.5, d: 5, color })),
+  { kind: 'shed', x: farmX - 8, z: farmZ + 10, rot: Math.PI / 2, w: 5, d: 4 },
+  { kind: 'cottage', x: ISLET.x - 7, z: ISLET.z + 4, rot: Math.atan2(BRIDGE.bx - ISLET.x, BRIDGE.bz - ISLET.z), w: 5.5, d: 5 },
+  { kind: 'lighthouse', x: lightX, z: lightZ, rot: Math.atan2(BRIDGE.bx - lightX, BRIDGE.bz - lightZ), w: 7, d: 7, round: true },
+  { kind: 'warehouse', x: -13, z: 84, rot: Math.PI / 2, w: 6, d: 8 },
+]
+const B = (kind) => BUILDINGS.find((b) => b.kind === kind)
+
+const sp = (kind, dist) => {
+  const b = B(kind)
+  return ahead(b.x, b.z, b.rot, dist)
+}
+
+export const OBJECTS = [
+  { id: 'well', kind: 'well', x: PLAZA.x, z: PLAZA.z },
+  { id: 'spring', kind: 'spring', x: 14, z: -31 },
+  { id: 'fountain', kind: 'fountain', x: iceX + 2, z: iceZ - 8 },
+  { id: 'bench-harbor', kind: 'bench', x: -7, z: 78, rot: 0 },
+  { id: 'bench-plaza1', kind: 'bench', x: -7.5, z: 48, rot: 2.4 },
+  { id: 'bench-plaza2', kind: 'bench', x: 7.5, z: 32, rot: -0.8 },
+  { id: 'bench-castle', kind: 'bench', x: -7, z: 27.5, rot: 0 },
+  { id: 'bench-farm', kind: 'bench', x: farmX + 9, z: farmZ + 9, rot: Math.PI },
+  { id: 'bench-beach', kind: 'bench', x: iceX + 3, z: iceZ + 7, rot: -Math.PI / 2 },
+  { id: 'bench-lighthouse', kind: 'bench', x: ISLET.x - 2, z: ISLET.z + 8, rot: Math.atan2(BRIDGE.bx - ISLET.x, BRIDGE.bz - ISLET.z) },
+  { id: 'bench-school', kind: 'bench', x: schoolX + 7, z: schoolZ + 6, rot: 0 },
+  { id: 'bench-grave', kind: 'bench', x: GRAVEYARD.x + 5, z: GRAVEYARD.z - 5, rot: GRAVEYARD.rot },
+  ...[[-6, -14], [-14, -14], [-22, -12], [-9, -22], [-18, -22]].map(([dx, dz], i) => ({ id: `apple${i + 1}`, kind: 'appletree', x: farmX + dx, z: farmZ + dz })),
+  ...[[-12, -20], [16, -36], [32, -50], [42, -30], [-40, -30], [6, -64]].map(([x, z], i) => ({ id: `berry${i + 1}`, kind: 'berrybush', x, z })),
+  { id: 'carrots', kind: 'carrots', x: farmX + 2, z: farmZ + 11 },
+  { id: 'sign-harbor', kind: 'sign', x: 4.5, z: 70, boards: ['village', 'burger', 'post'] },
+  { id: 'sign-village', kind: 'sign', x: 4.5, z: 27, boards: ['castle', 'farm', 'beach', 'harbor'] },
+  { id: 'sign-castle', kind: 'sign', x: 18.5, z: -19, boards: ['forest', 'lighthouse', 'castle'] },
+  { id: 'sign-west', kind: 'sign', x: ringPos(180, 5)[0], z: ringPos(180, 5)[1] - 4, boards: ['graveyard', 'farm', 'burger'] },
+  { id: 'sign-east', kind: 'sign', x: ringPos(0, -5)[0], z: ringPos(0, -5)[1] + 4, boards: ['lighthouse', 'beach', 'post'] },
+  { id: 'sign-ne', kind: 'sign', x: ringPos(315, -5)[0] + 3, z: ringPos(315, -5)[1] + 2, boards: ['lighthouse', 'school', 'village'] },
+  { id: 'sign-grave', kind: 'sign', x: ringPos(225, 5)[0] + 4, z: ringPos(225, 5)[1] - 2, boards: ['graveyard', 'school', 'farm'] },
+]
+export const SIGN_TARGETS = Object.fromEntries(Object.entries(PLACES).map(([k, p]) => [k, [p.x, p.z]]))
+
+const face = (x, z, tx, tz) => Math.atan2(tx - x, tz - z)
+const [benX, benZ] = sp('burger', 2.0)
+const [cocoX, cocoZ] = sp('icecream', 0.2)
+const [maxX, maxZ] = sp('post', 4.4)
+const [kimX, kimZ] = sp('school', 4.6)
+const [gusX, gusZ] = sp('lighthouse', 4.8)
+const [booX, booZ] = ahead(GRAVEYARD.x, GRAVEYARD.z, GRAVEYARD.rot, -2)
+
+export const OWL_TREE = { x: 18, z: -42 }
+export const GLASSES_SPOT = { x: -20.5, z: -21 }
+
+export const NPCS = {
+  pip: { x: 1.2, z: 109.5, face: 0, zone: 'harbor' },
+  finn: { x: -2.1, z: 101, face: -Math.PI / 2, zone: 'harbor', sit: true },
+  momo: { x: 8, z: 87, face: -2.6, zone: 'harbor', crate: true },
+  ben: { x: benX, z: benZ, face: B('burger').rot, zone: 'burger' },
+  coco: { x: cocoX, z: cocoZ, face: B('icecream').rot, zone: 'beach' },
+  max: { x: maxX, z: maxZ, face: B('post').rot, zone: 'post' },
+  kim: { x: kimX, z: kimZ, face: B('school').rot, zone: 'school' },
+  granny: { x: -13.8, z: 40, face: Math.PI / 2, zone: 'village' },
+  penny: { x: ahead(13, 34, -1.14, 4)[0], z: ahead(13, 34, -1.14, 4)[1], face: -1.14, zone: 'village' },
+  tina: { x: ahead(13, 47, -2.06, 4)[0], z: ahead(13, 47, -2.06, 4)[1], face: -2.06, zone: 'village' },
+  leo: { x: 5.5, z: 44.5, face: -2.2, zone: 'village' },
+  lance: { x: 2.4, z: CASTLE.z + 13, face: 0, zone: 'castle' },
+  bun: { x: farmX + 6, z: farmZ + 13, face: 0.6, zone: 'farm' },
+  hoot: { x: OWL_TREE.x, z: OWL_TREE.z + 1.6, face: face(OWL_TREE.x, OWL_TREE.z, 22, -31), zone: 'forest', perch: 4.6 },
+  bruno: { x: BRIDGE_MID[0], z: BRIDGE_MID[1], face: face(BRIDGE_MID[0], BRIDGE_MID[1], BRIDGE.ax, BRIDGE.az), zone: 'bridge' },
+  gus: { x: gusX, z: gusZ, face: B('lighthouse').rot, zone: 'lighthouse' },
+  boo: { x: booX, z: booZ, face: GRAVEYARD.rot, zone: 'graveyard', float: 1.3 },
+}
+// Where Bruno sits after he moves off the bridge.
+export const BEAR_SPOT = (() => {
+  const ux = (BRIDGE.bx - BRIDGE.ax) / 16
+  const uz = (BRIDGE.bz - BRIDGE.az) / 16
+  return { x: BRIDGE.ax - ux * 3 + uz * 4, z: BRIDGE.az - uz * 3 - ux * 4, face: face(BRIDGE.ax - ux * 3 + uz * 4, BRIDGE.az - uz * 3 - ux * 4, BRIDGE.ax, BRIDGE.az) }
+})()
+
+export const HIDDEN_COINS = [
+  [-36, 24], [26, -16], [farmX - 6, farmZ + 16], [iceX + 4, iceZ + 16], [8, -60], [ISLET.x + 6, ISLET.z + 2], [GRAVEYARD.x + 2, GRAVEYARD.z + 3], [50, 30],
+]
+export const START = { x: -0.6, z: 115, face: Math.PI }
+
+export const ZONES = [
+  { id: 'harbor', x: 0, z: 88, r: 30 },
+  { id: 'burger', x: burgerX, z: burgerZ, r: 22 },
+  { id: 'post', x: postX, z: postZ, r: 22 },
+  { id: 'village', x: 0, z: 40, r: 30 },
+  { id: 'castle', x: 0, z: 0, r: 26 },
+  { id: 'farm', x: farmX, z: farmZ, r: 28 },
+  { id: 'beach', x: iceX, z: iceZ, r: 28 },
+  { id: 'school', x: schoolX, z: schoolZ, r: 22 },
+  { id: 'graveyard', x: GRAVEYARD.x, z: GRAVEYARD.z, r: 24 },
+  { id: 'forest', x: 14, z: -36, r: 36 },
+  { id: 'bridge', x: BRIDGE_MID[0], z: BRIDGE_MID[1], r: 16 },
+  { id: 'lighthouse', x: ISLET.x, z: ISLET.z, r: 24 },
+  { id: 'wild', x: 0, z: 0, r: 999 },
+]

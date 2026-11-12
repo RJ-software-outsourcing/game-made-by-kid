@@ -81,7 +81,7 @@ export class UI {
   }
 
   anyPanel() {
-    return ['bag', 'shop', 'map', 'menu', 'confirm'].some((id) => !$('#' + id).classList.contains('hidden'))
+    return ['bag', 'shop', 'map', 'menu', 'confirm', 'job'].some((id) => !$('#' + id).classList.contains('hidden'))
   }
   openPanel(id) {
     unlock()
