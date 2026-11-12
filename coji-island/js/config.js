@@ -47,9 +47,9 @@ export const COJI = {
 export const TUNE = {
   walkSpeed: 6.4, // m/s
   tiredSpeed: 4.2, // when energy < 15
-  energyPerMeter: 0.12,
-  waterPerMeter: 0.14,
-  waterPerSecond: 0.03,
+  energyPerMeter: 0.055,
+  waterPerMeter: 0.065,
+  waterPerSecond: 0.012,
   restPerSecond: 3,
   benchBonus: 1.5,
   napTo: 25,

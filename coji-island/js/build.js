@@ -11,6 +11,45 @@ export const SMOOTH2 = new THREE.MeshLambertMaterial({ vertexColors: true, side:
 export const GLOW = new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true, emissive: 0xffd27a, emissiveIntensity: 0 })
 // Always glowing (jack-o'-lanterns, magic).
 export const SHINE = new THREE.MeshBasicMaterial({ vertexColors: true })
+// Ground and decks: never see-through.
+export const TERRAIN_MAT = new THREE.MeshLambertMaterial({ vertexColors: true })
+export const DECK_MAT = new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true })
+
+// See-through: things between the camera and Coji fade to a soft dotted window around him,
+// so trees, walls and roofs never hide him. The game updates these uniforms every frame.
+export const SEE = {
+  uSeePos: { value: new THREE.Vector2() },
+  uSeeDepth: { value: 0 },
+  uSeeR: { value: 0 },
+  uSeeOn: { value: 0 },
+}
+function seeThrough(mat, key) {
+  mat.onBeforeCompile = (sh) => {
+    Object.assign(sh.uniforms, SEE)
+    sh.fragmentShader = sh.fragmentShader
+      .replace(
+        'void main() {',
+        `uniform vec2 uSeePos; uniform float uSeeDepth; uniform float uSeeR; uniform float uSeeOn;
+        float bayer2(vec2 a) { a = floor(a); return fract(dot(a, vec2(0.5, a.y * 0.75))); }
+        float bayer4(vec2 a) { return bayer2(0.5 * a) * 0.25 + bayer2(a); }
+        void main() {`,
+      )
+      .replace(
+        '#include <clipping_planes_fragment>',
+        `#include <clipping_planes_fragment>
+        if (uSeeOn > 0.5 && vViewPosition.z < uSeeDepth - 1.3) {
+          float f = distance(gl_FragCoord.xy, uSeePos) / uSeeR;
+          if (f < 1.0 && bayer4(gl_FragCoord.xy) < (1.0 - f * f) * 0.7) discard;
+        }`,
+      )
+  }
+  mat.customProgramCacheKey = () => 'see-' + key
+}
+seeThrough(MAT, 'flat')
+seeThrough(MAT2, 'flat2')
+seeThrough(SMOOTH, 'smooth')
+seeThrough(SMOOTH2, 'smooth2')
+seeThrough(GLOW, 'glow')
 
 const _m = new THREE.Matrix4()
 const _q = new THREE.Quaternion()

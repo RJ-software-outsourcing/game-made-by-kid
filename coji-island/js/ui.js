@@ -205,7 +205,8 @@ export class UI {
 
   // ---------- bag ----------
   openBag() {
-    this.sel = null
+    // show the first thing straight away, so its "what to do" is visible
+    this.sel = Object.keys(this.game.state.bag).find((k) => this.game.state.bag[k] > 0) || null
     this.renderBag()
     this.openPanel('bag')
   }
@@ -239,7 +240,7 @@ export class UI {
     if (it.energy) fx.push(`⚡ +${it.energy}`)
     if (it.water) fx.push(`💧 +${it.water}`)
     const verb = it.water && !it.energy ? 'Drink' : it.water ? 'Drink' : it.energy ? 'Eat' : null
-    info.innerHTML = `<span class="big-e">${it.icon}</span><div class="txt">${it.name}<small>${it.desc}${fx.length ? ' ' + fx.join(' ') : ''}</small></div>`
+    info.innerHTML = `<span class="big-e">${it.icon}</span><div class="txt">${it.name}<small>${it.desc}${fx.length ? ' ' + fx.join(' ') : ''}</small><em>👉 ${it.use || ''}</em></div>`
     if (verb && !it.quest) {
       const btn = document.createElement('button')
       btn.className = 'big-btn'

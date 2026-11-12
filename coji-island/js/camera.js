@@ -54,7 +54,8 @@ export class FollowCam {
       } else if (p.moved) {
         const k = 1 / Math.max(320, Math.min(window.innerWidth, window.innerHeight))
         this.yaw -= dx * k * 3.2
-        this.pitch = Math.min(1.25, Math.max(0.22, this.pitch + dy * k * 2.2))
+        // below 0.12 the camera stays low and tilts up, so you can look at the sky
+        this.pitch = Math.min(1.25, Math.max(-0.6, this.pitch + dy * k * 2.2))
       }
     })
     const end = (e) => {
@@ -101,10 +102,12 @@ export class FollowCam {
       this.cp = this.cp === undefined ? pitch : this.cp + (pitch - this.cp) * Math.min(1, dt * 14)
       this.cd = this.cd === undefined ? dist : this.cd + (dist - this.cd) * Math.min(1, dt * 10)
     }
-    const cp = Math.cos(this.cp)
+    const orbit = Math.max(this.cp, 0.12)
+    const up = Math.max(0, 0.12 - this.cp)
+    const cp = Math.cos(orbit)
     const look = this.focus.clone()
     look.y += 1.1
-    const pos = new THREE.Vector3(look.x + Math.sin(this.cy) * cp * this.cd, look.y + Math.sin(this.cp) * this.cd, look.z + Math.cos(this.cy) * cp * this.cd)
+    const pos = new THREE.Vector3(look.x + Math.sin(this.cy) * cp * this.cd, look.y + Math.sin(orbit) * this.cd, look.z + Math.cos(this.cy) * cp * this.cd)
     // Don't hide behind tree tops: move in front of them.
     if (this.clear && !o) {
       const k = this.clear(look, pos)
@@ -115,6 +118,8 @@ export class FollowCam {
     const floor = this.groundY(pos.x, pos.z) + 1.2
     if (pos.y < floor) pos.y = floor
     this.cam.position.copy(pos)
+    // looking up: aim above Coji
+    if (up > 0) look.y += Math.tan(Math.min(0.95, up * 1.4)) * this.cd
     this.cam.lookAt(look)
   }
 

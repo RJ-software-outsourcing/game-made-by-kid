@@ -142,18 +142,25 @@ export const CAST = {
             go: () =>
               N(["Don't worry. He is a kind bear.", 'He is just very, very hungry.'], [
                 { text: 'Okay! I will help!', go: accept },
-                { text: 'Yes, I can do it!', go: accept },
+                { text: 'Will you come with me?', go: () => N(['I must stay with my boat.', 'But you are brave, Coji. You can do it!'], [{ text: 'Okay! I will try!', go: accept }]) },
               ]),
           },
+          { text: 'Why is he hungry?', go: () => N(['He ate all his food in the winter.', 'Now his tummy is empty!', 'Can you help him?'], [{ text: 'Yes! Poor bear!', go: accept }, { text: 'I will find food for him!', go: accept }]) },
         ])
-      const gift = () =>
-        N(['Hello, Coji! I like your bear blanket.', 'Here is a bag for you. 🎒', 'There is water, an apple and 3 coins in it.'], [
-          { text: 'Thank you, Captain Pip!', go: ask },
-          { text: 'Wow! A bag!', go: ask },
+      const gift = (hello) =>
+        N([hello, 'I like your bear blanket.', 'Here is a bag for you. 🎒'], [
+          { text: 'Thank you, Captain Pip!', go: () => N(['You are welcome!', 'There is water, an apple and 3 coins in it.'], null, { then: ask }) },
+          { text: 'What is in the bag?', go: () => N(['Water, an apple and 3 coins!', 'Tap the Bag button to look inside.'], null, { then: ask }) },
+          { text: 'Can I keep it?', go: () => N(['Yes! It is your bag now.', 'Every explorer needs a bag!'], null, { then: ask }) },
         ], { onShow: () => g.startBag() })
-      return N(['Ahoy! Welcome to Sunny Island! 🏝️', 'I am Captain Pip. What is your name?'], [
-        { text: 'I am Coji!', go: gift },
-        { text: 'Hi! My name is Coji.', go: gift },
+      const name = (lines) => N(lines, [
+        { text: 'I am Coji!', go: () => gift('Coji! What a great name!') },
+        { text: 'My name is Coji. I am six!', go: () => gift('Six years old? Wow! Hello, Coji!') },
+      ])
+      return N(['Ahoy! Welcome to Sunny Island! 🏝️', 'I am Captain Pip.'], [
+        { text: 'Hello! I am Coji.', go: () => gift('Hello, Coji! Nice to meet you!') },
+        { text: 'Where am I?', go: () => name(['You are on Sunny Island!', 'It is a happy island with many friends.', 'What is your name?']) },
+        { text: 'Is this your boat?', go: () => name(['Yes! Her name is Sunny Sue.', 'She is fast and strong.', 'And what is your name?']) },
       ])
     },
     greet: () => 'Ahoy, Coji!',
@@ -587,8 +594,9 @@ export const CAST = {
                 },
               ])
             return N(['Honey! Yum, yum, yum!', 'Mmm... So sweet!', 'Thank you, Coji! My tummy is happy now.', 'I will move. You can cross the bridge!'], [
-              { text: 'You are welcome, Bear!', go: offer },
-              { text: 'Yay! I am so happy!', go: offer },
+              { text: 'You are welcome, Bear!', go: () => N(['You are so kind, Coji.'], null, { then: offer }) },
+              { text: 'Can I have a hug?', go: () => N(['A big bear hug! 🤗', 'Squeeeeze!'], null, { then: offer }) },
+              { text: 'Was it yummy?', go: () => N(['Yummy, yummy, yummy!', 'The best honey on the island!'], null, { then: offer }) },
             ], {
               onShow: () => {
                 g.take('honey')
@@ -648,11 +656,11 @@ export const CAST = {
             ]),
         },
         {
-          text: 'Hi! I am Coji.',
+          text: 'Why is it so dark here?',
           go: () =>
-            N(['Nice to meet you, Coji. I am Grandpa Gus.', 'Look at my lighthouse. The light is off.', 'The big bulb is broken!'], [
+            N(['Hmm, you see it too.', 'I am Grandpa Gus. This is my lighthouse.', 'The big bulb is broken, so it is dark.'], [
               { text: 'Can I help you?', go: help },
-              { text: 'Oh no! What can we do?', go: help },
+              { text: 'What is a lighthouse for?', go: () => N(['A lighthouse shines at night.', 'Ships see the light and stay safe.'], [{ text: 'I can help!', go: help }]) },
             ]),
         },
       ])
@@ -697,10 +705,19 @@ function topicFor(C, g) {
 // After the lighthouse: everyone points at the graveyard, where Boo is waiting.
 const FREE_TOPIC = { q: 'What can I do now?', a: ['Did you hear?', 'A little ghost lives in the Spooky Graveyard.', 'Her name is Boo. She looks sad!'] }
 
+const REACTIONS = ['Really? 😮', 'Wow! 🤩', 'Ha ha! 😆', 'Hmm... 🤔', 'Cool! 😎']
+const THANKS = ['Thank you!', 'Thanks a lot!', 'Okay, thank you!', 'Got it, thanks!']
+const GENERIC_EXTRAS = [['Yes! Isn\'t it fun?'], ['Ha ha! You are funny, Coji.'], ['That is how it is on Sunny Island!']]
+let rot = 0
+const turn = (arr) => arr[rot++ % arr.length]
+
 function chain(g, id, tp) {
   const choices = []
+  const back = () => hub(g, id, CAST[id].animal ? 'Anything else?' : pick(['You are welcome! Anything else?', 'Anything else, Coji?', 'What else?']))
   if (tp.more) choices.push({ text: tp.more.q, go: () => chain(g, id, tp.more) })
-  choices.push({ text: 'Thank you!', go: () => hub(g, id, CAST[id].animal ? 'Anything else?' : 'You are welcome! Anything else?') })
+  const C = CAST[id]
+  choices.push({ text: turn(REACTIONS), go: () => N(pick(C.extras || GENERIC_EXTRAS), [{ text: turn(THANKS), go: back }]) })
+  choices.push({ text: turn(THANKS), go: back })
   return N(tp.a, choices, {
     onShow: () => {
       if (tp.clue) for (const c of [].concat(tp.clue)) g.clue(c)
@@ -715,19 +732,20 @@ export function hub(g, id, line) {
   const tp = topicFor(C, g)
   if (tp) opts.push({ text: tp.q, go: () => chain(g, id, tp), pri: 5 })
   else if (C.chat) opts.push({ text: C.chat.q, go: () => chain(g, id, C.chat), pri: 2 })
+  if (C.story) opts.push({ text: C.animal ? 'Tell me about you!' : pick(['Tell me about you!', 'What do you like?']), go: () => chain(g, id, { a: C.story }), pri: 3.5 })
   // Something already asked in this talk moves down, so other choices get a turn.
   const asked = g.asked()
   for (const o of opts) if (asked.has(o.text)) o.pri = (o.pri ?? 3) - 4
   opts.sort((a, b) => (b.pri ?? 3) - (a.pri ?? 3))
-  const pick = opts.slice(0, 2).map((o) => ({
+  const picked = opts.slice(0, 2).map((o) => ({
     ...o,
     go: () => {
       asked.add(o.text)
       return o.go()
     },
   }))
-  pick.push({ text: 'Bye!', go: () => N(C.bye ? C.bye(g) : C.animal ? 'Bye-bye, Coji!' : 'Bye, Coji!', null, { auto: true }) })
-  return N(line, pick)
+  picked.push({ text: turn(['Bye!', 'See you later!', 'Bye-bye!', 'I have to go. Bye!']), go: () => N(C.bye ? C.bye(g) : C.animal ? 'Bye-bye, Coji!' : pick(['Bye, Coji!', 'See you, Coji!', 'Have fun, Coji!']), null, { auto: true }) })
+  return N(line, picked)
 }
 
 // Where a conversation starts.
@@ -777,7 +795,7 @@ Object.assign(CAST, {
     name: 'Max the Mailman',
     voice: 0.95,
     greet: (g) => (g.met('max') ? 'Hi, Coji! Any mail today?' : 'Hello! I am Max. I bring the mail! 📮'),
-    specials: (g) => [job('post', 'Can I work here? 💼', ['Yes! Help me sort the letters.', 'Read who the letter is for. Tap the right friend!', 'One coin for each right letter.'])(g)],
+    specials: (g) => [job('post', 'Can I work here? 💼', ['Yes! Help me sort the letters.', 'Letters come from all over the world.', 'Read the address. Put each letter in the right country box!', 'One coin for each right letter.'])(g)],
     chat: { q: 'What do you do?', a: ['I take letters to everyone on the island!', 'I walk a lot. My legs are strong!'] },
     topics: {
       'bear.0': { q: 'What do bears eat?', a: ['I took a letter to the bear once!', 'It smelled like honey!'], clue: 'honey' },
@@ -957,3 +975,240 @@ for (const id of Object.keys(CAST)) {
 // Jobs for Burger Ben.
 const benSpecials = CAST.ben.specials
 CAST.ben.specials = (g) => [...benSpecials(g), job('burger', 'Can I work here? 💼', ['Yes! Help me make burgers.', 'Read the order. Tap what goes on the burger!', 'One coin for each right burger.'])(g)]
+
+// ---------- little stories ("Tell me about you!") and replies to "Really? / Wow!" ----------
+
+const STORIES = {
+  pip: [['I was a little boy on a little boat.', 'Now I am a captain on a big boat!', 'I sail to many islands.', 'But Sunny Island is my favorite.'], ['Ha ha! I once saw a whale as big as my boat!', 'It sang a song: Ooo-ooo!']],
+  finn: [['Every morning, I fish here.', 'One day, I caught a fish as big as me!', 'Ha ha! It jumped back into the sea.'], ['Fishing is easy.', 'Sit. Wait. Wait some more. Fish!']],
+  ben: [['I love to cook!', 'My burgers are big and yummy.', 'My secret? A little love in every burger! ❤️'], ['I made the biggest burger in the world!', 'It was as big as a table!']],
+  granny: [['I have six bee boxes at home.', 'The bees make honey for me.', 'I say thank you to them every day. 🐝'], ['Bees dance to talk to their friends!', 'Isn\'t that sweet, dear?']],
+  penny: [['I love to count coins.', 'One, two, three... one hundred!', 'Counting is fun. Try it, Coji!'], ['A coin saved is a coin you have!']],
+  tina: [['I make toys with my hands.', 'I made a toy boat, a toy bear and a toy owl.', 'Toys make kids smile. That makes me smile!'], ['My best toy is a robot.', 'It can dance! Beep boop!']],
+  leo: [['I am six, like you!', 'I like to play tag and kick balls.', 'My best friend is a frog. His name is Hop!'], ['Can you run fast?', 'I can run super fast! Zoom!']],
+  gus: [['I was a sailor a long time ago.', 'Now I keep the light for the ships.', 'The ships are my friends at night.'], ['On a clear night,', 'I can see a hundred stars from the top!']],
+  coco: [['I make ice cream every morning.', 'My favorite is pink strawberry.', 'What is your favorite, Coji?'], ['Ice cream melts fast in the sun!', 'Eat it quick! Ha ha!']],
+  max: [['I walk all around the island.', 'I take letters to everyone.', 'My bag is heavy, but my legs are strong!'], ['A dog chased me today!', 'He just wanted a letter too.']],
+  kim: [['I teach the kids at the school.', 'We read books and sing songs.', 'My favorite book is about a little bear!'], ['Reading is like a door.', 'You open a book, and go on a trip!']],
+  lance: [['I am the King\'s knight.', 'I keep the castle safe, day and night.', 'At night I count the stars. Shh! Don\'t tell!'], ['My armor is heavy.', 'But my heart is light!']],
+  momo: [['Meow! I sleep on the warm boxes.', 'I watch the boats all day.', 'Fish is my best friend! Meow!']],
+  bun: [['Hop! I live in a hole under the farm.', 'I have ten brothers and sisters!', 'We all love carrots!']],
+  hoot: [['Who-who! I am very old and very wise.', 'I sleep in the day and fly at night.', 'I can turn my head almost all the way around!']],
+  bruno: [['I live in the forest by the sea.', 'I like honey, naps and big hugs.', 'Do you like hugs, Coji? 🤗']],
+  boo: [['Boo! I am a little ghost.', 'I love hide and seek. I am very good at it!', 'But I do not like the dark. Shh!']],
+}
+const EXTRAS = {
+  pip: [['The sea is full of surprises!'], ['Ahoy! You are a good sailor, Coji!']],
+  finn: [['Shh! You will scare the fish! Ha ha!'], ['Yes! Fish are funny.']],
+  ben: [['Yum, yum! Ha ha!'], ['Cooking makes me happy!']],
+  granny: [['Oh, you are a sweet child!'], ['Bzzz! Just like my bees!']],
+  penny: [['Yes! Numbers are fun!'], ['One coin, two coins... ha ha!']],
+  tina: [['Yay! You are so fun, Coji!'], ['I will make a toy Coji one day!']],
+  leo: [['Ha ha! You are my new friend!'], ['Let\'s play later!']],
+  gus: [['Ho ho! You are a smart one.'], ['The sea tells many stories.']],
+  coco: [['Sweet like ice cream!'], ['Ha ha! Brain freeze!']],
+  max: [['Yes! The island is big!'], ['Special delivery for Coji: a smile! 😄']],
+  kim: [['Good thinking, Coji!'], ['Keep reading every day!']],
+  lance: [['Ha! A brave answer!'], ['Stand tall, little hero!']],
+  momo: [['Meow! Purr...'], ['Meow meow!']],
+  bun: [['Hop, hop! Hee hee!'], ['My ears are wiggling!']],
+  hoot: [['Who-who! Wise words!'], ['Hoo-hoo! Ha ha!']],
+  bruno: [['Ho ho ho! Bear laugh!'], ['Grr... I mean, yes!']],
+  boo: [['Hee hee! Boo!'], ['Spooky fun!']],
+  bones: [['Rattle, rattle! Ha ha!']],
+}
+for (const [id, list] of Object.entries(STORIES)) Object.defineProperty(CAST[id], 'story', { get: () => pick(list), configurable: true })
+for (const [id, list] of Object.entries(EXTRAS)) CAST[id].extras = list
+
+// "My friend says...": a clue someone else would give for the current step (or null).
+const NO_HEARSAY = new Set(['sam', 'pam', 'bones', 'percy'])
+export function hearsay(g) {
+  const s = g.stage()
+  const ids = Object.keys(CAST).filter((id) => !CAST[id].dynamic && !NO_HEARSAY.has(id) && CAST[id].topics?.[s])
+  if (!ids.length) return null
+  const id = pick(ids)
+  let tp = CAST[id].topics[s]
+  if (typeof tp === 'function') tp = tp(g)
+  if (!tp) return null
+  const deep = tp.more?.clue && Math.random() < 0.5 ? tp.more : tp
+  return { who: CAST[id].name, a: deep.a, clue: deep.clue }
+}
+const helpNode = (g, intro, chance) => {
+  const h = Math.random() < chance ? hearsay(g) : null
+  if (!h) return N(pick([['Hmm... I do not know. Sorry!'], ['Help? I am lost too! Ha ha!'], ['I do not know.', 'Ask someone in the village!'], ['Hmm, let me think...', '...No idea! Sorry!']]))
+  return N([intro.replace('{who}', h.who), ...h.a], null, { onShow: () => h.clue && [].concat(h.clue).forEach((c) => g.clue(c)) })
+}
+
+// ---------- Old Sam (Turtle Island) and Picnic Pam (Flower Island) ----------
+
+Object.assign(CAST, {
+  sam: {
+    name: 'Old Sam',
+    voice: 0.8,
+    greet: (g) => (g.met('sam') ? 'Ahoy again, young Coji!' : 'Well, well! A visitor! I am Old Sam. 🐢'),
+    specials: (g) => [
+      {
+        text: 'Can you tell me a story?',
+        pri: 4,
+        go: () =>
+          N(
+            pick([
+              ['Long ago, a little crab lost his shell.', 'He looked and looked.', 'A turtle said: "Live with me!"', 'Now they are best friends. The end! 🦀🐢'],
+              ['Once, a tiny fish wanted to see the moon.', 'She jumped and jumped, higher and higher.', 'A bird caught her and flew up!', 'She saw the moon, and the bird put her back. The end! 🐟🌙'],
+              ['The King of this island was a little boy once.', 'He had a blanket, just like you!', 'Now he is a big King, but he still has it. Shh! 👑'],
+            ]),
+          ),
+      },
+    ],
+    chat: { q: 'Why do you live here?', a: ['I like the quiet.', 'The turtles are my friends.', 'And the sea sings to me at night.'] },
+    topics: {},
+  },
+  pam: {
+    name: 'Picnic Pam',
+    voice: 1.25,
+    greet: (g) => (g.met('pam') ? 'Hi, Coji! Picnic time!' : 'Hello! I am Pam. I love picnics! 🧺'),
+    specials: (g) => [
+      !g.flag('pamGift') && {
+        text: 'Can I join your picnic?',
+        pri: 6,
+        go: () => N(['Of course! Here is a sandwich for you. 🥪', 'Sharing is caring!'], null, { onShow: () => { g.give('sandwich'); g.setFlag('pamGift') } }),
+      },
+    ],
+    chat: { q: 'Why do you like flowers?', a: ['Flowers are so pretty!', 'Bees love them, and so do I.'] },
+    topics: {},
+  },
+})
+STORIES.sam = [['I was a pirate a long, long time ago.', 'A good pirate! I gave treasure away.', 'Look for my old chest on this island!']]
+STORIES.pam = [['I come here every day.', 'I read a book and eat a sandwich.', 'Then I smell the flowers. Mmm!']]
+for (const id of ['sam', 'pam']) Object.defineProperty(CAST[id], 'story', { get: () => pick(STORIES[id]), configurable: true })
+CAST.sam.extras = [['Ho ho! The sea knows!'], ['Arr! I mean... yes!']]
+CAST.pam.extras = [['Ha ha! Picnics are the best!'], ['Smell the flowers, Coji!']]
+// Sam and Pam give clues from the island grapevine for any quest step
+for (const id of ['sam', 'pam'])
+  CAST[id].topics = new Proxy(
+    {},
+    {
+      get: (_, s) =>
+        typeof s === 'string' && s.includes('.')
+          ? (g) => {
+              const h = hearsay(g)
+              return h ? { q: 'Can you help me?', a: [`${h.who} told me:`, ...h.a], clue: h.clue } : null
+            }
+          : undefined,
+    },
+  )
+
+// ---------- people and animals walking around (made on the fly) ----------
+
+const VILLAGER_STORIES = [
+  ['I am going to the beach.', 'I love to swim with the fish!'],
+  ['I am looking for my cat.', 'She is white and fluffy. Her name is Snow.'],
+  ['I just baked bread.', 'The whole village smells yummy!'],
+  ['I am a painter.', 'Today I will paint the castle!'],
+  ['I walk every day.', 'Walking makes me happy and strong!'],
+  ['My grandpa lives on this island.', 'I came to see him. Yay!'],
+  ['I collect pretty shells.', 'I have one hundred shells at home!'],
+  ['I want to be a knight one day.', 'I practice with a stick! Ha ha!'],
+  ['I am writing a book.', 'It is about a boy and a bear!'],
+]
+export function villagerCast(name, kid) {
+  return {
+    name,
+    dynamic: true,
+    voice: kid ? 1.4 : 1,
+    greetNode: (g) => {
+      const giftOk = !g.flag('gift-' + name) && Math.random() < 0.3
+      const gifts = [['apple', 'Here, take an apple! 🍎'], ['cookie', 'I have a cookie for you! 🍪'], ['water', 'Are you thirsty? Take this water! 💧']]
+      const gift = pick(gifts)
+      const story = pick(VILLAGER_STORIES)
+      return N([pick([`Hello! I am ${name}.`, `Hi there! My name is ${name}.`, `Oh, hello! You must be Coji! I am ${name}.`])], [
+        { text: 'Can you help me?', go: () => helpNode(g, pick(['Hmm... {who} said this:', 'I heard {who} say:', 'My friend {who} told me:']), 0.6) },
+        giftOk
+          ? { text: 'Do you have a snack?', go: () => N([gift[1]], null, { onShow: () => { g.give(gift[0]); g.setFlag('gift-' + name) } }) }
+          : { text: 'Where are you going?', go: () => N(story) },
+        { text: turn(['Bye!', 'See you!', 'Bye-bye!']), go: () => N(pick(['Bye, Coji!', 'Have a nice day!', 'See you later!']), null, { auto: true }) },
+      ])
+    },
+  }
+}
+
+const CRITTERS = {
+  deer: { name: 'Deer', hi: 'Hello! I am a deer. I can run very fast!', eat: ['I eat grass and leaves.', 'Crunchy and green!'] },
+  fox: { name: 'Fox', hi: 'Yip! I am a fox. Look at my fluffy tail!', eat: ['I eat berries and bugs.', 'Yip yip!'] },
+  chicken: { name: 'Chicken', hi: 'Cluck cluck! I am a chicken!', eat: ['I eat seeds and corn.', 'Cluck!'] },
+  squirrel: { name: 'Squirrel', hi: 'Squeak! I am a squirrel. I am very busy!', eat: ['I eat nuts!', 'I hide them for winter. Shh!'] },
+  hedgehog: { name: 'Hedgehog', hi: 'Sniff sniff. I am a hedgehog. I am a bit shy.', eat: ['I eat bugs and worms.', 'Yummy for me!'] },
+  crab: { name: 'Crab', hi: 'Click click! I am a crab. I walk sideways!', eat: ['I eat little bits from the sea.', 'Click!'] },
+  frog: { name: 'Frog', hi: 'Ribbit! I am a frog. I can jump high!', eat: ['I eat flies!', 'I catch them with my long tongue. Ribbit!'] },
+  duckling: { name: 'Duckling', hi: 'Peep peep! I am a little duck!', eat: ['I eat seeds and tiny bugs.', 'Peep!'] },
+}
+export function critterCast(kind) {
+  const c = CRITTERS[kind]
+  return {
+    name: c.name,
+    dynamic: true,
+    animal: true,
+    voice: 1.6,
+    greetNode: (g) =>
+      N([c.hi], [
+        { text: 'What do you eat?', go: () => N(c.eat) },
+        { text: 'Can you help me?', go: () => helpNode(g, pick(['I heard {who} talking:', 'The birds told me what {who} said:']), 0.3) },
+        { text: 'Bye!', go: () => N(pick(['Bye-bye!', 'See you, Coji!']), null, { auto: true }) },
+      ]),
+  }
+}
+
+export function alienCast(name) {
+  return {
+    name,
+    dynamic: true,
+    voice: 1.8,
+    greetNode: (g) =>
+      N([`Greetings, Earth kid! I am ${name} from the planet Pop! 👽`], [
+        { text: 'Where is the planet Pop?', go: () => N(['Far, far away!', 'It is blue and has three moons.', 'We eat moon cheese every day!']) },
+        { text: 'Can you help me?', go: () => helpNode(g, 'Beep boop! My space computer heard {who}:', 0.5) },
+        { text: 'Do you like Earth?', go: () => N(['Yes! Earth has burgers!', 'We do not have burgers on Pop.', 'Take me to your... burger! Ha ha!']) },
+      ]),
+  }
+}
+
+// ---------- the people who live in the village houses ----------
+
+export const RESIDENTS = [
+  { name: 'Mrs. Rose', story: ['I grow roses in my garden.', 'Red, pink and yellow!', 'Smell them when you walk by!'], gift: ['cookie', 'Here is a rose cookie! 🍪'], note: 'Gone to the market. Back soon! - Rose' },
+  { name: 'Baker Tom', story: ['I bake bread every morning.', 'I wake up when it is still dark!', 'Then the whole village smells yummy.'], gift: ['cookie', 'A warm cookie for you! 🍪'], note: 'Bread in the oven. Back in 5 minutes! - Tom' },
+  { name: 'Nora', story: ['I am an artist.', 'I paint the sea, the sky and the castle.', 'One day I will paint you, Coji!'], gift: ['apple', 'Here is an apple. Red, like my paint! 🍎'], note: 'Painting at the beach today! - Nora' },
+  { name: 'Mr. Oak', story: ['I am very, very old.', 'When I was small, the King was a baby!', 'He cried a lot. Ha ha!'], gift: ['water', 'Drink water every day, young one. 💧'], note: 'Taking a nap. Please come back later! - Mr. Oak' },
+  { name: 'Lily', kid: true, story: ['I am seven!', 'My dog is called Biscuit.', 'He likes to run after balls.'], gift: ['berries', 'I picked berries! Want some? 🫐'], note: 'At school! - Lily' },
+  { name: 'Dr. Sam', story: ['I am the island doctor.', 'Eat good food, drink water and sleep well!', 'Then you will be strong!'], gift: ['water', 'Doctor says: drink water! 💧'], note: 'Helping a sick bunny at the farm. - Dr. Sam' },
+]
+export function residentCast(i) {
+  const R = RESIDENTS[i]
+  return {
+    name: R.name,
+    dynamic: true,
+    voice: R.kid ? 1.45 : 1.05,
+    greetNode: (g) => {
+      const gave = g.flag('res-gift-' + i)
+      return N([g.met('res-' + i) ? pick([`Hello again, Coji!`, `Oh, Coji! Hi!`]) : pick([`Hello! I am ${R.name}.`, `Oh! Hello there! I am ${R.name}.`]), 'Welcome to my house! 🏡'], [
+        { text: 'Tell me about you!', go: () => N(R.story) },
+        { text: 'Can you help me?', go: () => helpNode(g, pick(['Let me think... {who} said:', 'Hmm! I heard {who} say:']), 0.75) },
+        gave
+          ? { text: turn(['Bye!', 'See you!', 'Thank you, bye!']), go: () => N(pick(['Bye, Coji!', 'Come again!']), null, { auto: true }) }
+          : { text: 'Do you have a snack?', go: () => N([R.gift[1]], null, { onShow: () => { g.give(R.gift[0]); g.setFlag('res-gift-' + i) } }) },
+      ])
+    },
+  }
+}
+
+// Sir Percy walks around the castle.
+CAST.percy = {
+  name: 'Sir Percy',
+  voice: 0.9,
+  greetNode: (g) =>
+    N([pick(['Good day, young Coji! ⚔️', 'Hello! I am Sir Percy. I walk around the castle all day!'])], [
+      { text: 'Can you help me?', go: () => helpNode(g, 'A knight hears many things. {who} said:', 0.7) },
+      { text: 'What do knights do?', go: () => N(['We keep the castle safe.', 'We help people.', 'And we are always kind!']) },
+      { text: 'Bye!', go: () => N('Farewell, little hero!', null, { auto: true }) },
+    ]),
+}

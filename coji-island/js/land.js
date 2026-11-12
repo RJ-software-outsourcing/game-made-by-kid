@@ -115,17 +115,23 @@ export const POND = { x: -29, z: -25, r: 7 }
 export const STREAM = [[-18, -37], [-22.5, -32], [-26, -28]]
 export const STREAM_HALF = 1.4
 
-const ISLE_DEG = 315
-export const ISLET = (() => {
-  const [x, z] = polar(ISLE_DEG, 124)
-  return { x, z, r: 16, h: 4.2 }
-})()
-export const BRIDGE = (() => {
-  const [ax, az] = polar(ISLE_DEG, 94.5)
-  const [bx, bz] = polar(ISLE_DEG, 110.5)
-  return { ax, az, bx, bz, w: 3.8 }
-})()
+// Small islands off the coast, each joined to the main island by a wooden bridge.
+const islet = (id, deg, dist, r, h, from, to, w = 3.6) => {
+  const [x, z] = polar(deg, dist)
+  const [ax, az] = polar(deg, from)
+  const [bx, bz] = polar(deg, to)
+  return { id, deg, x, z, r, h, bridge: { id, ax, az, bx, bz, w } }
+}
+export const ISLETS = [
+  islet('lighthouse', 315, 124, 16, 3.4, 94.5, 110.5, 3.8),
+  islet('turtle', 200, 122, 12, 2.4, 99, 113),
+  islet('flower', 62, 121, 11, 2.6, 97.5, 112.5),
+]
+export const ISLET = ISLETS[0]
+export const BRIDGES = ISLETS.map((i) => i.bridge)
+export const BRIDGE = BRIDGES[0] // Bear Bridge
 export const BRIDGE_MID = [(BRIDGE.ax + BRIDGE.bx) / 2, (BRIDGE.az + BRIDGE.bz) / 2]
+export const ISLE_OF = Object.fromEntries(ISLETS.map((i) => [i.id, i]))
 
 export const GRAVEYARD = (() => {
   const deg = 225
@@ -209,6 +215,8 @@ export const PLACES = {
   pond: { name: 'Pond', icon: '🦆', x: POND.x, z: POND.z },
   bridge: { name: 'Bear Bridge', icon: '🌉', x: BRIDGE_MID[0], z: BRIDGE_MID[1] },
   lighthouse: { name: 'Lighthouse', icon: '🗼', x: lightX, z: lightZ },
+  turtle: { name: 'Turtle Island', icon: '🐢', x: ISLETS[1].x, z: ISLETS[1].z },
+  flower: { name: 'Flower Island', icon: '🌸', x: ISLETS[2].x, z: ISLETS[2].z },
   mountain: { name: 'Mount Puff', icon: '⛰️', x: MOUNTAIN.x, z: MOUNTAIN.z },
 }
 
@@ -233,6 +241,7 @@ export const ROADS = [
   { w: 3.4, pts: [lp(315), [24, -30], [38, -44], [rNE[0], rNE[1]]] }, // forest trail
   { w: 3.4, pts: [[rNE[0], rNE[1]], [BRIDGE.ax, BRIDGE.az]] }, // spur to Bear Bridge
   { w: 3.0, pts: [[BRIDGE.bx, BRIDGE.bz], [ISLET.x - 1, ISLET.z + 1]] }, // up to the lighthouse
+  ...ISLETS.slice(1).map((I) => ({ w: 3.0, pts: [ringPos(I.deg), [I.bridge.ax, I.bridge.az]] })), // spurs to the small islands
   { w: 2.8, pts: [[-33, 1], [-30, -12], [-28, -16.5]] }, // pond trail
   ...[STOP.burger, STOP.post, STOP.school].map((d) => ({ w: 3.0, pts: [ringPos(d, -2), ringPos(d, -7.5)] })), // driveways
 ]
@@ -260,6 +269,7 @@ export const PADS = [
   { x: farmX, z: farmZ, r: 12, blend: 8 },
   { x: GRAVEYARD.x, z: GRAVEYARD.z, r: 14, blend: 6 },
   ...HOUSES.map((h) => ({ x: h[0], z: h[1], r: 4.5, blend: 4 })),
+  { x: ISLETS[0].x - 6.7, z: ISLETS[0].z - 2.5, r: 3.6, blend: 4, h: ISLETS[0].h }, // the cottage on Lighthouse Island
 ]
 
 function baseHeight(x, z) {
@@ -277,11 +287,13 @@ function baseHeight(x, z) {
     const k = 1 - md / MOUNTAIN.r
     h = Math.max(h, MOUNTAIN.h * Math.pow(k, 1.2) * (0.88 + 0.24 * vnoise(x * 0.16, z * 0.16)) + 0.4 * k)
   }
-  // Lighthouse Island
-  const id = Math.hypot(x - ISLET.x, z - ISLET.z)
-  if (id < ISLET.r + 25) {
-    const it = ISLET.r - id
-    const ih = it < 0 ? Math.max(-7, 0.3 + it * 0.3) : 0.3 + (ISLET.h - 0.3) * smoothstep(3, 10, it)
+  // the small islands: a beach ring and a flat top
+  for (const I of ISLETS) {
+    const id = Math.hypot(x - I.x, z - I.z)
+    if (id > I.r + 25) continue
+    const it = I.r - id
+    // the slope up from the beach is long enough to walk (tall islands get a longer ramp)
+    const ih = it < 0 ? Math.max(-7, 0.3 + it * 0.3) : 0.3 + (I.h - 0.3) * smoothstep(1.5, 1.5 + Math.max(4, (I.h - 0.3) * 2.1), it)
     h = Math.max(h, ih)
   }
   return h
@@ -361,23 +373,26 @@ export function inMoat(x, z, margin = 0) {
   const cd = Math.hypot(x - CASTLE.x, z - CASTLE.z)
   return cd > CASTLE.moatIn - margin && cd < CASTLE.moatOut + margin
 }
-// Where along Bear Bridge (t 0..1), or null when not on it.
-export function bridgeT(x, z, pad = 0) {
-  const { ax, az, bx, bz, w } = BRIDGE
-  const dx = bx - ax
-  const dz = bz - az
-  const len = Math.hypot(dx, dz)
-  const t = ((x - ax) * dx + (z - az) * dz) / (len * len)
-  if (t < -pad / len || t > 1 + pad / len) return null
-  const side = Math.abs(((x - ax) * dz - (z - az) * dx) / len)
-  return side < w / 2 ? clamp(t, 0, 1) : null
+// Which bridge (and where along it, t 0..1) a point is on, or null.
+export function bridgeAt(x, z, pad = 0) {
+  for (const b of BRIDGES) {
+    const { ax, az, bx, bz, w } = b
+    const dx = bx - ax
+    const dz = bz - az
+    const len = Math.hypot(dx, dz)
+    const t = ((x - ax) * dx + (z - az) * dz) / (len * len)
+    if (t < -pad / len || t > 1 + pad / len) continue
+    const side = Math.abs(((x - ax) * dz - (z - az) * dx) / len)
+    if (side < w / 2 + pad) return { b, t: clamp(t, 0, 1) }
+  }
+  return null
 }
 export function onBridge(x, z) {
-  return bridgeT(x, z) !== null
+  return bridgeAt(x, z) !== null
 }
-export function bridgeDeckY(t, groundAt) {
-  const ya = groundAt(BRIDGE.ax, BRIDGE.az)
-  const yb = groundAt(BRIDGE.bx, BRIDGE.bz)
+export function bridgeDeckY(b, t, groundAt) {
+  const ya = groundAt(b.ax, b.az)
+  const yb = groundAt(b.bx, b.bz)
   return lerp(ya, yb, t) + 1.1 * Math.sin(Math.PI * t) + 0.14
 }
 
@@ -425,7 +440,7 @@ export const BUILDINGS = [
   { kind: 'toyshop', x: 13, z: 47, rot: -2.06, w: 7, d: 6 },
   ...HOUSES.map(([x, z, rot, color]) => ({ kind: 'house', x, z, rot, w: 5.5, d: 5, color })),
   { kind: 'shed', x: farmX - 8, z: farmZ + 10, rot: Math.PI / 2, w: 5, d: 4 },
-  { kind: 'cottage', x: ISLET.x - 7, z: ISLET.z + 4, rot: Math.atan2(BRIDGE.bx - ISLET.x, BRIDGE.bz - ISLET.z), w: 5.5, d: 5 },
+  { kind: 'cottage', x: ISLET.x - 6.7, z: ISLET.z - 2.5, rot: Math.atan2(BRIDGE.bx - ISLET.x, BRIDGE.bz - ISLET.z), w: 5.5, d: 5 },
   { kind: 'lighthouse', x: lightX, z: lightZ, rot: Math.atan2(BRIDGE.bx - lightX, BRIDGE.bz - lightZ), w: 7, d: 7, round: true },
   { kind: 'warehouse', x: -13, z: 84, rot: Math.PI / 2, w: 6, d: 8 },
 ]
@@ -491,7 +506,11 @@ export const NPCS = {
   bruno: { x: BRIDGE_MID[0], z: BRIDGE_MID[1], face: face(BRIDGE_MID[0], BRIDGE_MID[1], BRIDGE.ax, BRIDGE.az), zone: 'bridge' },
   gus: { x: gusX, z: gusZ, face: B('lighthouse').rot, zone: 'lighthouse' },
   boo: { x: booX, z: booZ, face: GRAVEYARD.rot, zone: 'graveyard', float: 1.3 },
+  sam: { x: ISLETS[1].x + 2.5, z: ISLETS[1].z + 2, face: face(ISLETS[1].x + 2.5, ISLETS[1].z + 2, ISLETS[1].bridge.bx, ISLETS[1].bridge.bz), zone: 'turtle' },
+  pam: { x: ISLETS[2].x - 2.6, z: ISLETS[2].z - 1.2, face: face(ISLETS[2].x - 2.6, ISLETS[2].z - 1.2, ISLETS[2].bridge.bx, ISLETS[2].bridge.bz), zone: 'flower' },
 }
+export const CHEST = { x: ISLETS[1].x - 3, z: ISLETS[1].z - 2.5 }
+export const GAZEBO = { x: ISLETS[2].x + 1.5, z: ISLETS[2].z + 0.5 }
 // Where Bruno sits after he moves off the bridge.
 export const BEAR_SPOT = (() => {
   const ux = (BRIDGE.bx - BRIDGE.ax) / 16
@@ -517,5 +536,7 @@ export const ZONES = [
   { id: 'forest', x: 14, z: -36, r: 36 },
   { id: 'bridge', x: BRIDGE_MID[0], z: BRIDGE_MID[1], r: 16 },
   { id: 'lighthouse', x: ISLET.x, z: ISLET.z, r: 24 },
+  { id: 'turtle', x: ISLE_OF.turtle.x, z: ISLE_OF.turtle.z, r: 18 },
+  { id: 'flower', x: ISLE_OF.flower.x, z: ISLE_OF.flower.z, r: 18 },
   { id: 'wild', x: 0, z: 0, r: 999 },
 ]

@@ -1,7 +1,7 @@
 // The map screen (loaded the first time it is opened). North is up.
 import * as L from './land.js'
 
-const R = 138 // world units from the center to the map edge
+const R = 145 // world units from the center to the map edge
 let base = null
 
 function makeBase(sample, trees) {
@@ -161,7 +161,7 @@ export function drawMap(canvas, opts) {
     ctx.fillText(text, lx, top + h / 2 + 1)
   }
   const small = new Set(['market', 'bank', 'toyshop', 'icecream'])
-  const offsets = { village: 40, castle: 0, harbor: -16, burger: -18, post: -18, school: 18, graveyard: -24, lighthouse: -26, bridge: 12, pond: -16, mountain: 0, forest: 0, farm: -20, beach: 22 }
+  const offsets = { turtle: -18, flower: 18, village: 40, castle: 0, harbor: -16, burger: -18, post: -18, school: 18, graveyard: -24, lighthouse: -26, bridge: 12, pond: -16, mountain: 0, forest: 0, farm: -20, beach: 22 }
   for (const [k, p] of Object.entries(L.PLACES)) {
     if (small.has(k)) continue
     label(p.x, p.z, `${p.icon} ${p.name}`, true, offsets[k] ?? 0)

@@ -849,3 +849,70 @@ export function bat() {
   g.userData.wings = wings
   return g
 }
+
+// ---------- little islands ----------
+
+export function mushroomMesh() {
+  const p = new Parts(SMOOTH)
+  p.add(cyl(0.09, 0.12, 0.32, 10), '#fff4e0', { y: 0.16, jitter: 0 })
+  p.add(sphere(0.24, 14, 8, 0, Math.PI / 2), '#e94b3c', { y: 0.3, sy: 0.75, jitter: 0 })
+  for (const [x, z] of [[0.08, 0.08], [-0.1, 0.03], [0.02, -0.12], [0.12, -0.05]]) p.add(sphere(0.035, 8, 6), '#ffffff', { x, y: 0.43, z, jitter: 0 })
+  return p.build()
+}
+
+export function treasureChest() {
+  const g = new THREE.Group()
+  const p = new Parts()
+  p.add(box(1.2, 0.6, 0.8), '#9a6232', { y: 0.3 })
+  for (const x of [-0.45, 0.45]) p.add(box(0.1, 0.62, 0.82), '#f1c232', { x, y: 0.3, jitter: 0 })
+  p.add(box(0.2, 0.2, 0.06), '#f1c232', { y: 0.5, z: 0.42, jitter: 0 })
+  g.add(p.build())
+  const lid = new THREE.Group()
+  lid.position.set(0, 0.6, -0.4)
+  const lp = new Parts()
+  lp.add(cyl(0.4, 0.4, 1.2, 12, false), '#a86c38', { z: 0.4, rz: Math.PI / 2, sy: 1, sx: 1, jitter: 0.02 })
+  for (const x of [-0.45, 0.45]) lp.add(cyl(0.41, 0.41, 0.1, 12), '#f1c232', { x, z: 0.4, rz: Math.PI / 2, jitter: 0 })
+  lid.add(lp.build())
+  g.add(lid)
+  const gold = new Parts()
+  for (let i = 0; i < 7; i++) gold.add(cyl(0.12, 0.12, 0.04, 10), '#f5c542', { x: -0.35 + i * 0.12, y: 0.62, z: (i % 3) * 0.1 - 0.1, rx: 0.3 * (i % 2), mat: GLOW, jitter: 0 })
+  const coins = gold.build({ shadow: false })
+  g.add(coins)
+  g.userData = { lid, coins }
+  return g
+}
+
+export function gazebo() {
+  const p = new Parts()
+  for (let i = 0; i < 6; i++) {
+    const a = (i / 6) * Math.PI * 2
+    p.add(cyl(0.12, 0.12, 2.6, 8), '#ffffff', { x: Math.cos(a) * 2.2, y: 1.3, z: Math.sin(a) * 2.2 })
+  }
+  p.add(cyl(2.5, 2.5, 0.25, 6), '#f4ede0', { y: 0.12 })
+  p.add(cone(3.0, 1.6, 6), '#ff8fb1', { y: 3.4 })
+  p.add(sphere(0.18, 10, 8), '#ffd23f', { y: 4.3 })
+  for (let i = 0; i < 6; i++) {
+    const a = (i / 6) * Math.PI * 2 + Math.PI / 6
+    p.add(ico(0.32, 1), ['#ff6b8a', '#ffd23f', '#b38bff'][i % 3], { x: Math.cos(a) * 2.3, y: 2.45, z: Math.sin(a) * 2.3, mat: SMOOTH })
+  }
+  // picnic blanket with a basket
+  for (let i = 0; i < 4; i++) for (let j = 0; j < 4; j++) p.add(box(0.45, 0.04, 0.45), (i + j) % 2 ? '#ffffff' : '#e94b3c', { x: -3.6 + i * 0.45, y: 0.03, z: -1.2 + j * 0.45, jitter: 0 })
+  p.add(box(0.6, 0.35, 0.4), '#c48a52', { x: -3.0, y: 0.2, z: -0.5 })
+  p.add(torus(0.22, 0.03, 4, 10, Math.PI), '#a8693f', { x: -3.0, y: 0.38, z: -0.5 })
+  return p.build()
+}
+
+export function seaTurtle() {
+  const g = new THREE.Group()
+  const p = new Parts(SMOOTH)
+  p.add(sphere(0.5, 16, 8, 0, Math.PI / 2), '#5c8a3a', { y: 0.12, sy: 0.6, sz: 1.2 })
+  for (let i = 0; i < 5; i++) p.add(sphere(0.14, 8, 6, 0, Math.PI / 2), '#7aa84f', { x: (i % 3) * 0.2 - 0.2, y: 0.3, z: Math.floor(i / 3) * 0.3 - 0.1, sy: 0.4 })
+  p.add(sphere(0.18, 12, 10), '#9cc977', { y: 0.18, z: 0.7 })
+  for (const s of [-1, 1]) {
+    p.add(sphere(0.04, 8, 6), '#1d1717', { x: s * 0.09, y: 0.24, z: 0.83, jitter: 0 })
+    p.add(sphere(0.14, 10, 8), '#9cc977', { x: s * 0.45, y: 0.08, z: 0.35, sx: 1.4, sy: 0.3 })
+    p.add(sphere(0.11, 10, 8), '#9cc977', { x: s * 0.38, y: 0.08, z: -0.4, sx: 1.3, sy: 0.3 })
+  }
+  g.add(p.build())
+  return g
+}

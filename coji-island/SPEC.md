@@ -1,14 +1,45 @@
-# Coji's Island Adventure: game spec (v0.2)
+# Coji's Island Adventure: game spec (v0.3)
 
-A cute 3D adventure game for a 6-year-old reader. Coji walks around a small island, talks to people
-and animals in simple English, collects things in his bag, keeps his energy and water up, does little
-jobs for coins, and solves one quest at a time. This version has **3 quests**; the King's quest in the
-castle will be the last one (to be designed).
+A cute 3D adventure game for a 6-year-old reader. **The game is about reading English while having
+fun**: everything the child needs (quests, clues, jobs, signs, chit-chat, even the banner behind a
+plane) is short, simple text to read. Coji walks around a small island, talks to people and animals,
+collects things in his bag, keeps his energy and water up, does little jobs for coins, and solves one
+quest at a time. This version has **3 quests**; the King's quest in the castle will be the last one
+(to be designed).
 
 - Platform: web (Safari on iPad first, desktop Chrome/Safari/Edge too). Lives in `coji-island/`.
 - Language: English, at the reading level of KCIS Grade 1 (see "English" below).
 - Engine: [three.js](https://threejs.org) r170, loaded from jsDelivr. Plain ES modules, no build step
   (same as the rest of this repo).
+
+## What changed in v0.3
+
+- **Coji**: a red cap with "Coji" on both sides; shoes stand on roads and the plaza instead of sinking
+  in; Blankie's blanket drapes over his arms like real cloth and covers his lap when he rests on a
+  bench. His chosen answers are spoken in a kid's voice.
+- **A busier island**: villagers and animals (deer, foxes, chickens, squirrels, hedgehogs, crabs,
+  frogs, ducklings) wander near Coji, mostly along the ring road. They can be talked to, and sometimes
+  they help with the quest. Houses have doors to knock on, and their owners come out to chat. Knights
+  walk on the castle walls and Sir Percy patrols the castle road.
+- **Shows**: every minute or so something happens at sea or in the sky: a whale, a pirate ship, a
+  kraken, dolphins, a plane pulling a banner to read, a hot-air balloon, or a UFO that beams an alien
+  down (and comes back for it later).
+- **Two new small islands** with bridges: Turtle Island (Old Sam, a treasure chest, sea turtles) and
+  Flower Island (Pam, a gazebo, lots of flowers).
+- **Mushrooms** to collect in the forest. Look up at the sky by dragging down.
+- **Spookier graveyard**: much darker all around, scarier music (drone, wind, howls, bells); ghosts
+  turn to face you; skeletons sink back after about 30 seconds.
+- **Easier to play**: messages show in the middle of the screen (above the bag); the bag explains what
+  each thing is for; the quest card says "MISSION"; a clear marker shows where Coji is walking;
+  trees and buildings between the camera and Coji turn see-through; Coji gets tired and thirsty more
+  slowly.
+- **More to read in talks**: characters tell little stories ("Tell me about you!"), Coji's answers vary
+  and can react ("Wow!", "Really?"), and goodbyes change.
+- **Harder mail job**: read a full address and drop the letter in the right country box.
+- The 🔊 read-aloud button in the dialogue is gone (the child reads; only Coji's own answer is
+  spoken, after it is chosen).
+- The cottage on Lighthouse Island sits on the ground beside the path, and the island's slopes are
+  gentle enough to walk up.
 
 ## What changed in v0.2
 
@@ -37,9 +68,13 @@ castle will be the last one (to be designed).
 - **Sneakers**: navy uppers with a white toe cap, white side stripe, white velcro strap, white sole.
 - **Backpack**: red, with a lighter front pocket, a handle loop, dark straps over the shoulders and a
   little yellow charm.
+- **Cap**: red, with a round crown, a front brim and "Coji" written on both sides.
 - **Blankie Bear (被被熊)** is hugged in both arms: the little bear head (pale gray, round blue ears,
   brown eyes, nose and mouth) at his chest, and the pale gray knit blanket with light-blue stripes
-  hanging down in front. The blanket sways when he walks.
+  hanging down in front in soft folds and over both arms. The blanket sways when he walks. Resting on
+  a bench, Coji spreads it over his lap.
+- **Voice**: when the child picks an answer, Coji says it in a kid's voice (speech synthesis, higher
+  pitch). Other characters are not read aloud: reading them is the point.
 - Blankie Bear is also the **helper voice**: all tips appear in a bubble with the bear's face.
 
 Colors live in one place: `js/config.js` (`UNIFORM`, `BLANKIE`, `BACKPACK`, `COJI`).
@@ -52,13 +87,17 @@ Colors live in one place: `js/config.js` (`UNIFORM`, `BLANKIE`, `BACKPACK`, `COJ
 | Talk / use something | Tap the person, animal or object (Coji walks there first) | Click it |
 | Tap a gravestone | A ghost pops out right away (no walking) | Same |
 | Look around | Drag with one finger | Drag |
+| Look up at the sky | Drag down | Drag down |
 | Zoom | Pinch | Mouse wheel |
 | Bag / Map / Rest | Buttons at the bottom right | Same (also B / M keys) |
 
 - A tap is a touch that moves less than ~10 px. Anything longer is a camera drag.
+- Where Coji is going is shown by a bright marker (white and yellow rings with a bouncing arrow),
+  drawn on top of everything so it is easy to see even on the pale plaza. It stays until he arrives.
 - Coji finds his own way around houses, trees and water (grid path-finding, A*). If a place cannot be
   reached yet, Blankie says why (e.g. "Bruno the bear is sitting on the bridge!").
-- The camera slides in front of tree tops so Coji is never hidden behind the forest.
+- The camera slides in front of tree tops, and anything still between the camera and Coji (trees,
+  houses, walls) turns see-through around him (dithered), so he is never hidden.
 
 ## 3. The island (Sunny Island)
 
@@ -73,7 +112,9 @@ on the ring are spread evenly, one every 45°. Wooden signposts with arrows stan
 | ⚓ Harbor | Ring, south | Coji's start. Pier, Captain Pip's boat, Fisher Finn, Momo the cat |
 | 📮 Post Office | Ring, south-east | Max the mailman (job) |
 | 🏖️ Sunny Beach + 🍦 Ice Cream | Ring, east | Palm trees, shells, fountain, Coco's ice cream stand (job) |
-| 🌉 Bear Bridge → 🗼 Lighthouse Island | Ring, north-east | A long bridge across the sea to the lighthouse; Bruno sits on it until fed |
+| 🌉 Bear Bridge → 🗼 Lighthouse Island | Ring, north-east | A long bridge across the sea to the lighthouse and Gus's cottage; Bruno sits on it until fed |
+| 🐢 Turtle Island | Off the west coast, by bridge | Palm trees, sea turtles, **Old Sam** (a retired, kind pirate) and his old treasure chest (6 coins, once) |
+| 🌸 Flower Island | Off the south-east coast, by bridge | Flowers everywhere, a gazebo, **Pam** who comes to read and smell the flowers |
 | 🏫 School | Ring, north | Teacher Kim (job), bell tower, a swing |
 | 👻 Spooky Graveyard | Ring, north-west | Gravestones, ghosts, skeletons, pumpkins, Boo |
 | 🥕 Farm | Ring, west | Apple trees, carrot patch, Bun the bunny, red barn |
@@ -96,6 +137,14 @@ on the ring are spread evenly, one every 45°. Wooden signposts with arrows stan
 | Max the Mailman | Post Office | **Sort the Mail job** | |
 | Teacher Kim | School | **Word Check job** | |
 | Sir Lance 🛡️ | Castle gate | Guards the castle. "The King is very busy" (for now) | |
+| Knights 🛡️ | Castle walls | Three guards march along the wall tops | |
+| Sir Percy 🛡️ | Castle loop road | Walks around the castle; can be talked to | |
+| Old Sam 🏴‍☠️ | Turtle Island | Tells pirate stories, points to his chest | |
+| Pam | Flower Island | Reads, has picnics, loves flowers | |
+| House owners | At their houses | Knock on a door: Mrs. Rose, Baker Tom, Nora, Mr. Oak, Lily or Dr. Sam comes out to chat (sometimes nobody is home and there is a note to read). They stand outside now and then | Sometimes a clue or a treat |
+| Villagers | Near Coji, on the roads | Random kids and grown-ups who walk around; chat, little stories; sometimes a clue for the quest | |
+| Wild animals | Ring road, forest, beach, pond, farm | Deer, foxes, squirrels, hedgehogs, crabs (beach), frogs and ducklings (pond), chickens (farm). Talkable; some give a hint | |
+| Aliens 👽 | Wherever a UFO drops one | Friendly, funny talk; the UFO picks them up later | |
 | King Arlo 👑 | Castle balcony | Waves now and then. Tapping him shows a tip | The final quest (later) |
 | Bun the bunny 🐰 | Farm | | Give a carrot → berries (+ a clue) |
 | Hoot the owl 🦉 | Forest, big tree | Wise; many clues | Bring her glasses → **owl feather** + 2 coins |
@@ -110,8 +159,8 @@ Helping animals always gives something good (coins, berries, a feather, an open 
 ## 5. Systems
 
 ### 5.1 Energy ⚡ and water 💧 (0 to 100)
-- Walking uses both. Per meter walked: energy −0.12, water −0.14. Water also drops slowly over time
-  (−0.03/s). Nothing drops while a dialogue, a job, the bag, the shop or the map is open.
+- Walking uses both. Per meter walked: energy −0.055, water −0.065. Water also drops slowly over time
+  (−0.012/s). (v0.3 halved these: a full bar lasts a long walk around the island.) Nothing drops while a dialogue, a job, the bag, the shop or the map is open.
 - **Water slows energy loss**: water ≥ 60 → energy cost ×0.7; 30–60 → ×1; below 30 → ×1.5; 0 → ×2.
 - **Rest** (💤 button anywhere, or tap a bench): energy comes back 3/s × water factor
   (water ≥ 60: ×1.6, 30–60: ×1, below 30: ×0.5). Benches are 1.5× faster.
@@ -132,15 +181,21 @@ Helping animals always gives something good (coins, berries, a feather, an open 
 | 🥛 Milk | +20 water, +15 energy | Granny Bee, 2 coins |
 | 💧 Water bottle | +40 water | Pip, Leo, Burger Ben (1 coin); refills at the well |
 | 🥕 Carrot | +10 energy (Bun loves them) | Granny Bee (1 coin), carrot patch |
+| 🍄 Mushroom | +6 energy (sell for 1 coin) | Forest floor (34 of them; they come back) |
+| 🍪 Cookie, 🥪 Sandwich | +12 / +30 energy | Gifts from house owners and villagers |
 | 🎃 Pumpkin | +20 energy; Boo's quest | Graveyard pumpkin patch (regrows) |
 | 🕯️ Candle | Boo's quest | Granny Bee, 2 coins |
 | 🐟 Fish | For Momo | Fisher Finn |
 | 🐚 Shell | Swap at the bank | Beaches (shells come back after a while) |
 | 🍯 Honey, 👓 glasses, 🪶 feather, 💡 bulb | Quest items | See the quests |
 
+Tap something in the bag to see what it is **and what to do with it** ("👉 Give it to Momo the cat
+at the harbor."). The first thing is picked when the bag opens. Messages like "+1 🍎 Apple" or
+"Yum! +15 ⚡" pop up in the middle of the screen, above the bag and shops.
+
 ### 5.3 Coins 🪙
 Ways to earn: **jobs**, swap shells at the bank, sell apples/berries to Granny Bee, feed Momo, help
-Hoot, finish Boo's quest, hidden coins. Shops show the price and how many coins are missing.
+Hoot, finish Boo's quest, Old Sam's chest, hidden coins. Shops show the price and how many coins are missing.
 
 ### 5.4 Jobs 💼
 Talk to the job person and choose "Can I work here? 💼". A shift is 5 rounds; each right answer pays
@@ -151,7 +206,7 @@ job rests for 60 seconds of play ("Come back a little later!"). Leaving early st
 |---|---|---|---|
 | 🍔 Burger Kitchen | Burger Ben | Read the order ("I want cheese and tomato. No onion, please!") and tap the toppings; the burger builds up | Reading sentences, "and", "no" |
 | 🍦 Ice Cream Stand | Coco | Read the order ("Two scoops: pink and green, please!") and tap the scoops; the cone fills up | Color and flavor words |
-| 📮 Sort the Mail | Max | Read "To: the man who catches fish" and tap the right friend | Reading who-does-what |
+| 📮 Sort the Mail | Max | Read a letter's address (name, street, city, COUNTRY) and drop it in the right one of 3 country boxes; the boxes look alike (Spain / Sweden / Singapore) so the child must read carefully | Reading an address, capital letters, look-alike words |
 | 🏫 Word Check | Teacher Kim | See a picture (🐱) and tap the right word (cat / cap / can) | Phonics, CVC words |
 
 ### 5.5 Dialogue
@@ -163,7 +218,11 @@ job rests for 60 seconds of play ("Come back a little later!"). Leaving early st
 - When a conversation ends there is one "OK! 👍" button; after "Bye!" the box closes by itself. A ✕
   button closes it any time.
 - Something already asked moves down the list, so the other choices get a turn.
-- A 🔊 button reads the lines aloud (never automatically: the child is practicing reading).
+- No read-aloud button: the child reads the lines. After the child taps an answer, Coji says it out
+  loud in a kid's voice.
+- **Small talk**: "Tell me about you!" gets a little story (a few short lines). Coji's answers vary
+  and sometimes react ("Wow! 🤩", "Really? 😮", "Ha ha!"), and the character answers the reaction.
+  Thanks and goodbyes change each time.
 - **Every character talks about the current quest.** The first question gives a hint, a follow-up
   gives a better clue, chit-chat gives no clue.
 
@@ -173,25 +232,42 @@ job rests for 60 seconds of play ("Come back a little later!"). Leaving early st
 - The target character gets a gold "!" over the head; everyone else has a small "…" bubble.
 
 ### 5.7 The Spooky Graveyard 👻
-- Walking in makes the world turn spooky: purple sky, close fog, dimmer light, glowing lamps, drifting
-  mist, green wisps, bats, and a slower, minor-key tune. Walking out turns it back.
-- **Tap a gravestone**: a little ghost pops out, floats up with a "whoo" and fades away. Each tap has
-  a 30% chance that a **skeleton (Mr. Bones)** climbs out, walks around for a while, then sinks back.
+- Walking in makes the world turn spooky: a dark night-purple sky, close dark fog and very dim light
+  over the whole island, glowing lamps, drifting mist, green wisps, bats, and a scary tune (low
+  drone, wind, far-off howls, a church bell, creaks, owl hoots). Walking out turns it back.
+- **Tap a gravestone**: a little ghost pops out, turns to look at you, floats up with a "whoo" and
+  fades away. Each tap has a 30% chance that a **skeleton (Mr. Bones)** climbs out (at most 2), walks
+  around for 25–37 seconds, then sinks back (also right away if Coji leaves the graveyard).
   You can talk to him; he is funny but almost never helpful (sometimes a small clue in Boo's quest).
 - Pumpkins grow at the back (food, and needed for Boo's quest). Jack-o'-lanterns glow by the gate.
 
-### 5.8 Map 🗺️
+### 5.8 Life on the island
+- **Crowd** (`crowd.js`): up to 3 villagers and 4–6 animals appear within ~38 m of Coji (out of sight
+  when possible) and walk along roads and paths; they are removed when far away. Each can be talked
+  to: little stories, jokes, and now and then a real clue for the current quest.
+- **Houses**: every house has a door to tap. Knock knock! The owner comes out and talks (a clue, a
+  story, sometimes a cookie). If nobody is home, there is a note on the door to read. Owners also
+  step outside by themselves sometimes.
+- **Knights**: three knights march on the castle walls; Sir Percy walks around the castle road.
+- **Shows** (`shows.js`): the first one after ~20 s, then one every 35–70 s, near Coji. At sea: a
+  whale (spout), a pirate ship (horn), a kraken (purple tentacles), dolphins. In the sky: a plane with
+  a banner to read ("READ EVERY DAY!"), a hot-air balloon, a UFO. Blankie points each one out
+  ("Look up! A hot-air balloon! 🎈"). The UFO sometimes beams down an alien, who walks around and can
+  be talked to, then comes back to beam it up.
+
+### 5.9 Map 🗺️
 The whole island: ring road, castle and moat, places with icons and names, Coji's arrow and what the
 camera sees, ⭐ markers from clues, "!" for target characters, and "You are here".
 
-### 5.9 Tips from Blankie Bear
+### 5.10 Tips from Blankie Bear
 Low energy/water (and "eat from your bag" if there is food), first time near a character or something
 to use (well, bench, trees, shells, signpost, gravestone, pumpkin), the graveyard and the first
 skeleton, new clues, and a reminder after 30 seconds of nothing happening (mentions jobs when coins
 are needed).
 
-### 5.10 Saving
-Auto-saves to `localStorage` (position, stats, coins, bag, quests, clues, flags, job rests).
+### 5.11 Saving
+Auto-saves to `localStorage` (position, stats, coins, bag, quests, clues, flags such as the opened
+chest, job rests).
 
 ## 6. Story
 
@@ -224,6 +300,9 @@ open the gate and involve King Arlo (to be designed).
 - Level: KCIS Grade 1 (myView 1.1). Short sentences, present tense, high-frequency words, simple
   questions. New nouns are concrete and shown with an emoji.
 - Fonts: **Andika** for reading text, **Baloo 2** for titles. Reading text ≥ 20 px, buttons ≥ 48 px.
+- Reading is everywhere and always has a reason: clues to solve the quest, the bag's "what to do",
+  orders and addresses in jobs, signposts, notes on doors, banners in the sky, and stories from
+  friends.
 
 ## 8. Look and feel
 
@@ -245,6 +324,9 @@ open the gate and involve King Arlo (to be designed).
 - **Cheap rendering:** a few shared materials, merged static meshes, instanced plants and lamps, one
   shadow light that follows Coji. About 100 draw calls and ~250k visible triangles; ~1 ms per frame
   on an M1 laptop.
+- **Life stays cheap:** villagers, animals, residents and shows exist only near Coji (about 10 extra
+  characters at most) and are removed when far away; see-through is a tiny shader addition, not
+  extra draw calls.
 - **Adaptive quality:** if the frame rate stays low (< ~25 fps), the game lowers the pixel ratio and
   then the shadow map size by itself (throttled/hidden frames are ignored).
 
@@ -261,16 +343,19 @@ coji-island/
     config.js      tunable numbers and character colors
     land.js        island layout, heights, roads, castle, graveyard (pure JS, no three.js)
     nav.js         walkable grid + A* path-finding
-    build.js       low-poly builder: merges colored primitives into one mesh; materials
+    build.js       low-poly builder: merges colored primitives into one mesh; materials (with the
+                   see-through effect around Coji)
     world.js       sky, terrain, water, roads, buildings, lamps, zones, spooky/day/night, fireworks
     props.js       buildings and objects (houses, shops, castle, lighthouse, graveyard pieces…)
     nature.js      trees, bushes, rocks, flowers, lamps, clouds (instanced)
     characters.js  Coji, people, animals, ghosts and skeletons, with simple animations
-    camera.js      follow camera; tap / drag / pinch / wheel input
+    camera.js      follow camera (can look up); tap / drag / pinch / wheel input
     items.js       item catalog and shops
-    story.js       quests, clues and every character's dialogue
+    story.js       quests, clues and every character's dialogue (incl. villagers, residents, animals)
+    crowd.js       wandering villagers and animals, house doors and residents, knights
+    shows.js       sea and sky shows: whale, ship, kraken, dolphins, plane, balloon, UFO
     jobs.js        the four job mini-games
-    dialogue.js    dialogue box (lines, answers, portraits, read aloud)
+    dialogue.js    dialogue box (lines, answers, portraits; speaks Coji's chosen answer)
     ui.js          HUD, quest card, tips, bag, shop, toasts, finale screen
     map.js         map screen (loaded on first use)
     audio.js       synthesized sounds and music (happy and spooky tunes)

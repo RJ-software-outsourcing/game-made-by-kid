@@ -17,9 +17,10 @@ function addFace(p, r, o) {
   p.add(HEAD(r), o.skin, { sy: 0.97, jitter: 0 })
   for (const s of [-1, 1]) p.add(sphere(r * 0.2, 10, 8), o.skin, { x: s * r * 0.97, y: -r * 0.05, sx: 0.55, jitter: 0 })
   const ey = -r * 0.04
+  const er = o.bigEyes ? r * 0.21 : r * 0.13
   for (const s of [-1, 1]) {
-    p.add(sphere(r * 0.13, 12, 10), '#1d1717', { x: s * r * 0.36, y: ey, z: r * 0.86, sz: 0.6, sy: 1.12, jitter: 0 })
-    p.add(sphere(r * 0.045, 8, 6), '#ffffff', { x: s * r * 0.36 + r * 0.05, y: ey + r * 0.06, z: r * 0.93, jitter: 0 })
+    p.add(sphere(er, 12, 10), '#1d1717', { x: s * r * 0.36, y: ey, z: r * 0.86, sz: 0.6, sy: 1.12, jitter: 0 })
+    p.add(sphere(er * 0.35, 8, 6), '#ffffff', { x: s * r * 0.36 + r * 0.05, y: ey + r * 0.06, z: r * 0.93 + er * 0.2, jitter: 0 })
     p.add(sphere(r * 0.12, 10, 8), o.cheeks || '#f4a6a0', { x: s * r * 0.58, y: -r * 0.25, z: r * 0.75, sz: 0.35, jitter: 0 })
     if (o.brows) p.add(box(r * 0.22, r * 0.05, r * 0.05), o.brows, { x: s * r * 0.36, y: ey + r * 0.24, z: r * 0.9, rz: s * -0.12, jitter: 0 })
   }
@@ -125,6 +126,11 @@ function addHair(p, r, o) {
       p.add(sphere(r * 0.5, 12, 10), c, { y: -r * 0.05, z: -r * 0.72, sz: 0.5 })
       break
   }
+  if (o.antennae)
+    for (const s of [-1, 1]) {
+      p.add(cyl(r * 0.03, r * 0.03, r * 0.7, 6), o.skin, { x: s * r * 0.3, y: r * 1.15, rz: -s * 0.35 })
+      p.add(sphere(r * 0.1, 10, 8), '#ffe066', { x: s * r * 0.43, y: r * 1.47 })
+    }
   if (o.beard) {
     p.add(sphere(r * 0.62, 14, 10), o.beard, { y: -r * 0.55, z: r * 0.45, sz: 0.65, sy: 0.85 })
     for (const s of [-1, 1]) p.add(sphere(r * 0.2, 10, 8), o.beard, { x: s * r * 0.17, y: -r * 0.2, z: r * 0.92, sx: 1.6, sy: 0.6, sz: 0.5 })
@@ -197,8 +203,9 @@ function bandedTorso(p, rb, rt, y0, h, bands, seg = 16) {
   }
 }
 
-// A little cloth that hangs and sways (Blankie Bear's blanket).
-function makeCloth(rowColors, cols) {
+// A knit cloth (Blankie Bear's blanket): stripes across, a ribbed border all round, and a little
+// light/dark knit pattern. `shape(u, v)` (u -1..1 across, v 0..1 down) places each point every frame.
+function makeCloth(rowColors, cols, border, shape) {
   const rows = rowColors.length
   const pos = []
   const col = []
@@ -210,8 +217,9 @@ function makeCloth(rowColors, cols) {
       const u1 = ((k + 1) / cols) * 2 - 1
       const v0 = r / rows
       const v1 = (r + 1) / rows
-      c.set(rowColors[r])
-      const j = 1 + (Math.random() * 2 - 1) * 0.04
+      const edge = k === 0 || k === cols - 1 || r === rows - 1
+      c.set(edge ? border : rowColors[r])
+      const j = 1 + ((k + r) % 2 ? 0.035 : -0.035) + (Math.random() * 2 - 1) * 0.02
       for (const [u, v] of [[u0, v0], [u0, v1], [u1, v0], [u0, v1], [u1, v1], [u1, v0]]) {
         rest.push(u, v)
         pos.push(0, 0, 0)
@@ -224,7 +232,7 @@ function makeCloth(rowColors, cols) {
   const mesh = new THREE.Mesh(g, SMOOTH2)
   mesh.castShadow = true
   mesh.frustumCulled = false
-  return { mesh, rest, sway: 0 }
+  return { mesh, rest, shape }
 }
 
 // The little bear head of Blankie Bear.
@@ -402,6 +410,7 @@ export class Person {
     }
     if (o.backpack) this.addBackpack()
     if (o.hug) this.addLovey()
+    if (o.cap) this.addCap(o.cap, o.capName)
     if (o.sit) this.sit()
     root.traverse((m) => {
       if (m.isMesh) m.castShadow = true
@@ -431,7 +440,8 @@ export class Person {
     this.body.add(p.build())
   }
 
-  // Blankie Bear held in a hug: the bear head in front of the chest, the blanket hanging over the arms.
+  // Blankie Bear held in a hug: the bear head at the chest; the blanket is gathered under the head,
+  // hangs down in front in soft folds, and drapes over both arms. When resting it covers the lap.
   addLovey() {
     const P = this.P
     const B = BLANKIE
@@ -442,38 +452,111 @@ export class Person {
     head.rotation.set(-0.15, 0.12, 0.08)
     this.body.add(head)
     this.bearHead = head
-    const cloth = makeCloth([B.knit, B.knit, B.stripe, B.knit, B.stripe, B.knit, B.rib], 6)
-    cloth.top = top - 0.2
-    cloth.z = P.bodyR + 0.16
-    cloth.W = 0.4
-    cloth.H = 0.42
-    this.body.add(cloth.mesh)
-    this.cloth = cloth
+    const z0 = P.bodyR + 0.15
+    const y0 = top - 0.19
+    const rows = [B.knit, B.stripe, B.knit, B.knit, B.stripe, B.knit, B.knit, B.stripe, B.knit, B.rib]
+    // the front drop: gathered at the top, wider below, the middle corner hangs lowest
+    const front = makeCloth(rows, 10, B.rib, (u, v, t, sw) => {
+      const x = u * (0.1 + 0.2 * Math.sqrt(v))
+      const y = y0 - v * 0.44 - 0.11 * (1 - Math.abs(u)) * v * v
+      const fold = Math.sin(u * Math.PI * 2.5 + 0.7) * 0.03 * Math.min(1, v * 2)
+      const z = z0 + 0.05 * (1 - u * u) + 0.07 * v + fold + sw * 0.07 * v * v + Math.sin(t * 9 + v * 5 + u * 2) * 0.02 * sw * v
+      return [x, y, z]
+    })
+    // two corners draped over the forearms
+    const flap = (s) =>
+      makeCloth([B.knit, B.stripe, B.knit, B.knit, B.stripe, B.rib], 4, B.rib, (u, v, t, sw) => {
+        const x = s * (0.15 + 0.08 * v) + u * (0.05 + 0.05 * v)
+        const y = y0 + 0.02 - v * 0.36
+        const z = z0 - 0.02 + 0.03 * Math.sin((u + 1) * 1.6) + 0.04 * v + Math.sin(t * 8 + v * 4) * 0.015 * sw * v
+        return [x, y, z]
+      })
+    // the lap blanket when Coji sits: over the thighs, then hanging down at the knees
+    const lap = makeCloth([B.knit, B.stripe, B.knit, B.knit, B.stripe, B.knit, B.knit, B.stripe, B.rib], 10, B.rib, (u, v, t) => {
+      const x = u * 0.34 * (1 + 0.15 * v)
+      const fold = Math.sin(u * Math.PI * 3) * 0.018
+      let y
+      let z
+      if (v < 0.5) {
+        z = 0.08 + (v / 0.5) * 0.42
+        y = 0.24 - (v / 0.5) * 0.08 + fold
+      } else {
+        z = 0.5 + 0.04 * Math.sin((v - 0.5) * 3)
+        y = 0.16 - ((v - 0.5) / 0.5) * 0.46 + fold * 0.5
+      }
+      return [x, y + Math.sin(t * 1.5 + u * 2) * 0.004, z]
+    })
+    lap.mesh.visible = false
+    this.cloths = [front, flap(-1), flap(1), lap]
+    this.lap = lap
+    for (const c of this.cloths) this.body.add(c.mesh)
+    this.sway = 0
     this.updateCloth(0, 0)
   }
 
+  // Resting: the blanket moves from the arms to the lap.
+  setRest(on) {
+    if (!this.cloths) return
+    for (const c of this.cloths) c.mesh.visible = c === this.lap ? on : !on
+  }
+
   updateCloth(dt, t) {
-    const c = this.cloth
     const target = Math.min(1, this.speed / 6)
-    c.sway += (target - c.sway) * Math.min(1, dt * 4)
-    const a = c.mesh.geometry.attributes.position.array
-    for (let i = 0, n = c.rest.length / 2; i < n; i++) {
-      const u = c.rest[i * 2]
-      const v = c.rest[i * 2 + 1]
-      // a soft blanket hanging down in front, narrowing to a rounded point
-      const x = u * (c.W / 2) * (1 - 0.45 * v)
-      let y = c.top - v * c.H - 0.07 * (1 - Math.abs(u)) * v
-      let z = c.z + 0.025 * (1 - u * u) + 0.05 * v
-      const flutter = Math.sin(t * 9 + v * 5 + u * 2) * 0.02 * c.sway * v
-      const breeze = Math.sin(t * 1.7 + u * 1.5) * 0.01 * v
-      z += c.sway * 0.06 * v * v + flutter + breeze
-      y += Math.abs(Math.sin(this.phase)) * 0.02 * c.sway * v
-      a[i * 3] = x
-      a[i * 3 + 1] = y
-      a[i * 3 + 2] = z
+    this.sway += (target - this.sway) * Math.min(1, dt * 4)
+    for (const c of this.cloths) {
+      if (!c.mesh.visible && c.done) continue
+      c.done = true
+      const a = c.mesh.geometry.attributes.position.array
+      for (let i = 0, n = c.rest.length / 2; i < n; i++) {
+        const [x, y, z] = c.shape(c.rest[i * 2], c.rest[i * 2 + 1], t, this.sway)
+        a[i * 3] = x
+        a[i * 3 + 1] = y
+        a[i * 3 + 2] = z
+      }
+      c.mesh.geometry.attributes.position.needsUpdate = true
+      c.mesh.geometry.computeVertexNormals()
     }
-    c.mesh.geometry.attributes.position.needsUpdate = true
-    c.mesh.geometry.computeVertexNormals()
+  }
+
+  // A baseball cap with a name on both sides. Sits a little high so the bangs peek out.
+  addCap(color, name) {
+    const r = this.P.headR
+    const p = new Parts(SMOOTH)
+    const dark = darker(color, 0.82)
+    const cap = new THREE.Group()
+    cap.position.y = r * 0.2
+    cap.rotation.x = -0.14
+    p.add(sphere(r * 1.12, 28, 12, 0, Math.PI / 2), color, { sy: 0.92, jitter: 0 })
+    p.add(new THREE.CylinderGeometry(r * 1.13, r * 1.13, r * 0.09, 28, 1, true), dark, { y: r * 0.03, jitter: 0, mat: SMOOTH2 })
+    p.add(sphere(r * 0.1, 12, 8), dark, { y: r * 1.03, jitter: 0 })
+    // the brim: a half disc sticking out in front
+    p.add(new THREE.CylinderGeometry(r * 1.5, r * 1.5, r * 0.06, 28, 1, false, -Math.PI / 2, Math.PI), dark, { y: r * 0.03, rx: 0.1, sz: 1.0, jitter: 0 })
+    cap.add(p.build())
+    const cv = document.createElement('canvas')
+    cv.width = 256
+    cv.height = 112
+    const ctx = cv.getContext('2d')
+    ctx.font = 'bold 84px "Baloo 2", Andika, sans-serif'
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'middle'
+    ctx.lineWidth = 12
+    ctx.strokeStyle = '#1c2340'
+    ctx.strokeText(name, 128, 62)
+    ctx.fillStyle = '#ffffff'
+    ctx.fillText(name, 128, 62)
+    const tex = new THREE.CanvasTexture(cv)
+    tex.colorSpace = THREE.SRGBColorSpace
+    tex.anisotropy = 4
+    const mat = new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false })
+    // curved name patches on both sides of the crown
+    for (const s of [-1, 1]) {
+      const g = new THREE.CylinderGeometry(r * 1.135, r * 1.135, r * 0.42, 16, 1, true, s > 0 ? Math.PI * 0.18 : Math.PI * 1.18, Math.PI * 0.64)
+      const m = new THREE.Mesh(g, mat)
+      m.position.y = r * 0.36
+      m.scale.y = 1
+      cap.add(m)
+    }
+    this.head.add(cap)
   }
 
   sit() {
@@ -539,7 +622,7 @@ export class Person {
     this.head.rotation.y = lerp(this.head.rotation.y, this.lookYaw, Math.min(1, dt * 5))
     this.head.rotation.x = this.talk > 0 ? Math.sin(t * 9) * 0.07 : Math.sin(t * 0.7 + this.seed) * 0.03
     if (this.talk > 0) this.talk -= dt
-    if (this.cloth) this.updateCloth(dt, t)
+    if (this.cloths) this.updateCloth(dt, t)
   }
 
   get faceY() {
@@ -568,6 +651,8 @@ export const LOOKS = {
     soles: UNIFORM.soles,
     backpack: true,
     hug: true,
+    cap: '#e94b3c',
+    capName: 'Coji',
   },
   pip: { skin: '#f7cfb0', hair: '#7a4a2a', hairStyle: 'short', beard: '#7a4a2a', hat: 'captain', shirt: '#ffffff', coat: '#2b4c8c', longSleeves: true, pants: '#f4f1ea', pantsLong: true, shoes: '#2a2a2a' },
   finn: { skin: '#e8b48f', hair: '#3b2a1f', hairStyle: 'short', hat: 'bucket', hatColor: '#f2c94c', shirt: '#4a90c8', stripes: '#ffffff', pants: '#5a6b8c', pantsLong: true, shoes: '#6b4a2b', rod: true, sit: true },
@@ -1030,3 +1115,210 @@ export class Skeleton {
     return this.faceH
   }
 }
+
+// ---------- animals and people that come and go ----------
+
+// Small animals with a little walk. kind: deer, fox, chicken, squirrel, hedgehog, crab, frog, duckling.
+export class Critter {
+  constructor(kind) {
+    this.kind = kind
+    this.root = new THREE.Group()
+    this.body = new THREE.Group()
+    this.root.add(this.body)
+    this.seed = Math.random() * 10
+    this.phase = 0
+    this.speed = 0
+    this.talk = 0
+    this.lookYaw = 0
+    this.legs = []
+    const p = new Parts(SMOOTH)
+    const legs = (pts, len, r, c) => {
+      for (const [x, z] of pts) {
+        const lp = new Parts(SMOOTH)
+        lp.add(cyl(r, r * 0.8, len, 8), c, { y: -len / 2, jitter: 0 })
+        const leg = lp.build()
+        leg.position.set(x, len, z)
+        this.root.add(leg)
+        this.legs.push(leg)
+      }
+    }
+    const eyes = (x, y, z, r = 0.035) => {
+      for (const s of [-1, 1]) {
+        p.add(sphere(r, 8, 6), '#1d1717', { x: s * x, y, z, jitter: 0 })
+        p.add(sphere(r * 0.35, 6, 4), '#ffffff', { x: s * x + r * 0.3, y: y + r * 0.4, z: z + r * 0.6, jitter: 0 })
+      }
+    }
+    let faceH = 0.6
+    switch (kind) {
+      case 'deer': {
+        const c = '#b07a4a'
+        p.add(sphere(0.45, 16, 12), c, { y: 1.0, sx: 0.85, sz: 1.6 })
+        for (const [x, z] of [[0.18, 0.2], [-0.15, -0.1], [0.12, -0.35], [-0.2, 0.3]]) p.add(sphere(0.05, 6, 4), '#fff4e0', { x, y: 1.32, z, jitter: 0 })
+        p.add(cyl(0.12, 0.15, 0.6, 10), c, { y: 1.45, z: 0.55, rx: 0.5 })
+        p.add(sphere(0.2, 14, 10), c, { y: 1.78, z: 0.75, sz: 1.3 })
+        p.add(sphere(0.08, 8, 6), '#2b1d14', { y: 1.74, z: 1.0 })
+        for (const s of [-1, 1]) {
+          p.add(sphere(0.08, 8, 6), c, { x: s * 0.17, y: 1.95, z: 0.68, sx: 0.6, sy: 1.5 })
+          p.add(cyl(0.02, 0.03, 0.35, 5), '#7a5a3a', { x: s * 0.09, y: 2.1, z: 0.7, rz: -s * 0.4 })
+        }
+        eyes(0.12, 1.84, 0.9, 0.04)
+        p.add(sphere(0.08, 8, 6), '#ffffff', { y: 1.15, z: -0.7 })
+        legs([[0.22, 0.45], [-0.22, 0.45], [0.22, -0.45], [-0.22, -0.45]], 0.8, 0.05, '#8a5a35')
+        faceH = 1.8
+        break
+      }
+      case 'fox': {
+        const c = '#e8742a'
+        p.add(sphere(0.3, 14, 10), c, { y: 0.48, sz: 1.6 })
+        p.add(sphere(0.18, 10, 8), '#fff4e6', { y: 0.42, z: 0.32, sz: 0.7 })
+        p.add(sphere(0.22, 14, 10), c, { y: 0.72, z: 0.5 })
+        p.add(cone(0.11, 0.25, 8), '#fff4e6', { y: 0.66, z: 0.72, rx: Math.PI / 2 })
+        p.add(sphere(0.04, 6, 4), '#1d1717', { y: 0.67, z: 0.85 })
+        for (const s of [-1, 1]) p.add(cone(0.08, 0.2, 5), c, { x: s * 0.12, y: 0.95, z: 0.45, rz: -s * 0.2 })
+        eyes(0.09, 0.78, 0.68)
+        p.add(sphere(0.18, 12, 8), c, { y: 0.55, z: -0.62, sz: 2.2, rx: -0.5 })
+        p.add(sphere(0.1, 8, 6), '#ffffff', { y: 0.72, z: -0.95 })
+        legs([[0.12, 0.25], [-0.12, 0.25], [0.12, -0.25], [-0.12, -0.25]], 0.35, 0.04, '#3b2a1e')
+        faceH = 0.75
+        break
+      }
+      case 'chicken': {
+        p.add(sphere(0.25, 14, 10), '#ffffff', { y: 0.45, sz: 1.2 })
+        p.add(sphere(0.14, 12, 10), '#ffffff', { y: 0.72, z: 0.15 })
+        p.add(cone(0.05, 0.12, 5), '#f2a33a', { y: 0.7, z: 0.3, rx: Math.PI / 2 })
+        for (let i = 0; i < 3; i++) p.add(sphere(0.04, 6, 4), '#e94b3c', { y: 0.86 + (i % 2) * 0.02, z: 0.1 + i * 0.05 })
+        p.add(sphere(0.04, 6, 4), '#e94b3c', { y: 0.62, z: 0.26 })
+        eyes(0.07, 0.75, 0.25, 0.025)
+        p.add(cone(0.12, 0.25, 6), '#ffffff', { y: 0.6, z: -0.32, rx: -0.9 })
+        legs([[0.08, 0], [-0.08, 0]], 0.25, 0.02, '#f2a33a')
+        faceH = 0.72
+        break
+      }
+      case 'squirrel': {
+        const c = '#b5582f'
+        p.add(sphere(0.16, 12, 10), c, { y: 0.28, sy: 1.3 })
+        p.add(sphere(0.12, 12, 10), c, { y: 0.52, z: 0.06 })
+        for (const s of [-1, 1]) p.add(cone(0.04, 0.1, 5), c, { x: s * 0.06, y: 0.66, z: 0.04 })
+        eyes(0.05, 0.55, 0.15, 0.02)
+        p.add(sphere(0.13, 10, 8), '#c8693a', { y: 0.42, z: -0.2, sy: 2.0, sz: 0.8, rx: -0.3 })
+        legs([[0.06, 0.06], [-0.06, 0.06]], 0.12, 0.025, c)
+        faceH = 0.52
+        break
+      }
+      case 'hedgehog': {
+        p.add(sphere(0.22, 12, 8, 0, Math.PI / 2), '#7a5a3a', { y: 0.08, sz: 1.3 })
+        for (let i = 0; i < 26; i++) {
+          const a = (i / 26) * Math.PI * 2
+          const r = 0.12 + (i % 3) * 0.04
+          p.add(cone(0.04, 0.16, 4), '#5a4030', { x: Math.cos(a) * r, y: 0.18 + (i % 2) * 0.04, z: Math.sin(a) * r * 1.2 - 0.03, rx: Math.sin(a) * 0.8 - 0.4, rz: -Math.cos(a) * 0.8, jitter: 0 })
+        }
+        p.add(sphere(0.1, 10, 8), '#e8cfae', { y: 0.12, z: 0.25, sz: 1.3 })
+        p.add(sphere(0.025, 6, 4), '#1d1717', { y: 0.12, z: 0.38 })
+        eyes(0.05, 0.17, 0.28, 0.018)
+        faceH = 0.18
+        break
+      }
+      case 'crab': {
+        const c = '#e8533e'
+        p.add(sphere(0.22, 12, 8), c, { y: 0.18, sy: 0.5, sx: 1.3 })
+        for (const s of [-1, 1]) {
+          p.add(cyl(0.015, 0.015, 0.12, 5), c, { x: s * 0.07, y: 0.3, z: 0.1 })
+          p.add(sphere(0.035, 8, 6), '#ffffff', { x: s * 0.07, y: 0.37, z: 0.1, jitter: 0 })
+          p.add(sphere(0.018, 6, 4), '#1d1717', { x: s * 0.07, y: 0.38, z: 0.13, jitter: 0 })
+          p.add(sphere(0.09, 8, 6), c, { x: s * 0.33, y: 0.24, z: 0.12, sy: 0.7 })
+          for (let i = 0; i < 3; i++) p.add(cyl(0.015, 0.012, 0.22, 4), c, { x: s * 0.28, y: 0.1, z: -0.1 + i * 0.1, rz: s * 1.1 })
+        }
+        faceH = 0.3
+        break
+      }
+      case 'frog': {
+        const c = '#5cbf4a'
+        p.add(sphere(0.2, 14, 10), c, { y: 0.18, sz: 1.2, sy: 0.8 })
+        for (const s of [-1, 1]) {
+          p.add(sphere(0.07, 10, 8), c, { x: s * 0.09, y: 0.33, z: 0.08 })
+          p.add(sphere(0.045, 8, 6), '#1d1717', { x: s * 0.1, y: 0.36, z: 0.12, jitter: 0 })
+          p.add(sphere(0.08, 8, 6), c, { x: s * 0.17, y: 0.06, z: -0.1, sx: 0.7, sz: 1.6 })
+        }
+        p.add(box(0.16, 0.012, 0.01), '#2e6b24', { y: 0.18, z: 0.23, jitter: 0 })
+        faceH = 0.3
+        break
+      }
+      default: {
+        // duckling
+        p.add(sphere(0.16, 12, 10), '#ffe066', { y: 0.2, sz: 1.3 })
+        p.add(sphere(0.1, 10, 8), '#ffe066', { y: 0.38, z: 0.12 })
+        p.add(box(0.08, 0.03, 0.08), '#f39c34', { y: 0.36, z: 0.24, jitter: 0 })
+        eyes(0.05, 0.42, 0.18, 0.018)
+        legs([[0.05, 0], [-0.05, 0]], 0.08, 0.015, '#f39c34')
+        faceH = 0.38
+      }
+    }
+    this.body.add(p.build())
+    this.faceH = faceH
+    this.portraitDist = Math.max(1.2, faceH * 1.6)
+    this.root.traverse((m) => {
+      if (m.isMesh) m.castShadow = true
+    })
+  }
+  get faceY() {
+    return this.faceH
+  }
+  get head() {
+    return this.body
+  }
+  update(dt, t) {
+    const moving = this.speed > 0.1
+    if (moving) this.phase += dt * this.speed * 8
+    const sw = moving ? Math.sin(this.phase) : 0
+    this.legs.forEach((l, i) => (l.rotation.x = (i % 2 ? sw : -sw) * 0.6))
+    const hop = this.kind === 'frog' || this.kind === 'squirrel' ? Math.abs(Math.sin(this.phase * 0.5)) * 0.25 * (moving ? 1 : 0) : 0
+    this.body.position.y = hop + (moving ? Math.abs(sw) * 0.03 : Math.sin(t * 2 + this.seed) * 0.01)
+    this.body.rotation.z = this.talk > 0 ? Math.sin(t * 9) * 0.08 : 0
+    if (this.talk > 0) this.talk -= dt
+  }
+}
+
+// A random villager look.
+const SKINS = ['#ffd7bf', '#f6c9a8', '#e8b48f', '#d9a27c', '#c68b62', '#a8704a']
+const HAIRS = ['#1b1b22', '#3b2a1f', '#6b4a2b', '#c46a2b', '#e8a93a', '#ebe7e1']
+const SHIRTS = ['#e94b3c', '#3b7dd8', '#5ac46f', '#ffcf3f', '#b38bff', '#ff8fb1', '#4fb0a5', '#ffffff', '#f5a742']
+const PANTS = ['#3b5998', '#2f3b4a', '#5a6b8c', '#7a5a3a', '#41607a', '#8a929e']
+export function randomLook(rand, kid) {
+  const p = (a) => a[Math.floor(rand() * a.length)]
+  const dress = rand() < 0.35
+  const look = {
+    kid,
+    skin: p(SKINS),
+    hair: p(HAIRS),
+    hairStyle: p(['short', 'bob', 'bun', 'pigtails', 'short']),
+    shirt: p(SHIRTS),
+    pants: p(PANTS),
+    pantsLong: !kid && rand() < 0.7,
+    shoes: p(['#2a2a2a', '#7a5a3a', '#e94b3c', '#3b7dd8']),
+    soles: '#f4f2ec',
+  }
+  if (dress) look.dress = p(SHIRTS)
+  if (rand() < 0.35) look.stripes = '#ffffff'
+  if (rand() < 0.3) {
+    look.hat = p(['cap', 'bucket'])
+    look.hatColor = p(SHIRTS)
+  }
+  if (!kid && rand() < 0.15) look.glasses = '#333333'
+  if (kid) look.socks = '#ffffff'
+  return look
+}
+
+export const RESIDENT_LOOKS = [
+  { skin: '#f5d3ba', hair: '#d9d4cc', hairStyle: 'bun', shirt: '#ff8fb1', dress: '#e94b6b', longSleeves: true, pants: '#e94b6b', shoes: '#7a5a3a', apron: '#ffffff' },
+  { skin: '#f3cfb0', hair: '#6b4a2b', hairStyle: 'short', hat: 'chef', shirt: '#ffffff', apron: '#f5a742', pants: '#5a6b8c', pantsLong: true, shoes: '#2a2a2a' },
+  { skin: '#e8b894', hair: '#1b1b22', hairStyle: 'bob', shirt: '#4fb0a5', stripes: '#ffffff', dress: '#3b7dd8', pants: '#3b7dd8', shoes: '#ff6f91', hat: 'bucket', hatColor: '#ffcf3f' },
+  { skin: '#f0c8a8', hair: '#f4f4f4', hairStyle: 'bald', beard: '#f4f4f4', glasses: '#7a4a2a', shirt: '#7b9a5a', coat: '#6b4a2b', longSleeves: true, pants: '#4a4a5a', pantsLong: true, shoes: '#3a2a1a' },
+  { kid: true, skin: '#ffd7bf', hair: '#c46a2b', hairStyle: 'pigtails', shirt: '#ffcf3f', dress: '#5bc0eb', pants: '#5bc0eb', socks: '#ffffff', shoes: '#e94b3c' },
+  { skin: '#d9a27c', hair: '#2d1e14', hairStyle: 'short', glasses: '#333333', shirt: '#ffffff', coat: '#ffffff', longSleeves: true, pants: '#3b5998', pantsLong: true, shoes: '#2a2a2a', bow: '#3b7dd8' },
+]
+
+LOOKS.sam = { skin: '#d9a27c', hair: '#f4f4f4', hairStyle: 'bald', beard: '#f4f4f4', hat: 'bucket', hatColor: '#3b7dd8', shirt: '#ffffff', stripes: '#e94b3c', pants: '#5a6b8c', pantsLong: true, shoes: '#6b4a2b' }
+LOOKS.pam = { skin: '#f7d6c0', hair: '#c46a2b', hairStyle: 'pigtails', hat: 'bucket', hatColor: '#ff8fb1', shirt: '#ffffff', dress: '#ffcf3f', pants: '#ffcf3f', shoes: '#ff6f91' }
+LOOKS.guard = { skin: '#f2c9a6', hair: '#3b2a1f', hairStyle: 'short', hat: 'helmet', shirt: '#c9ced6', stripes: '#b3bac5', coat: '#3f63c9', belt: '#6b4a2b', gloves: '#a8afba', longSleeves: true, pants: '#8a929e', pantsLong: true, shoes: '#5b6270', shield: '#3f63c9', spear: true }
+LOOKS.percy = { ...LOOKS.guard, skin: '#d9a27c', cape: '#3f63c9', shield: '#e94b3c' }
+LOOKS.alien = { skin: '#8fe08a', hair: '#8fe08a', hairStyle: 'none', antennae: true, bigEyes: true, shirt: '#c9d3df', stripes: '#a8b6c8', pants: '#c9d3df', pantsLong: true, shoes: '#6b7a8c', gloves: '#8fe08a' }

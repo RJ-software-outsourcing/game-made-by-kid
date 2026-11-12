@@ -11,7 +11,9 @@ import { ITEMS } from './items.js'
 import { TUNE, energyCostFactor, restFactor } from './config.js'
 import { sfx, unlock, startMusic, setMood } from './audio.js'
 import { JobRunner, JOB_REST } from './jobs.js'
-import { makeSprite, roundRect } from './build.js'
+import { Crowd } from './crowd.js'
+import { Shows } from './shows.js'
+import { makeSprite, roundRect, SEE } from './build.js'
 
 const SAVE_KEY = 'coji-island-save-v1'
 const FOOD = ['apple', 'berries', 'burger', 'fries', 'carrot', 'milk', 'juice']
@@ -57,6 +59,7 @@ function clearSave() {
   }
 }
 
+const PICKUPS = new Set(['shell', 'coin', 'glasses', 'mushroom'])
 const regrowOf = (kind) => ({ appletree: TUNE.treeRegrow, berrybush: TUNE.bushRegrow, carrots: TUNE.carrotRegrow, pumpkin: 80 })[kind]
 
 const angleTo = (a, b) => {
@@ -115,6 +118,7 @@ class Game {
     progress(0.2, 'Building the island…')
     await this.world.buildCore((p) => progress(0.2 + p * 0.65, p < 0.5 ? 'Building the island…' : 'Planting trees…'))
     this.world.onNpcBuilt = (e) => this.npcBuilt(e)
+    this.world.camera = this.camera
 
     this.coji = new Person(LOOKS.coji)
     this.scene.add(this.coji.root)
@@ -148,6 +152,8 @@ class Game {
     })
     this.g = this.makeApi()
     this.jobs = new JobRunner(this)
+    this.crowd = new Crowd(this)
+    this.shows = new Shows(this)
 
     progress(0.9, 'Waking up the animals…')
     this.world.buildAllNear(L.START.x, L.START.z)
@@ -402,19 +408,27 @@ class Game {
   placeCoji() {
     const p = this.player
     const r = this.coji.root
-    r.position.set(p.x, this.world.groundY(p.x, p.z), p.z)
+    r.position.set(p.x, this.world.surfaceY(p.x, p.z), p.z)
     r.rotation.y = p.face
   }
 
   makeRing() {
-    const m = new THREE.Mesh(new THREE.RingGeometry(0.45, 0.7, 24).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0xffd23f, transparent: true, opacity: 0, depthWrite: false }))
-    m.renderOrder = 5
-    this.scene.add(m)
-    this.ring = m
+    const g = new THREE.Group()
+    const mat = (c) => new THREE.MeshBasicMaterial({ color: c, transparent: true, opacity: 0, depthWrite: false, depthTest: false, fog: false })
+    const outer = new THREE.Mesh(new THREE.RingGeometry(0.75, 1.05, 32).rotateX(-Math.PI / 2), mat(0xffffff))
+    const inner = new THREE.Mesh(new THREE.RingGeometry(0.4, 0.68, 32).rotateX(-Math.PI / 2), mat(0xffc21a))
+    const arrow = new THREE.Mesh(new THREE.ConeGeometry(0.35, 0.8, 4).rotateX(Math.PI), mat(0xffc21a))
+    for (const m of [outer, inner, arrow]) {
+      m.renderOrder = 20
+      g.add(m)
+    }
+    this.scene.add(g)
+    this.ring = g
+    this.ringParts = { outer, inner, arrow }
     this.ringT = 0
   }
   showRing(x, z) {
-    this.ring.position.set(x, this.world.groundY(x, z) + 0.12, z)
+    this.ring.position.set(x, this.world.surfaceY(x, z) + 0.06, z)
     this.ringT = 1
   }
   makeZzz() {
@@ -443,6 +457,7 @@ class Game {
     p.resting = false
     p.bench = null
     this.coji.stand()
+    this.coji.setRest(false)
     this.placeCoji()
     this.ui.update(this.state)
   }
@@ -453,6 +468,7 @@ class Game {
     p.resting = true
     p.bench = bench || null
     this.coji.sit()
+    this.coji.setRest(true)
     if (bench) {
       p.x = bench.x
       p.z = bench.z
@@ -503,7 +519,7 @@ class Game {
 
   active(e) {
     if (e.kind === 'npc') return !!e.ch
-    if (e.kind === 'shell' || e.kind === 'coin' || e.kind === 'glasses') return !!e.mesh && e.mesh.visible
+    if (PICKUPS.has(e.kind)) return !!e.mesh && e.mesh.visible
     if (e.fruit) return !!e.mesh
     return true
   }
@@ -583,7 +599,12 @@ class Game {
       case 'shell':
       case 'coin':
       case 'glasses':
+      case 'mushroom':
         return this.collect(e)
+      case 'chest':
+        return this.openChest(e)
+      case 'door':
+        return this.crowd.knock(e)
     }
   }
 
@@ -633,6 +654,7 @@ class Game {
     if (e.sparkle) e.sparkle.visible = false
     s.taken[e.id] = s.play
     if (e.kind === 'shell') this.give('shell', 1)
+    if (e.kind === 'mushroom') this.give('mushroom', 1)
     if (e.kind === 'coin') this.addCoins(1)
     if (e.kind === 'glasses') {
       this.give('glasses', 1)
@@ -723,7 +745,7 @@ class Game {
 
   // ---------- characters ----------
 
-  npcBuilt(e) {
+  npcBuilt(e, opts = {}) {
     // marker ("!" or "…") and a name tag above the head
     const ch = e.ch
     const h = ch.faceY !== undefined ? ch.faceY + (ch.P ? ch.P.headR + 0.75 : 0.9) : 2.8
@@ -773,7 +795,7 @@ class Game {
       s.visible = false
       this.scene.add(s)
     }
-    const m = { e, bang, dots, tag, h }
+    const m = { e, bang, dots, tag, h, noDots: opts.noDots }
     this.markers.push(m)
     if (this.mode === 'play') this.applyNpcState(e)
   }
@@ -863,7 +885,7 @@ class Game {
       const y = r.position.y + m.h + Math.sin(t * 3 + r.position.x) * 0.1
       const isTarget = tg.has(e.id)
       m.bang.visible = this.mode === 'play' && isTarget && !talking
-      m.dots.visible = this.mode === 'play' && !isTarget && !talking && d < 30
+      m.dots.visible = this.mode === 'play' && !isTarget && !talking && d < 30 && !m.noDots
       m.tag.visible = this.mode === 'play' && !talking && d < 10
       m.bang.position.set(r.position.x, y + 0.1, r.position.z)
       m.dots.position.set(r.position.x, y, r.position.z)
@@ -893,6 +915,10 @@ class Game {
     if (this.mode === 'play' && !paused) this.state.play += dt
     this.coji.speed = this.player.speed
     this.coji.update(dt, t)
+    if (this.mode === 'play') {
+      this.crowd.update(dt, t)
+      this.shows.update(dt, t)
+    }
     this.updateNpcs(dt, t)
     this.updateSkeletons(dt, t)
     const sp = this.mode === 'title' ? 0 : L.spookiness(this.player.x, this.player.z)
@@ -902,16 +928,24 @@ class Game {
     this.updateMarkers(t)
     // the tap ring fades
     if (this.ringT > 0) {
-      this.ringT = Math.max(0, this.ringT - dt * 1.4)
-      this.ring.material.opacity = this.ringT * 0.9
-      const s = 1 + (1 - this.ringT) * 0.6
-      this.ring.scale.set(s, 1, s)
+      // stays while Coji walks there, then fades
+      if (!this.player.path.length) this.ringT = Math.max(0, this.ringT - dt * 2)
+      const { outer, inner, arrow } = this.ringParts
+      const a = Math.min(1, this.ringT * 1.5)
+      outer.material.opacity = a * 0.9
+      inner.material.opacity = a * 0.95
+      arrow.material.opacity = a
+      const pulse = 1 + Math.sin(t * 6) * 0.12
+      outer.scale.set(pulse, 1, pulse)
+      arrow.position.y = 1.0 + Math.abs(Math.sin(t * 5)) * 0.6
+      arrow.rotation.y = t * 2
     }
     this.zzz.visible = this.player.resting || this.player.nap > 0
     if (this.zzz.visible) this.zzz.position.set(this.player.x + 0.3, this.coji.root.position.y + 2.0 + Math.sin(t * 2) * 0.15, this.player.z)
     const focus = this.coji.root.position
     this.world.update(dt, t, focus)
     this.cam.update(dt, focus)
+    this.updateSeeThrough()
     // build nearby zones (one per few frames), the rest when idle
     this.streamT -= dt
     if (this.streamT <= 0) {
@@ -950,6 +984,7 @@ class Game {
       s.energy = Math.min(TUNE.napTo, s.energy + (TUNE.napTo / 4) * dt)
       if (p.nap <= 0) {
         this.coji.stand()
+        this.coji.setRest(false)
         this.placeCoji()
         this.ui.tip('Coji feels a little better. Eat something soon! 🍎', { key: 'napdone', force: true })
       }
@@ -1000,18 +1035,19 @@ class Game {
       p.path = []
       p.target = null
       this.coji.sit()
+      this.coji.setRest(true)
       sfx('rest')
       this.ui.tip('Oh no! Coji is too tired and takes a nap... 😴 Eat food to keep your energy up!', { key: 'nap', force: true, time: 8 })
     }
     // place Coji
     const r = this.coji.root
     const sitting = p.resting || p.nap > 0
-    const gy = this.world.groundY(p.x, p.z)
-    r.position.set(p.x, sitting ? (p.bench ? gy + 0.2 : gy - 0.25) : gy, p.z)
+    const gy = this.world.surfaceY(p.x, p.z)
+    r.position.set(p.x, sitting ? (p.bench ? this.world.groundY(p.x, p.z) + 0.2 : gy - 0.25) : gy, p.z)
     r.rotation.y = p.face
     // walk over shells and coins to pick them up
     for (const e of this.world.entities) {
-      if (e.kind !== 'shell' && e.kind !== 'coin' && e.kind !== 'glasses') continue
+      if (!PICKUPS.has(e.kind)) continue
       if (!e.mesh || !e.mesh.visible) continue
       if (Math.abs(e.x - p.x) < 1.1 && Math.abs(e.z - p.z) < 1.1 && Math.hypot(e.x - p.x, e.z - p.z) < 1.1) this.collect(e)
     }
@@ -1022,9 +1058,9 @@ class Game {
     const s = this.state
     for (const e of this.world.entities) {
       if (!e.mesh) continue
-      if (e.kind === 'shell' || e.kind === 'coin' || e.kind === 'glasses') {
+      if (PICKUPS.has(e.kind)) {
         let has = s.taken[e.id] === undefined
-        if (!has && e.kind === 'shell' && s.play - s.taken[e.id] > TUNE.shellRespawn) {
+        if (!has && (e.kind === 'shell' || e.kind === 'mushroom') && s.play - s.taken[e.id] > TUNE.shellRespawn) {
           delete s.taken[e.id]
           has = true
         }
@@ -1036,6 +1072,8 @@ class Game {
         const t = s.harvest[e.id]
         e.fruitMesh.visible = t === undefined || s.play - t >= regrow
       }
+      if (e.kind === 'chest' && s.flags.chestOpen) e.mesh.userData.lid.rotation.x = Math.max(-1.9, e.mesh.userData.lid.rotation.x - dt * 3)
+      if (e.kind === 'chest') e.mesh.userData.coins.visible = !s.flags.chestOpen || e.mesh.userData.lid.rotation.x > -1.8
       if (e.shake > 0) {
         e.shake -= dt
         e.mesh.rotation.z = Math.sin(e.shake * 40) * 0.06 * e.shake
@@ -1095,6 +1133,7 @@ class Game {
       }
       if (Math.hypot(p.x - e.x, p.z - e.z) < 7 && ui.tip(msg, { key: 'thing-' + e.kind, once: true })) return
     }
+    if (Math.hypot(p.x - L.CASTLE.x, p.z - L.CASTLE.z) < 34 && ui.tip('Look up! Knights walk on the castle walls. ⚔️', { key: 'knights', once: true })) return
     if (this.spook > 0.6 && ui.tip('Ooh, it is spooky here! 👻 Do not worry, the ghosts are friendly.', { key: 'spooky', once: true })) return
     if (this.skeletons.some((k) => Math.hypot(k.e.x - p.x, k.e.z - p.z) < 9) && ui.tip('A skeleton! 💀 It is friendly. Tap it to talk!', { key: 'skeleton', once: true })) return
     // nothing happening: what to do next
@@ -1273,7 +1312,7 @@ Game.prototype.spawnSkeleton = function (grave) {
   this.scene.add(ch.root)
   const e = this.world.addEntity({ id: `bones-${Date.now()}`, cast: 'bones', kind: 'npc', x, z, y, reach: 2.0, tapR: 1.0, tapH: 2.2, zone: 'graveyard' })
   e.ch = ch
-  this.skeletons.push({ e, ch, state: 'rise', t: 0, life: 45 + Math.random() * 20, target: null })
+  this.skeletons.push({ e, ch, state: 'rise', t: 0, life: 25 + Math.random() * 12, target: null })
   sfx('rattle')
 }
 
@@ -1320,7 +1359,8 @@ Game.prototype.updateSkeletons = function (dt, t) {
         r.rotation.y += angleTo(r.rotation.y, Math.atan2(dx, dz)) * Math.min(1, dt * 5)
       }
       r.position.set(e.x, this.world.groundY(e.x, e.z), e.z)
-      if (k.life <= 0 && this.talking !== e) {
+      const far = Math.hypot(this.player.x - L.GRAVEYARD.x, this.player.z - L.GRAVEYARD.z) > L.GRAVEYARD.r + 22
+      if ((k.life <= 0 || far) && this.talking !== e) {
         k.state = 'sink'
         k.t = 0
         sfx('rattle')
@@ -1342,4 +1382,50 @@ Game.prototype.updateSkeletons = function (dt, t) {
     ch.lookYaw = Math.hypot(this.player.x - e.x, this.player.z - e.z) < 6 ? Math.max(-1, Math.min(1, angleTo(r.rotation.y, Math.atan2(this.player.x - e.x, this.player.z - e.z)))) : 0
     ch.update(dt, t)
   }
+}
+
+// Tell the see-through shader where Coji is on screen, so things in front of him fade.
+const _v = new THREE.Vector3()
+Game.prototype.updateSeeThrough = function () {
+  const on = this.mode === 'play' || this.mode === 'finale'
+  SEE.uSeeOn.value = on ? 1 : 0
+  if (!on) return
+  const cam = this.camera
+  cam.updateMatrixWorld()
+  _v.copy(this.coji.root.position)
+  _v.y += 0.9
+  const depth = -_v.clone().applyMatrix4(cam.matrixWorldInverse).z
+  _v.project(cam)
+  const size = this.renderer.getDrawingBufferSize(new THREE.Vector2())
+  SEE.uSeePos.value.set((_v.x * 0.5 + 0.5) * size.x, (_v.y * 0.5 + 0.5) * size.y)
+  SEE.uSeeDepth.value = depth
+  SEE.uSeeR.value = (size.y * 1.35) / (2 * Math.tan((cam.fov * Math.PI) / 360) * Math.max(1, depth))
+}
+
+// The treasure chest on Turtle Island: coins, once.
+Game.prototype.openChest = function (e) {
+  const s = this.state
+  if (s.flags.chestOpen) {
+    this.ui.tip('The chest is empty now. Old Sam says the sea brings new treasure one day! 🌊', { key: 'chest-empty', cooldown: 5, force: true })
+    return
+  }
+  s.flags.chestOpen = true
+  sfx('quest')
+  this.addCoins(6)
+  this.coji.cheer = 1
+  this.ui.tip('A treasure chest! It has 6 shiny coins! 🪙✨', { key: 'chest', force: true })
+  this.save()
+}
+
+Game.prototype.removeMarkers = function (e) {
+  const i = this.markers.findIndex((m) => m.e === e)
+  if (i < 0) return
+  const m = this.markers[i]
+  for (const sp of [m.bang, m.dots, m.tag]) {
+    this.scene.remove(sp)
+    sp.material.map?.dispose()
+    sp.material.dispose()
+  }
+  this.markers.splice(i, 1)
+  delete this.portraits[e.id]
 }

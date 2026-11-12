@@ -2,6 +2,9 @@
 // them at once), then Coji's answers appear as buttons. No arrows to tap through.
 import { sfx, voice, speak } from './audio.js'
 
+// Coji's answers are spoken (after the child has read and chosen them) in a kid's voice.
+// The characters' lines are not read aloud: reading them is the point.
+
 const CHARS_PER_SEC = 60
 
 export class Dialogue {
@@ -21,10 +24,6 @@ export class Dialogue {
     this.el.querySelector('.dlg-box').addEventListener('click', (e) => {
       if (e.target.closest('button')) return
       this.tapBox()
-    })
-    this.el.querySelector('.dlg-say').addEventListener('click', (e) => {
-      e.stopPropagation()
-      speak(this.fullText || '', this.who === 'coji' ? 1.3 : this.voiceOf(this.who))
     })
     this.el.querySelector('.dlg-close').addEventListener('click', (e) => {
       e.stopPropagation()
@@ -100,7 +99,7 @@ export class Dialogue {
     if (this.cojiLine) {
       // Coji's own answer moves on by itself after a moment.
       clearTimeout(this.autoT)
-      this.autoT = setTimeout(() => this.afterCoji(), 750)
+      this.autoT = setTimeout(() => this.afterCoji(), 900 + Math.min(1600, this.fullText.length * 45))
       return
     }
     const node = this.node
@@ -151,6 +150,7 @@ export class Dialogue {
     sfx('choice')
     this.cojiLine = c.go
     this.speakAll('coji', c.text)
+    speak(c.text, { kid: true })
   }
 
   afterCoji() {

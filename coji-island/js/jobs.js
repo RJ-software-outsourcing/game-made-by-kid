@@ -67,33 +67,52 @@ function iceRound(i) {
 }
 
 // ---------- Sort the Mail ----------
-const FRIENDS = {
-  ben: ['Burger Ben', '🍔', 'the man who makes burgers'],
-  granny: ['Granny Bee', '🍯', 'the lady who sells honey'],
-  tina: ['Tina', '🧸', 'the girl with a toy shop'],
-  pip: ['Captain Pip', '⚓', 'the man with a boat'],
-  finn: ['Fisher Finn', '🎣', 'the man who catches fish'],
-  penny: ['Penny', '🏦', 'the lady at the bank'],
-  gus: ['Grandpa Gus', '🗼', 'the man in the lighthouse'],
-  lance: ['Sir Lance', '🛡️', 'the knight at the castle gate'],
-  coco: ['Coco', '🍦', 'the girl who sells ice cream'],
-  kim: ['Teacher Kim', '🏫', 'the teacher at the school'],
-  leo: ['Leo', '⚽', 'the boy who plays in the village'],
-  momo: ['Momo', '🐱', 'the cat who loves fish'],
-  hoot: ['Hoot', '🦉', 'the owl in the big tree'],
-  bun: ['Bun', '🐰', 'the bunny who loves carrots'],
-  bruno: ['Bruno', '🐻', 'the bear who loves honey'],
-  boo: ['Boo', '👻', 'the little ghost'],
-  king: ['King Arlo', '👑', 'the King in the castle'],
-}
-const usedFriends = []
+// A letter with an address. Read the country, then put it in the right country box.
+// The boxes look alike on purpose (Japan / Jamaica, India / Italy...), so the child has to read.
+const COUNTRIES = [
+  { id: 'japan', name: 'Japan', flag: '🇯🇵', city: 'Tokyo', look: ['jamaica', 'jordan'] },
+  { id: 'jamaica', name: 'Jamaica', flag: '🇯🇲', city: 'Kingston', look: ['japan', 'jordan'] },
+  { id: 'jordan', name: 'Jordan', flag: '🇯🇴', city: 'Amman', look: ['japan', 'jamaica'] },
+  { id: 'korea', name: 'Korea', flag: '🇰🇷', city: 'Seoul', look: ['kenya', 'kuwait'] },
+  { id: 'kenya', name: 'Kenya', flag: '🇰🇪', city: 'Nairobi', look: ['korea', 'kuwait'] },
+  { id: 'kuwait', name: 'Kuwait', flag: '🇰🇼', city: 'Kuwait City', look: ['korea', 'kenya'] },
+  { id: 'india', name: 'India', flag: '🇮🇳', city: 'Delhi', look: ['italy', 'iceland'] },
+  { id: 'italy', name: 'Italy', flag: '🇮🇹', city: 'Rome', look: ['india', 'iceland'] },
+  { id: 'iceland', name: 'Iceland', flag: '🇮🇸', city: 'Reykjavik', look: ['italy', 'ireland'] },
+  { id: 'ireland', name: 'Ireland', flag: '🇮🇪', city: 'Dublin', look: ['iceland', 'italy'] },
+  { id: 'canada', name: 'Canada', flag: '🇨🇦', city: 'Toronto', look: ['china', 'chile'] },
+  { id: 'china', name: 'China', flag: '🇨🇳', city: 'Beijing', look: ['canada', 'chile'] },
+  { id: 'chile', name: 'Chile', flag: '🇨🇱', city: 'Santiago', look: ['china', 'canada'] },
+  { id: 'france', name: 'France', flag: '🇫🇷', city: 'Paris', look: ['finland', 'fiji'] },
+  { id: 'finland', name: 'Finland', flag: '🇫🇮', city: 'Helsinki', look: ['france', 'fiji'] },
+  { id: 'fiji', name: 'Fiji', flag: '🇫🇯', city: 'Suva', look: ['finland', 'france'] },
+  { id: 'spain', name: 'Spain', flag: '🇪🇸', city: 'Madrid', look: ['sweden', 'singapore'] },
+  { id: 'sweden', name: 'Sweden', flag: '🇸🇪', city: 'Stockholm', look: ['spain', 'singapore'] },
+  { id: 'singapore', name: 'Singapore', flag: '🇸🇬', city: 'Singapore', look: ['spain', 'sweden'] },
+  { id: 'taiwan', name: 'Taiwan', flag: '🇹🇼', city: 'Taipei', look: ['thailand', 'turkey'] },
+  { id: 'thailand', name: 'Thailand', flag: '🇹🇭', city: 'Bangkok', look: ['taiwan', 'turkey'] },
+  { id: 'turkey', name: 'Turkey', flag: '🇹🇷', city: 'Ankara', look: ['taiwan', 'thailand'] },
+  { id: 'brazil', name: 'Brazil', flag: '🇧🇷', city: 'Rio', look: ['britain', 'belgium'] },
+  { id: 'britain', name: 'Britain', flag: '🇬🇧', city: 'London', look: ['brazil', 'belgium'] },
+  { id: 'belgium', name: 'Belgium', flag: '🇧🇪', city: 'Brussels', look: ['brazil', 'britain'] },
+]
+const PEOPLE = ['Mr. Lee', 'Ms. Park', 'Grandma Ana', 'Uncle Bob', 'Miss Mia', 'Dr. Kato', 'Mrs. Smith', 'Little Tim', 'Aunt Rosa', 'Mr. Chen']
+const STREETS = ['12 Park Road', '5 Sun Street', '88 Lake Lane', '3 Hill Road', '21 Rose Street', '7 Moon Avenue', '40 Tree Lane']
+const usedCountries = []
 function postRound() {
-  const ids = shuffle(Object.keys(FRIENDS).filter((id) => !usedFriends.includes(id)))
-  const right = ids[0]
-  usedFriends.push(right)
-  if (usedFriends.length > 8) usedFriends.shift()
-  const opts = shuffle(ids.slice(0, 3)).map((id) => ({ id, word: FRIENDS[id][0], icon: FRIENDS[id][1] }))
-  return { kind: 'choice', letter: true, text: `To: ${FRIENDS[right][2]}`, options: opts, answer: [right], ask: 'Who is this letter for?' }
+  let c = pick(COUNTRIES)
+  for (let k = 0; k < 8 && usedCountries.includes(c.id); k++) c = pick(COUNTRIES)
+  usedCountries.push(c.id)
+  if (usedCountries.length > 10) usedCountries.shift()
+  const boxes = shuffle([c.id, ...c.look.slice(0, 2)]).map((id) => COUNTRIES.find((x) => x.id === id))
+  return {
+    kind: 'choice',
+    letter: true,
+    address: [pick(PEOPLE), pick(STREETS), c.city, c.name.toUpperCase()],
+    options: boxes.map((b) => ({ id: b.id, word: b.name, icon: '📮' + b.flag })),
+    answer: [c.id],
+    ask: 'Read the address. Which country box?',
+  }
 }
 
 // ---------- Word Check ----------
@@ -185,7 +204,8 @@ export class JobRunner {
     this.$('.job-dots').innerHTML = Array.from({ length: ROUNDS }, (_, i) => `<i class="${i < this.round ? 'done' : i === this.round ? 'now' : ''}"></i>`).join('')
     this.$('.job-earn').innerHTML = `<i class="coin-ico"></i>+${this.right}`
     const prompt = this.$('.job-prompt')
-    if (r.letter) prompt.innerHTML = `<div class="ask">${r.ask}</div><div class="letter"><span class="stamp">💌</span><b>${r.text}</b></div>`
+    if (r.letter)
+      prompt.innerHTML = `<div class="ask">${r.ask}</div><div class="letter"><div class="stamp">✉️</div><div class="addr">${r.address.map((l, i) => `<div class="${i === r.address.length - 1 ? 'country' : ''}">${l}</div>`).join('')}</div><div class="postmark">AIR MAIL</div></div>`
     else if (r.picture) prompt.innerHTML = `<div class="picture">${r.picture}</div><div class="ask">${r.text}</div>`
     else prompt.innerHTML = `<div class="order"><span class="who">${r.who}</span><div class="bubble">${r.text}</div></div>`
     const opts = this.$('.job-options')

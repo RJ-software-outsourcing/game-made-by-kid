@@ -3,7 +3,7 @@
 import * as THREE from 'three'
 import * as L from './land.js'
 import { NavGrid } from './nav.js'
-import { Parts, MAT, SMOOTH, GLOW, box, cyl, ico, makeSprite } from './build.js'
+import { Parts, MAT, SMOOTH, GLOW, TERRAIN_MAT, DECK_MAT, box, cyl, ico, makeSprite } from './build.js'
 import * as P from './props.js'
 import { instanced, cloud, blob, FLOWER_COLORS } from './nature.js'
 import { Person, LOOKS, Bear, Owl, Cat, Bunny, Ghost, makeDuck, makeGull, makeButterfly } from './characters.js'
@@ -28,7 +28,8 @@ const nextFrame = () =>
 const C = (h) => new THREE.Color(h)
 const DAY = { top: C('#2b8ef0'), horizon: C('#a9dcff'), sun: C('#fff3de'), sunI: 2.5, hemiSky: C('#cfe9ff'), hemiGround: C('#d8c7a0'), hemiI: 1.2, fog: C('#b4defd'), near: 160, far: 520 }
 const NIGHT = { top: C('#0b1236'), horizon: C('#33407a'), sun: C('#9fb6ff'), sunI: 0.55, hemiSky: C('#6f80c8'), hemiGround: C('#2a3350'), hemiI: 0.55, fog: C('#2a3566'), near: 120, far: 420 }
-const SPOOK = { top: C('#443470'), horizon: C('#9284b0'), sun: C('#cfc0f0'), sunI: 1.25, hemiSky: C('#a99bd0'), hemiGround: C('#544a62'), hemiI: 1.0, fog: C('#6a5f88'), near: 24, far: 130 }
+// The graveyard: dark purple all around, so the world outside nearly disappears.
+const SPOOK = { top: C('#140e26'), horizon: C('#2c2346'), sun: C('#b6a6e6'), sunI: 0.75, hemiSky: C('#8a7cbe'), hemiGround: C('#2e2838'), hemiI: 0.85, fog: C('#221b38'), near: 9, far: 58 }
 
 export class World {
   constructor(scene, renderer) {
@@ -83,9 +84,18 @@ export class World {
   groundY(x, z) {
     if (L.onPier(x, z)) return L.PIER.y
     if (L.onDrawbridge(x, z)) return this.drawbridgeY()
-    const t = L.bridgeT(x, z)
-    if (t !== null) return L.bridgeDeckY(t, (a, b) => this.terrainY(a, b))
+    const br = L.bridgeAt(x, z)
+    if (br) return L.bridgeDeckY(br.b, br.t, (a, b) => this.terrainY(a, b))
     return Math.max(this.terrainY(x, z), -0.3)
+  }
+  // Where feet stand on top of roads, the plaza and the quay (they sit a little above the ground).
+  surfaceY(x, z) {
+    const y = this.groundY(x, z)
+    if (L.onPier(x, z) || L.onDrawbridge(x, z) || L.bridgeAt(x, z)) return y
+    if (Math.hypot(x - L.PLAZA.x, z - L.PLAZA.z) < L.PLAZA.r + 0.6) return y + 0.13
+    if (Math.abs(x - L.HARBOR.x) < 7 && Math.abs(z - (L.HARBOR.z + 1)) < 5.2) return Math.max(y, L.PIER.y + 0.04)
+    for (const r of L.ROADS) if (L.polyDist(x, z, r.pts).d < r.w / 2 + 0.35) return y + 0.1
+    return y
   }
   drawbridgeY() {
     return L.PADS[0].h + 0.12
@@ -229,7 +239,7 @@ export class World {
         const noise = L.vnoise(x * 0.09, z * 0.09)
         const big = L.vnoise(x * 0.025 + 7, z * 0.025 - 3)
         const md = Math.hypot(x - M.x, z - M.z)
-        const isle = Math.hypot(x - L.ISLET.x, z - L.ISLET.z) < L.ISLET.r + 4
+        const isle = L.ISLETS.some((I) => Math.hypot(x - I.x, z - I.z) < I.r + 4)
         if (h < -0.1) c.copy(wetSand).multiplyScalar(0.94 + 0.06 * noise)
         else {
           c.copy(grassA).lerp(grassB, noise * 0.7 + big * 0.3)
@@ -271,7 +281,7 @@ export class World {
     g.setIndex(idx)
     g.computeVertexNormals()
     g.computeBoundingSphere()
-    const mesh = new THREE.Mesh(g, SMOOTH)
+    const mesh = new THREE.Mesh(g, TERRAIN_MAT)
     mesh.receiveShadow = true
     this.scene.add(mesh)
     this.terrain = mesh
@@ -437,6 +447,7 @@ export class World {
       q.add(cyl(0.3, 0.3, 0.1, 8), '#5d5d66', { x, y: L.PIER.y + 0.55, z: hz + 4.6 })
     }
     const quay = q.build({ receive: true })
+    quay.material = DECK_MAT
     this.scene.add(quay)
     this.groundMeshes.push(roads, plaza, quay)
   }
@@ -496,6 +507,13 @@ export class World {
       const g = m.isGroup ? m : new THREE.Group().add(m)
       g.position.set(b.x, this.terrainY(b.x, b.z) - 0.05, b.z)
       g.rotation.y = b.rot
+      // a stone footing below the floor hides gaps where the ground slopes
+      if (b.kind !== 'castle' && b.kind !== 'market' && b.kind !== 'icecream') {
+        const f = new Parts()
+        if (b.round) f.add(cyl(b.w / 2 - 0.3, b.w / 2 - 0.1, 2.4, 14), '#b9b1a3', { y: -1.15 })
+        else f.add(box(b.w + 0.25, 2.4, b.d + 0.25), '#b9b1a3', { y: -1.15, jitter: 0.03 })
+        g.add(f.build({ shadow: false }))
+      }
       const s = signs[b.kind]
       if (s) {
         const sign = P.shopSign(s[0], s[1], s[2], s[3], s[4])
@@ -514,6 +532,7 @@ export class World {
 
   makeDecks() {
     const pier = P.pier(L.PIER.z1 - L.PIER.z0, L.PIER.x1 - L.PIER.x0)
+    pier.material = DECK_MAT
     pier.position.set(0, L.PIER.y, L.PIER.z0)
     this.scene.add(pier)
     this.groundMeshes.push(pier)
@@ -525,19 +544,33 @@ export class World {
     })
     this.scene.add(boat)
     this.boat = boat
-    // Bear Bridge: an arched wooden bridge across the strait to Lighthouse Island
-    const B = L.BRIDGE
+    // wooden bridges across the sea to the small islands
+    for (const B of L.BRIDGES) this.makeBridge(B)
+    // the castle's drawbridge
+    const D = L.DRAWBRIDGE
+    const db = new Parts()
+    const dy = this.drawbridgeY()
+    for (let z = D.z0; z < D.z1; z += 0.5) db.add(box(D.x1 - D.x0, 0.16, 0.46), (z * 2) % 2 ? '#a8783f' : '#b98a5e', { y: dy - 0.08, z: L.CASTLE.z + z + 0.25, jitter: 0.04 })
+    for (const s of [-1, 1]) db.add(box(0.14, 0.14, D.z1 - D.z0), '#6b4a2b', { x: s * (D.x1 - 0.1), y: dy + 0.02, z: L.CASTLE.z + (D.z0 + D.z1) / 2 })
+    const drawbridge = db.build({ receive: true })
+    drawbridge.material = DECK_MAT
+    this.scene.add(drawbridge)
+    this.groundMeshes.push(drawbridge)
+  }
+
+  makeBridge(B) {
     const gy = (a, b) => this.terrainY(a, b)
     const len = Math.hypot(B.bx - B.ax, B.bz - B.az)
     const ux = (B.bx - B.ax) / len
     const uz = (B.bz - B.az) / len
     const heading = Math.atan2(ux, uz)
+    const deck = (t) => L.bridgeDeckY(B, t, gy)
     const p = new Parts()
-    const steps = 26
+    const steps = Math.round(len * 1.6)
     for (let i = 0; i < steps; i++) {
       const t = (i + 0.5) / steps
-      const y = L.bridgeDeckY(t, gy)
-      const slope = Math.atan2(L.bridgeDeckY(Math.min(1, t + 0.02), gy) - L.bridgeDeckY(Math.max(0, t - 0.02), gy), 0.04 * len)
+      const y = deck(t)
+      const slope = Math.atan2(deck(Math.min(1, t + 0.02)) - deck(Math.max(0, t - 0.02)), 0.04 * len)
       const x = B.ax + ux * t * len
       const z = B.az + uz * t * len
       p.add(box(B.w + 0.4, 0.18, (len / steps) * 0.92), i % 2 ? '#b98a5e' : '#c99a6a', { x, y: y - 0.09, z, ry: heading, rx: -slope, order: 'YXZ', jitter: 0.04 })
@@ -548,25 +581,16 @@ export class World {
         p.add(box(0.12, 0.12, (len / steps) * 1.04), '#a8693f', { x: px, y: y + 0.85, z: pz, ry: heading, rx: -slope, order: 'YXZ' })
       }
     }
-    // posts in the water
     for (const t of [0.25, 0.5, 0.75])
       for (const s of [-1, 1]) {
         const x = B.ax + ux * t * len + uz * s * (B.w / 2)
         const z = B.az + uz * t * len - ux * s * (B.w / 2)
-        p.add(cyl(0.22, 0.26, 4, 7), '#7d5634', { x, y: L.bridgeDeckY(t, gy) - 2.1, z })
+        p.add(cyl(0.22, 0.26, 4, 7), '#7d5634', { x, y: deck(t) - 2.1, z })
       }
     const bridge = p.build({ receive: true })
+    bridge.material = DECK_MAT
     this.scene.add(bridge)
     this.groundMeshes.push(bridge)
-    // the castle's drawbridge
-    const D = L.DRAWBRIDGE
-    const db = new Parts()
-    const dy = this.drawbridgeY()
-    for (let z = D.z0; z < D.z1; z += 0.5) db.add(box(D.x1 - D.x0, 0.16, 0.46), (z * 2) % 2 ? '#a8783f' : '#b98a5e', { y: dy - 0.08, z: L.CASTLE.z + z + 0.25, jitter: 0.04 })
-    for (const s of [-1, 1]) db.add(box(0.14, 0.14, D.z1 - D.z0), '#6b4a2b', { x: s * (D.x1 - 0.1), y: dy + 0.02, z: L.CASTLE.z + (D.z0 + D.z1) / 2 })
-    const drawbridge = db.build({ receive: true })
-    this.scene.add(drawbridge)
-    this.groundMeshes.push(drawbridge)
   }
 
   // ---------- tap targets ----------
@@ -679,6 +703,18 @@ export class World {
     }
     L.HIDDEN_COINS.forEach(([x, z], i) => this.addEntity({ id: `coin-${i}`, kind: 'coin', x, z, tapR: 1.0, tapH: 1.6, reach: 0.9, zone: this.zoneOf(x, z) }))
     this.addEntity({ id: 'glasses', kind: 'glasses', x: L.GLASSES_SPOT.x, z: L.GLASSES_SPOT.z, tapR: 1.0, tapH: 1.2, reach: 0.9, zone: 'forest' })
+    // mushrooms to pick in the forest (they grow back)
+    const mr = L.mulberry32(77)
+    let mk = 0
+    for (let i = 0; i < 900 && mk < 34; i++) {
+      const x = (mr() * 2 - 1) * 90
+      const z = -10 - mr() * 70
+      if (L.forestness(x, z) < 0.6 || L.nearRoad(x, z, 1) || L.inMountain(x, z) || L.inPond(x, z, 2) || L.inStream(x, z, 1.5)) continue
+      if (this.entities.some((e) => Math.hypot(e.x - x, e.z - z) < 4)) continue
+      this.addEntity({ id: `mushroom-${mk++}`, kind: 'mushroom', x, z, tapR: 0.8, tapH: 1.0, reach: 0.9, zone: this.zoneOf(x, z) })
+    }
+    this.addEntity({ id: 'chest', kind: 'chest', x: L.CHEST.x, z: L.CHEST.z, tapR: 1.2, tapH: 1.4, reach: 1.6, solid: 1.0, zone: 'turtle' })
+    this.addEntity({ id: 'gazebo', kind: 'gazebo', x: L.GAZEBO.x, z: L.GAZEBO.z, tapR: 0.1, tapH: 0.1, solid: 2.5, zone: 'flower' })
     // graveyard: gravestones (tap for a ghost) and pumpkins
     for (const g of L.GRAVES) this.addEntity({ id: g.id, kind: 'grave', x: g.x, z: g.z, rot: g.rot, type: g.type, tapR: 0.9, tapH: 1.6, zone: 'graveyard', solid: 0.6 })
     for (const pk of L.PUMPKINS) this.addEntity({ id: pk.id, kind: 'pumpkin', x: pk.x, z: pk.z, tapR: 1.0, tapH: 1.2, reach: 1.3, zone: 'graveyard', fruit: true })
@@ -743,7 +779,7 @@ export class World {
       for (const [bx, bz, r] of blockers) if (Math.hypot(x - bx, z - bz) < r + pad) return false
       if (Math.hypot(x - L.GRAVEYARD.x, z - L.GRAVEYARD.z) < L.GRAVEYARD.r + 1.5) return false
       if (Math.hypot(x - L.CASTLE.x, z - L.CASTLE.z) < L.CASTLE.moatOut + 1.5) return false
-      return !L.nearRoad(x, z, 1.5 + pad) && !L.inStream(x, z, 2.2 + pad) && !L.inPond(x, z, 2 + pad) && L.bridgeT(x, z, 3) === null
+      return !L.nearRoad(x, z, 1.5 + pad) && !L.inStream(x, z, 2.2 + pad) && !L.inPond(x, z, 2 + pad) && L.bridgeAt(x, z, 3) === null
     }
     const add = (type, item) => {
       const zid = this.zoneOf(item.x, item.z)
@@ -756,7 +792,7 @@ export class World {
     for (let i = 0; i < 6500; i++) {
       const x = (rand() * 2 - 1) * L.HALF
       const z = (rand() * 2 - 1) * L.HALF
-      const isle = Math.hypot(x - L.ISLET.x, z - L.ISLET.z) < L.ISLET.r - 2
+      const isle = L.ISLETS.some((I) => Math.hypot(x - I.x, z - I.z) < I.r - 2)
       const t = isle ? 10 : L.inland(x, z)
       if (t < 3) continue
       const h = this.terrainY(x, z)
@@ -815,7 +851,25 @@ export class World {
       }
     }
     scatter(4500, 'grass', (x, z, h) => h > 0.95 && Math.hypot(x - M.x, z - M.z) > M.r - 2 && !L.inMoat(x, z, 1), (x, h, z) => ({ x, y: h, z, s: 0.8 + rand() * 0.8, ry: rand() * 6, tint: 0.85 + rand() * 0.3 }))
-    scatter(300, 'mushroom', (x, z, h) => L.forestness(x, z) > 0.4 && h > 0.9, (x, h, z) => ({ x, y: h, z, s: 0.8 + rand() * 0.8, ry: rand() * 6 }))
+    // palms on Turtle Island, lots of flowers on Flower Island
+    const T = L.ISLE_OF.turtle
+    for (let i = 0; i < 9; i++) {
+      const a = (i / 9) * Math.PI * 2 + 0.3
+      const x = T.x + Math.cos(a) * (6 + (i % 3) * 1.5)
+      const z = T.z + Math.sin(a) * (6 + (i % 3) * 1.5)
+      if (!free(x, z, 0) || Math.hypot(x - L.CHEST.x, z - L.CHEST.z) < 2.5) continue
+      add('palm', { x, y: this.terrainY(x, z) - 0.1, z, s: 0.9 + rand() * 0.3, ry: rand() * 6, tint: 0.9 + rand() * 0.2 })
+      this.solids.push([x, z, 0.6])
+    }
+    const FI = L.ISLE_OF.flower
+    for (let i = 0; i < 160; i++) {
+      const a = rand() * Math.PI * 2
+      const r = 3.5 + rand() * (FI.r - 4)
+      const x = FI.x + Math.cos(a) * r
+      const z = FI.z + Math.sin(a) * r
+      if (Math.hypot(x - L.GAZEBO.x, z - L.GAZEBO.z) < 4.5 || L.nearRoad(x, z, 0.5) || L.bridgeAt(x, z, 2)) continue
+      add('flower:' + FLOWER_COLORS[i % FLOWER_COLORS.length], { x, y: this.terrainY(x, z), z, s: 1 + rand() * 0.5, ry: rand() * 6 })
+    }
     for (let i = 0; i < 16; i++) {
       const a = (i / 16) * Math.PI * 2 + rand() * 0.2
       const r = L.POND.r + 0.8 + rand() * 1.2
@@ -985,6 +1039,25 @@ export class World {
         e.fruitMesh = m.userData.fruit
         group.add(m)
       }
+      if (e.kind === 'mushroom') {
+        const m = P.mushroomMesh()
+        m.position.set(e.x, e.y, e.z)
+        m.scale.setScalar(1.3)
+        e.mesh = m
+        group.add(m)
+      }
+      if (e.kind === 'chest') {
+        const m = P.treasureChest()
+        m.position.set(e.x, e.y, e.z)
+        m.rotation.y = Math.atan2(L.ISLE_OF.turtle.bridge.bx - e.x, L.ISLE_OF.turtle.bridge.bz - e.z)
+        e.mesh = m
+        group.add(m)
+      }
+      if (e.kind === 'gazebo') {
+        const m = P.gazebo()
+        m.position.set(e.x, e.y - 0.05, e.z)
+        group.add(m)
+      }
       if (e.kind === 'shell' || e.kind === 'coin' || e.kind === 'glasses') {
         const m = e.kind === 'shell' ? P.shellMesh() : e.kind === 'coin' ? P.coinMesh() : P.glassesMesh()
         m.position.set(e.x, e.y + (e.kind === 'coin' ? 0.55 : 0.02), e.z)
@@ -1035,8 +1108,19 @@ export class World {
       }
     }
     if (zone.id === 'castle') this.buildCastleLife(group)
+    if (zone.id === 'turtle') {
+      this.turtles = []
+      const T = L.ISLE_OF.turtle
+      for (let i = 0; i < 3; i++) {
+        const tt = P.seaTurtle()
+        tt.userData.a = i * 2.1
+        group.add(tt)
+        this.turtles.push(tt)
+      }
+      void T
+    }
     if (zone.id === 'graveyard') this.buildGraveyard(group)
-    if (['farm', 'village', 'lighthouse', 'school', 'post'].includes(zone.id)) {
+    if (['farm', 'village', 'lighthouse', 'school', 'post', 'flower'].includes(zone.id)) {
       const cols = ['#ff9fd1', '#ffe066', '#9fd8ff', '#c9a7ff']
       for (let i = 0; i < 3; i++) {
         const b = makeButterfly(cols[(i + this.flies.length) % cols.length])
@@ -1275,6 +1359,17 @@ export class World {
         e.sparkle.scale.set(s, s, 1)
       }
     }
+    if (this.turtles) {
+      const T = L.ISLE_OF.turtle
+      for (const tt of this.turtles) {
+        const a = tt.userData.a + t * 0.04
+        const r = T.r - 1.2
+        const x = T.x + Math.cos(a) * r
+        const z = T.z + Math.sin(a) * r
+        tt.position.set(x, Math.max(this.terrainY(x, z), -0.05), z)
+        tt.rotation.y = -a
+      }
+    }
     if (this.castleFlags) for (const [i, f] of this.castleFlags.entries()) f.rotation.y = Math.sin(t * 2.4 + i) * 0.35
     if (this.king) {
       const k = this.king
@@ -1313,6 +1408,7 @@ export class World {
       p.t += dt
       const k = p.t / 1.8
       p.g.root.position.set(p.x + Math.sin(p.t * 5) * 0.3 * p.dir, p.y + 0.2 + k * 3.2, p.z)
+      if (this.camera) p.g.root.rotation.y = Math.atan2(this.camera.position.x - p.g.root.position.x, this.camera.position.z - p.g.root.position.z)
       p.g.root.scale.setScalar(Math.min(1, 0.2 + p.t * 2.2) * 0.9)
       p.g.setOpacity(0.95 * (1 - L.smoothstep(0.55, 1, k)))
       p.g.update(dt, t)
