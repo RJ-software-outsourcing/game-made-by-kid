@@ -14,9 +14,9 @@ quest at a time. This version has **3 quests**; the King's quest in the castle w
 
 ## What changed in v0.3
 
-- **Coji**: a red cap with "Coji" on both sides; shoes stand on roads and the plaza instead of sinking
-  in; Blankie's blanket drapes over his arms like real cloth and covers his lap when he rests on a
-  bench. His chosen answers are spoken in a kid's voice.
+- **Coji**: shoes stand on roads and the plaza instead of sinking in; Blankie's blanket drapes over
+  his arms like real cloth and covers his lap when he rests on a bench. His chosen answers are spoken
+  in a kid's voice.
 - **A busier island**: villagers and animals (deer, foxes, chickens, squirrels, hedgehogs, crabs,
   frogs, ducklings) wander near Coji, mostly along the ring road. They can be talked to, and sometimes
   they help with the quest. Houses have doors to knock on, and their owners come out to chat. Knights
@@ -68,7 +68,6 @@ quest at a time. This version has **3 quests**; the King's quest in the castle w
 - **Sneakers**: navy uppers with a white toe cap, white side stripe, white velcro strap, white sole.
 - **Backpack**: red, with a lighter front pocket, a handle loop, dark straps over the shoulders and a
   little yellow charm.
-- **Cap**: red, with a round crown, a front brim and "Coji" written on both sides.
 - **Blankie Bear (被被熊)** is hugged in both arms: the little bear head (pale gray, round blue ears,
   brown eyes, nose and mouth) at his chest, and the pale gray knit blanket with light-blue stripes
   hanging down in front in soft folds and over both arms. The blanket sways when he walks. Resting on

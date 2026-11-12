@@ -410,7 +410,6 @@ export class Person {
     }
     if (o.backpack) this.addBackpack()
     if (o.hug) this.addLovey()
-    if (o.cap) this.addCap(o.cap, o.capName)
     if (o.sit) this.sit()
     root.traverse((m) => {
       if (m.isMesh) m.castShadow = true
@@ -518,47 +517,6 @@ export class Person {
     }
   }
 
-  // A baseball cap with a name on both sides. Sits a little high so the bangs peek out.
-  addCap(color, name) {
-    const r = this.P.headR
-    const p = new Parts(SMOOTH)
-    const dark = darker(color, 0.82)
-    const cap = new THREE.Group()
-    cap.position.y = r * 0.2
-    cap.rotation.x = -0.14
-    p.add(sphere(r * 1.12, 28, 12, 0, Math.PI / 2), color, { sy: 0.92, jitter: 0 })
-    p.add(new THREE.CylinderGeometry(r * 1.13, r * 1.13, r * 0.09, 28, 1, true), dark, { y: r * 0.03, jitter: 0, mat: SMOOTH2 })
-    p.add(sphere(r * 0.1, 12, 8), dark, { y: r * 1.03, jitter: 0 })
-    // the brim: a half disc sticking out in front
-    p.add(new THREE.CylinderGeometry(r * 1.5, r * 1.5, r * 0.06, 28, 1, false, -Math.PI / 2, Math.PI), dark, { y: r * 0.03, rx: 0.1, sz: 1.0, jitter: 0 })
-    cap.add(p.build())
-    const cv = document.createElement('canvas')
-    cv.width = 256
-    cv.height = 112
-    const ctx = cv.getContext('2d')
-    ctx.font = 'bold 84px "Baloo 2", Andika, sans-serif'
-    ctx.textAlign = 'center'
-    ctx.textBaseline = 'middle'
-    ctx.lineWidth = 12
-    ctx.strokeStyle = '#1c2340'
-    ctx.strokeText(name, 128, 62)
-    ctx.fillStyle = '#ffffff'
-    ctx.fillText(name, 128, 62)
-    const tex = new THREE.CanvasTexture(cv)
-    tex.colorSpace = THREE.SRGBColorSpace
-    tex.anisotropy = 4
-    const mat = new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false })
-    // curved name patches on both sides of the crown
-    for (const s of [-1, 1]) {
-      const g = new THREE.CylinderGeometry(r * 1.135, r * 1.135, r * 0.42, 16, 1, true, s > 0 ? Math.PI * 0.18 : Math.PI * 1.18, Math.PI * 0.64)
-      const m = new THREE.Mesh(g, mat)
-      m.position.y = r * 0.36
-      m.scale.y = 1
-      cap.add(m)
-    }
-    this.head.add(cap)
-  }
-
   sit() {
     this.seated = true
     this.bodyY = 0.42
@@ -651,8 +609,6 @@ export const LOOKS = {
     soles: UNIFORM.soles,
     backpack: true,
     hug: true,
-    cap: '#e94b3c',
-    capName: 'Coji',
   },
   pip: { skin: '#f7cfb0', hair: '#7a4a2a', hairStyle: 'short', beard: '#7a4a2a', hat: 'captain', shirt: '#ffffff', coat: '#2b4c8c', longSleeves: true, pants: '#f4f1ea', pantsLong: true, shoes: '#2a2a2a' },
   finn: { skin: '#e8b48f', hair: '#3b2a1f', hairStyle: 'short', hat: 'bucket', hatColor: '#f2c94c', shirt: '#4a90c8', stripes: '#ffffff', pants: '#5a6b8c', pantsLong: true, shoes: '#6b4a2b', rod: true, sit: true },
