@@ -3,7 +3,7 @@
 // One show at a time, every 35-70 seconds, placed where Coji can see it.
 import * as THREE from 'three'
 import * as L from './land.js'
-import { Parts, SMOOTH, SHINE, box, cyl, cone, sphere, torus, textCanvas } from './build.js'
+import { Parts, SMOOTH, SHINE, GLOW, box, cyl, cone, sphere, torus, textCanvas } from './build.js'
 import { sfx } from './audio.js'
 
 const pick = (a) => a[Math.floor(Math.random() * a.length)]
@@ -140,22 +140,84 @@ function whale(S) {
   }
 }
 
+// A grand old ocean liner (in the style of the famous four-funnel ships): a long black hull with a
+// pointed bow, a red bottom and a thin white line, rows of round portholes, white decks with windows,
+// lifeboats, four tall buff funnels with black tops, and two masts. Every window sits exactly on the
+// wall it belongs to.
+const LINER = { L: 46, B: 5.6, stern: -21, mid0: -17, mid1: 11, bow: 25 }
+function hullHalfWidth(z) {
+  const { B, stern, mid0, mid1, bow } = LINER
+  if (z < mid0) return (B / 2) * Math.sqrt(Math.max(0, 1 - ((mid0 - z) / (mid0 - stern)) ** 2))
+  if (z > mid1) return (B / 2) * (1 - Math.pow((z - mid1) / (bow - mid1), 1.7))
+  return B / 2
+}
+function hullSlice(y0, y1, inset = 0) {
+  // the top-view outline, extruded upward from y0 to y1
+  const pts = []
+  const n = 40
+  for (let i = 0; i <= n; i++) {
+    const z = LINER.stern + ((LINER.bow - LINER.stern) * i) / n
+    pts.push([Math.max(0.02, hullHalfWidth(z) - inset), z])
+  }
+  const shape = new THREE.Shape()
+  shape.moveTo(pts[0][0], -pts[0][1])
+  for (const [x, z] of pts) shape.lineTo(x, -z)
+  for (let i = pts.length - 1; i >= 0; i--) shape.lineTo(-pts[i][0], -pts[i][1])
+  const g = new THREE.ExtrudeGeometry(shape, { depth: y1 - y0, bevelEnabled: false, curveSegments: 4 })
+  g.rotateX(-Math.PI / 2)
+  g.translate(0, y0, 0)
+  return g
+}
 function ship(S) {
-  const [cx, cz, a] = S.seaPoint(70)
+  const [cx, cz, a] = S.seaPoint(80)
   const tx = -Math.sin(a)
   const tz = Math.cos(a)
   const root = new THREE.Group()
   const p = new Parts()
-  p.add(box(6, 2.6, 26), '#ffffff', { y: 0.6 })
-  p.add(box(6.05, 0.5, 26.05), '#3b7dd8', { y: -0.4 })
-  p.add(cone(3.05, 6, 4), '#ffffff', { y: 0.6, z: 15.6, rx: Math.PI / 2, ry: Math.PI / 4, sx: 1, sz: 0.62 })
-  for (let k = 0; k < 3; k++) p.add(box(5 - k * 0.8, 1.6, 18 - k * 4), '#f4f1ea', { y: 2.7 + k * 1.6, z: -1 })
-  for (let k = 0; k < 2; k++) {
-    p.add(cyl(0.8, 0.9, 2.6, 12), '#e94b3c', { y: 7.6, z: -4 + k * 4.5 })
-    p.add(cyl(0.82, 0.82, 0.5, 12), '#2b2b2b', { y: 8.9, z: -4 + k * 4.5 })
+  const halfB = LINER.B / 2
+  // hull: red below the waterline, black above, a thin white line near the top, a wooden deck
+  p.add(hullSlice(-1.6, 0.35), '#9e2a22', { jitter: 0.03, rough: 0.6 })
+  p.add(hullSlice(0.35, 3.0), '#1c1d22', { jitter: 0.04, rough: 0.45 })
+  p.add(hullSlice(2.62, 2.74, -0.02), '#f1ead2', { jitter: 0, rough: 0.5 })
+  p.add(hullSlice(3.0, 3.08, 0.05), '#c7a172', { jitter: 0.05, rough: 0.8 })
+  // portholes: two rows along the straight middle of the hull, right on its sides
+  for (const y of [1.25, 2.05])
+    for (let z = LINER.mid0 + 1; z < LINER.mid1 - 0.5; z += 1.1)
+      for (const sd of [-1, 1]) p.add(cyl(0.13, 0.13, 0.04, 10), '#fff0c4', { x: sd * (halfB + 0.015), y, z, rz: Math.PI / 2, mat: GLOW, jitter: 0, rough: 0.2 })
+  // white decks (each one shorter and narrower), with windows on their own walls
+  const decks = [
+    { y0: 3.08, h: 1.15, w: 5.0, z0: -15.5, z1: 10.5 },
+    { y0: 4.23, h: 1.0, w: 4.4, z0: -12.5, z1: 8.5 },
+    { y0: 5.23, h: 0.85, w: 3.6, z0: -9, z1: 6 },
+  ]
+  for (const d of decks) {
+    const len = d.z1 - d.z0
+    p.add(box(d.w, d.h, len), '#f4f2ea', { y: d.y0 + d.h / 2, z: (d.z0 + d.z1) / 2, jitter: 0.02, rough: 0.55 })
+    p.add(box(d.w + 0.12, 0.06, len + 0.12), '#c7a172', { y: d.y0 + d.h + 0.03, z: (d.z0 + d.z1) / 2, jitter: 0.04, rough: 0.8 })
+    for (let z = d.z0 + 0.7; z < d.z1 - 0.5; z += 1.0)
+      for (const sd of [-1, 1]) p.add(box(0.03, d.h * 0.42, 0.55), '#ffe6a8', { x: sd * (d.w / 2 + 0.016), y: d.y0 + d.h * 0.55, z, mat: GLOW, jitter: 0, rough: 0.2 })
   }
-  for (let r = 0; r < 3; r++)
-    for (let i = 0; i < 12; i++) for (const s of [-1, 1]) p.add(box(0.06, 0.4, 0.6), '#3b7dd8', { x: s * (2.52 - r * 0.4), y: 2.7 + r * 1.6, z: -8 + i * 1.3 - r * 0.6, jitter: 0 })
+  // the bridge at the front, with a row of windows looking forward
+  p.add(box(4.6, 1.0, 2.0), '#f4f2ea', { y: 6.58, z: 6.6, jitter: 0.02, rough: 0.55 })
+  for (let i = 0; i < 6; i++) p.add(box(0.5, 0.36, 0.03), '#ffe6a8', { x: -1.6 + i * 0.64, y: 6.65, z: 7.615, mat: GLOW, jitter: 0, rough: 0.2 })
+  // lifeboats along the top deck
+  for (let z = -11.5; z < 7; z += 2.6)
+    for (const sd of [-1, 1]) {
+      p.add(sphere(0.32, 10, 6), '#ffffff', { x: sd * 2.05, y: 5.52, z, sx: 1, sy: 0.55, sz: 2.4, jitter: 0, rough: 0.5 })
+      p.add(box(0.06, 0.5, 0.06), '#3a3a3a', { x: sd * 2.05, y: 5.4, z: z - 0.7, metal: 0.6, rough: 0.4 })
+      p.add(box(0.06, 0.5, 0.06), '#3a3a3a', { x: sd * 2.05, y: 5.4, z: z + 0.7, metal: 0.6, rough: 0.4 })
+    }
+  // four tall funnels, leaning back a little: buff with black tops
+  for (let k = 0; k < 4; k++) {
+    const z = 4.2 - k * 5.0
+    p.add(cyl(0.78, 0.84, 5.6, 16), '#d49a3c', { y: 6.08 + 2.8, z, sx: 1, sz: 1.3, rx: -0.09, flat: false, jitter: 0.03, rough: 0.6 })
+    p.add(cyl(0.8, 0.8, 1.1, 16), '#141414', { y: 6.08 + 5.4, z: z - 0.48, sx: 1, sz: 1.3, rx: -0.09, flat: false, jitter: 0, rough: 0.5 })
+  }
+  // masts at the bow and the stern, with a line between them
+  p.add(cyl(0.09, 0.13, 13, 8), '#c7a172', { y: 3 + 6.5, z: 16.5, rx: -0.06, flat: false })
+  p.add(cyl(0.09, 0.13, 12, 8), '#c7a172', { y: 3 + 6, z: -17, rx: -0.06, flat: false })
+  const span = 16.5 + 17
+  p.add(box(0.03, 0.03, Math.hypot(span, 1)), '#333333', { y: 15.2, z: (16.5 - 17) / 2, rx: Math.atan2(1, span), jitter: 0 })
   root.add(p.build({ shadow: false }))
   const len = 140
   const sx = cx - tx * len * 0.5

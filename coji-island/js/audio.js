@@ -62,7 +62,20 @@ function ac() {
 export function unlock() {
   ac()
   pickVoice()
+  // iPad: speech only works after it was started once from a tap, so start a silent one now (then
+  // people can greet Coji and the knights can shout later, without a tap)
+  if (!speechPrimed && 'speechSynthesis' in window) {
+    speechPrimed = true
+    try {
+      const u = new SpeechSynthesisUtterance(' ')
+      u.volume = 0
+      speechSynthesis.speak(u)
+    } catch {
+      // no speech
+    }
+  }
 }
+let speechPrimed = false
 export const isMuted = () => muted
 export function setMuted(m) {
   muted = m
@@ -678,4 +691,69 @@ function say(clean, kid) {
   }
   u.volume = 0.95
   speechSynthesis.speak(u)
+}
+
+// ---------- other people's voices (greetings, the knights) ----------
+// Natural voices for men, women and children. A person keeps the same voice (picked from their name),
+// and nobody ever talks over Coji or over someone else: if a voice is busy, the line is skipped.
+const PEOPLE_VOICES = {
+  man: /Daniel|Aaron|Alex\b|Arthur|Gordon|Guy|Ryan|Rishi|Thomas|Oliver|Lee|Google UK English Male|Microsoft (Guy|Ryan|Christopher|Eric|Andrew)/i,
+  woman: /Samantha|Karen|Moira|Tessa|Fiona|Kate|Serena|Martha|Catherine|Allison|Ava|Susan|Google US English|Google UK English Female|Microsoft (Aria|Jenny|Michelle|Sonia|Emma)/i,
+  kid: /\bAna\b.*(Online|Natural)|Nicky|Samantha|Google US English/i,
+}
+let peopleVoices = null
+function voicesFor(kind) {
+  if (!('speechSynthesis' in window)) return []
+  if (!peopleVoices || !peopleVoices.man.length) {
+    const vs = speechSynthesis.getVoices().filter((v) => /^en([-_]|$)/i.test(v.lang) && !SKIP_VOICES.test(v.name))
+    peopleVoices = {}
+    for (const k of Object.keys(PEOPLE_VOICES)) peopleVoices[k] = vs.filter((v) => PEOPLE_VOICES[k].test(v.name))
+    peopleVoices.any = vs
+  }
+  return peopleVoices[kind]?.length ? peopleVoices[kind] : peopleVoices.any
+}
+export const speechBusy = () => 'speechSynthesis' in window && (speechSynthesis.speaking || speechSynthesis.pending)
+// who: 'man' | 'woman' | 'kid'; seed picks the same voice for the same person.
+export function sayAs(text, { who = 'woman', seed = 0, pitch = 1, rate = 1, volume = 0.85, queue = false } = {}) {
+  if (!('speechSynthesis' in window) || muted) return false
+  if (!queue && speechBusy()) return false
+  const clean = text.replace(/[\u{1F000}-\u{1FFFF}\u{2600}-\u{27BF}\u{FE0F}]/gu, '').trim()
+  if (!clean) return false
+  const list = voicesFor(who)
+  const u = new SpeechSynthesisUtterance(clean)
+  u.lang = 'en-US'
+  if (list.length) {
+    u.voice = list[Math.abs(seed) % list.length]
+    u.lang = u.voice.lang
+  }
+  u.pitch = pitch
+  u.rate = rate
+  u.volume = volume
+  speechSynthesis.speak(u)
+  return true
+}
+
+// A crowd cheering far away (the knights): soft swells of noise, like many voices at once.
+export function cheer(at = 0) {
+  const c = ac()
+  if (!c || muted) return
+  for (let i = 0; i < 2; i++) {
+    const t0 = c.currentTime + at + i * 1.25
+    const s = c.createBufferSource()
+    s.buffer = noiseBuffer(c)
+    s.loop = true
+    const bp = c.createBiquadFilter()
+    bp.type = 'bandpass'
+    bp.Q.value = 1.4
+    bp.frequency.setValueAtTime(700, t0)
+    bp.frequency.linearRampToValueAtTime(1100, t0 + 0.5)
+    bp.frequency.linearRampToValueAtTime(800, t0 + 1.1)
+    const g = c.createGain()
+    g.gain.setValueAtTime(0, t0)
+    g.gain.linearRampToValueAtTime(0.09, t0 + 0.18)
+    g.gain.setTargetAtTime(0, t0 + 0.7, 0.18)
+    s.connect(bp).connect(g).connect(master)
+    s.start(t0)
+    s.stop(t0 + 1.6)
+  }
 }

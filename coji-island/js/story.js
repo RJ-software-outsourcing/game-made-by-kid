@@ -73,6 +73,8 @@ export const QUESTS = {
     },
   },
   light: {
+    // Bruno sits on the only bridge to the lighthouse, so this one comes after the bear
+    needs: ['bear'],
     title: 'The Dark Lighthouse',
     icon: '🗼',
     steps: [
@@ -123,10 +125,19 @@ export const QUEST_ORDER = ['bear', 'light', 'boo']
 export const allDone = (g) => QUEST_ORDER.every((q) => g.done(q))
 export const isActive = (g, q) => g.at(q) >= 0
 export const activeQuests = (g) => QUEST_ORDER.filter((q) => g.at(q) >= 0)
-// A quest that nobody has started yet, and that can start now.
+// Coji explores the island a little before anyone asks him for help with a mission: a few minutes of
+// play and a few new friends (or a little longer on his own). Once true, it stays true.
+export function explored(g) {
+  if (g.flag('explored')) return true
+  const ok = g.done('bear') || g.done('light') || g.done('boo') || activeQuests(g).length > 0 || (g.played() > 150 && g.metCount() >= 4) || g.played() > 300
+  if (ok) g.setFlag('explored')
+  return ok
+}
+// A quest that nobody has started yet, and that can start now: one mission at a time, in any order
+// (except the lighthouse, which needs the bear off the bridge first).
 export function available(g, q) {
   const Q = QUESTS[q]
-  return !!Q && g.at(q) < 0 && !g.done(q) && (Q.needs || []).every((n) => g.done(n))
+  return !!Q && g.at(q) < 0 && !g.done(q) && (Q.needs || []).every((n) => g.done(n)) && !activeQuests(g).length && explored(g)
 }
 
 // ---------- where things happen, and clues from far (0) to near (2) ----------
@@ -594,15 +605,25 @@ const TIPS = {
   ],
 }
 const AVAIL_TIPS = {
-  bear: (g) => (g.met('pip') ? ['A big bear sits on Bear Bridge. He is hungry! Talk to Captain Pip. 🐻', 'Someone needs help! Talk to Captain Pip at the harbor. ⚓'] : ['Tap Captain Pip to say hi! 👋']),
+  bear: (g) => (g.met('pip') ? ['A big bear sits on Bear Bridge. He is hungry! Talk to Captain Pip. 🐻', 'Someone needs help! Talk to Captain Pip at the harbor. ⚓', 'Grrr! Did you hear that? Someone is hungry near Bear Bridge. 🐻'] : ['Tap Captain Pip to say hi! 👋']),
   light: (g) => (g.done('bear') ? ['The lighthouse is dark! Talk to Bruno or Grandpa Gus. 🗼'] : ['The lighthouse is dark! Ask Captain Pip about it. 🗼']),
   boo: () => ['Boo the little ghost needs a friend! Visit the Spooky Graveyard. 👻', 'Someone is sad in the Spooky Graveyard. Go and see! 👻'],
 }
+// before the first mission: look around
+const EXPLORE_TIPS = [
+  'Look around Sunny Island! Tap people to say hi. 👋',
+  'Shiny things are treasures! Walk to them to pick them up. ✨',
+  'Tap the Map 🗺️ to see the whole island!',
+  'Who lives in the village? Knock on a door! 🚪',
+  'Let us find the castle! It is in the middle of the island. 🏰',
+  'Walk to the beach! Maybe you can find a starfish. ⭐',
+]
 const END_TIPS = ['Explore the island, and do jobs to earn coins! 💼', 'Find treasures 💎 and swap them at the bank!', 'Sir Lance says the King will need a hero one day! 👑']
 
 // What Blankie Bear says when nothing has happened for a while.
 export function stepTip(g) {
   if (!g.flag('gotBag') && !g.met('pip') && !activeQuests(g).length) return 'Tap Captain Pip to say hi! 👋'
+  if (!explored(g)) return draw('tip:explore', EXPLORE_TIPS)
   const q = g.focus()
   const S = q && stepInfo(g, q)
   if (S) {
@@ -680,25 +701,12 @@ export const CAST = {
     // The welcome (with the bag) shows the first time only.
     first: (g) => {
       if (g.flag('gotBag')) return null
-      const accept = () =>
-        N(['Thank you, Coji!', 'First, find out what Bear likes to eat.', 'Ask people on the island. Tap them to talk!'], null, {
-          onShow: () => g.startQuest('bear'),
-        })
-      const ask = () => {
-        if (!available(g, 'bear')) return N(g.done('bear') ? ['You helped the hungry bear!', 'Thank you, Coji. Have fun on Sunny Island!'] : ['You are helping the hungry bear? Great!', 'Good luck, Coji!'])
-        return N(['Oh, I have a problem, Coji.', 'A big bear sits on Bear Bridge.', 'He is very hungry. Nobody can cross the bridge!', 'Can you help the bear?'], [
-          { text: 'Yes! I can help!', go: accept },
-          {
-            text: 'A bear? I am scared...',
-            go: () =>
-              N(["Don't worry. He is a kind bear.", 'He is just very, very hungry.'], [
-                { text: 'Okay! I will help!', go: accept },
-                { text: 'Will you come with me?', go: () => N(['I must stay with my boat.', 'But you are brave, Coji. You can do it!'], [{ text: 'Okay! I will try!', go: accept }]) },
-              ]),
-          },
-          { text: 'Why is he hungry?', go: () => N(['He ate all his food in the winter.', 'Now his tummy is empty!', 'Can you help him?'], [{ text: 'Yes! Poor bear!', go: accept }, { text: 'I will find food for him!', go: accept }]) },
+      // no mission yet: first Coji looks around the island and makes friends
+      const ask = () =>
+        N(['Now go and explore Sunny Island!', 'Say hi to everyone. Find shiny treasures!', 'Have fun, Coji! ⛵'], [
+          { text: 'What can I see here?', go: () => N(['A castle, a village, a farm, a forest...', 'And a beach! Tap the Map 🗺️ to see it all.']) },
+          { text: 'Okay! Bye, Captain Pip!', go: () => N(['Bye, Coji! Come and see me again!'], null, { auto: true }) },
         ])
-      }
       const gift = (hello) =>
         N([hello, 'I like your bear blanket.', 'Here is a bag for you. 🎒'], [
           { text: 'Thank you, Captain Pip!', go: () => N(['You are welcome!', 'There is water, an apple and 3 coins in it.'], null, { then: ask }) },

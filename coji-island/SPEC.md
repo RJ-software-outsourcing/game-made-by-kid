@@ -297,8 +297,13 @@ twice in a row.
   A follow-up gives a better clue, and chit-chat gives none.
 
 ### 5.6 Quests
-- **Quests can be done in any order, and several can be active at once.** Each quest keeps its own
-  steps in order.
+- **Explore first.** Captain Pip only welcomes Coji and gives him the bag. No mission is offered until
+  Coji has looked around: about 2½ minutes of play and 4 friends met, or 5 minutes on his own.
+  Until then, Blankie's tips suggest exploring ("Let us find the castle!", "Walk to the beach!").
+- **One mission at a time, in any order.** While a mission is active nobody offers another one, and
+  everyone talks about the current one. Each mission keeps its own steps in order. The bear and Boo
+  can come in either order. The lighthouse comes after the bear, because Bruno blocks the only bridge
+  to Lighthouse Island.
 - **Many characters can start a quest**: its giver, its subject, friends nearby, and anyone walking
   around near the subject. Each says the problem in its own voice ("Meow! A big bear sits on the
   bridge. His tummy says GRRR!"), and Coji answers yes or "not now". Characters who can't start it
@@ -306,7 +311,7 @@ twice in a row.
 
 | Quest | Giver | Subject | Friends nearby | Also |
 |---|---|---|---|---|
-| 🐻 The Hungry Bear | Captain Pip | Bruno | Finn, Momo, Hoot | anyone walking within 40 m of Bruno |
+| 🐻 The Hungry Bear | Captain Pip (after the welcome) | Bruno | Finn, Momo, Hoot | anyone walking within 40 m of Bruno |
 | 🗼 The Dark Lighthouse | Bruno (after he is fed) | Grandpa Gus | Pip, Coco, Kim | anyone walking within 40 m of Gus |
 | 🎃 Boo's Pumpkin Lantern | Boo | Boo | Mr. Bones, Kim, Bun | anyone walking near the graveyard |
 
@@ -318,13 +323,12 @@ twice in a row.
     Bee… It costs 5 coins."
   - Blankie Bear's tips work the same way ("Let's go to the Market…" → "The Market is close…" → "Tap
     Granny Bee to buy honey!").
-- **The quest card** (top left) shows the quest last started or moved on. It switches by itself when
-  Coji comes within 30 m of another quest's next step. The label counts the active quests ("⭐
-  MISSIONS: 2 · 🎃 🐻"), and the opened card lists each one with its step and clues. Clues with a
-  place put a ⭐ on the map.
+- **The quest card** (top left) shows the mission, its current step, step dots and the clues found
+  (tap to open). Clues with a place put a ⭐ on the map.
 - Characters who can help right now get a gold "!" over the head; everyone else has a small "…"
   bubble.
-- Saves from v0.3 (one quest at a time) are converted when they load.
+- Saves from v0.3 are converted when they load. A save that had several missions running keeps only
+  the one on the card.
 
 ### 5.7 The Spooky Graveyard 👻
 - Walking in makes the world turn spooky: a dark night-purple sky, close dark fog and very dim light
@@ -351,11 +355,26 @@ twice in a row.
   step outside by themselves sometimes.
 - **Knights**: three knights march on the castle walls; Sir Percy walks around the castle road.
 - **Shows** (`shows.js`): the first one after ~20 s, then one every 35–70 s, near Coji. At sea: a
-  whale (spout), a pirate ship (horn), a kraken (purple tentacles), dolphins. In the sky: a plane with
+  whale (spout), a big ocean liner (horn), a kraken (purple tentacles), dolphins. In the sky: a plane with
   a banner to read ("READ EVERY DAY!"), a hot-air balloon, a UFO. Blankie points each one out
   ("Look up! A hot-air balloon! 🎈"). The UFO sometimes beams down an alien, who walks around and can
   be talked to, then comes back to beam it up. The aliens are little **greys**: grey all over, a big
   bulb of a head, huge glossy black almond eyes, a tiny mouth, and thin arms and legs.
+- **The big ship** is a grand old ocean liner with four funnels:
+  - a long black hull with a pointed bow, a red bottom and a thin white line, with round portholes
+    set right on its sides
+  - white decks with windows, a bridge, and lifeboats
+  - four tall buff funnels with black tops, and two masts
+  - its windows glow at night
+- **People say hello**: walking past someone, Coji hears them greet him out loud ("Good morning!",
+  "Hi, Coji! How are you?", and at night "Good evening, Coji!"). The words also appear in a speech
+  bubble over their head to read, and they wave.
+  - Each person keeps their own natural voice: a man's, a woman's or a child's, a little lower for older
+    people, and squeaky for aliens.
+  - A person says hello at most every 1½ minutes, and nobody talks over Coji or over each other.
+- **"Long live the King!"**: near the castle, every minute or two the knights on the walls jump and
+  wave and shout "Long live the King!" (two deep voices and a crowd cheer). The words also show as a
+  message to read.
 - **Bruno's thank-you**: after the honey, Bruno gives Coji a big bear hug. Then he stands up on his
   feet, walks along the bridge to the shore and over to his new spot, and sits back down.
 - **Little animals**: squirrels and frogs hop with their whole body (legs push off and reach forward
@@ -380,23 +399,23 @@ the card, clues, flags such as the opened chest, job rests, how many people Coji
 
 Coji arrives at Sunny Island on Captain Pip's boat.
 
-The three quests can be done in any order (see 5.6). The Lighthouse can start before the bear is fed;
-its clues then remind Coji that Bruno is still blocking the bridge.
+Pip welcomes Coji and sends him off to explore. After a little while, friends start asking for
+help, one mission at a time, in any order, except that the lighthouse comes after the bear (see 5.6).
 
-### Quest 1: The Hungry Bear 🐻 (from Captain Pip, Bruno or his friends)
+### Quest: The Hungry Bear 🐻 (from Captain Pip, Bruno or his friends)
 1. **Find out what Bear likes to eat.** (clue "Bears love honey")
 2. **Get some honey.** Granny Bee, 5 coins (jobs, treasures, apples, Momo).
 3. **Give the honey to Bear.** Bruno gives Coji a big bear hug, stands up and walks off Bear Bridge
    to his new spot, and can start quest 2.
 
-### Quest 2: The Dark Lighthouse 🗼 (from Bruno, Gus or their friends)
+### Quest: The Dark Lighthouse 🗼 (after the bear; from Bruno, Gus or their friends)
 1. **Talk to Grandpa Gus** on Lighthouse Island.
 2. **Find a big, bright light bulb.** (Tina's Toy Shop)
 3. **Get the bulb from Tina.** 8 coins, or an owl feather (find Hoot's glasses by the pond).
 4. **Bring the bulb to Grandpa Gus.** Finale: night falls, the lighthouse beam sweeps the sea,
    fireworks, "You did it!". Then free time.
 
-### Quest 3: Boo's Pumpkin Lantern 🎃 (from Boo, Mr. Bones or their friends)
+### Quest: Boo's Pumpkin Lantern 🎃 (from Boo, Mr. Bones or their friends)
 Everyone mentions the sad little ghost in the graveyard. Boo is scared of the dark.
 1. **Find a pumpkin.** (graveyard pumpkin patch)
 2. **Find a candle.** (Granny Bee, 2 coins)
@@ -458,6 +477,8 @@ open the gate and involve King Arlo (to be designed).
   - all in a soft reverb
   Notes are planned ahead on the audio clock. If the iPad is busy for a moment, missed notes are
   skipped instead of all playing at once.
+- **Other people's voices** (greetings, the knights) are natural English voices too. On iPad, speech is
+  switched on by the first tap, so they can talk later without a tap.
 - **Coji's voice**: one cute, natural English voice, chosen once and kept all game. Best first: a
   child's voice where the browser has one (Edge), else Nicky or Samantha at a gentle raised pitch;
   robotic voices are never used. The voice list is loaded early, so his first line uses the same
@@ -517,6 +538,7 @@ coji-island/
     rig.js         fuses a character's pieces into one skinned mesh (one draw call)
     treasures.js   treasures to find and swap at the bank (models, prices, where they grow)
     help.js        people who ask Coji for help: the reading games and gifts
+    chatter.js     people saying hello as Coji walks by, and the knights' "Long live the King!"
     world.js       sky, terrain, water, roads, buildings, lamps, zones, spooky/day/night, fireworks
     props.js       buildings and objects (houses, shops, castle, lighthouse, graveyard pieces…)
     nature.js      trees, bushes, rocks, grass tufts, flowers, lamps, clouds; near/far plant pools; wind

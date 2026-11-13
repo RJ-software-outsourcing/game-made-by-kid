@@ -13,6 +13,7 @@ import { sfx, unlock, startMusic, setMood } from './audio.js'
 import { JobRunner, JOB_REST } from './jobs.js'
 import { Crowd } from './crowd.js'
 import { Helpers } from './help.js'
+import { Chatter } from './chatter.js'
 import { Shows } from './shows.js'
 import { makeSprite, roundRect, SEE } from './build.js'
 
@@ -52,9 +53,18 @@ export function readSave() {
   }
   return null
 }
-// Older saves had one quest at a time (`quest` + `step`); now several can be active (`quests`).
+// Saves keep the active quest in `quests` ({ id: step }). Only one mission is active at a time; very old
+// saves (`quest` + `step`) are converted, and a save with several active keeps just the one on the card.
 function migrate(s) {
-  if (s.quests && typeof s.quests === 'object' && !('quest' in s)) return s
+  if (s.quests && typeof s.quests === 'object' && !('quest' in s)) {
+    const ids = Object.keys(s.quests)
+    if (ids.length > 1) {
+      const keep = ids.includes(s.focus) ? s.focus : ids[0]
+      s.quests = { [keep]: s.quests[keep] }
+      s.focus = keep
+    }
+    return s
+  }
   const quests = {}
   if (s.quest && QUESTS[s.quest]) quests[s.quest] = s.step || 0
   // after the bear, the old game always went on with the lighthouse
@@ -178,6 +188,7 @@ class Game {
     this.jobs = new JobRunner(this)
     this.crowd = new Crowd(this)
     this.helpers = new Helpers(this)
+    this.chatter = new Chatter(this)
     this.shows = new Shows(this)
 
     progress(0.9, 'Waking up the animals…')
@@ -291,6 +302,8 @@ class Game {
         S().flags[k] = v
       },
       met: (id) => !!S().met[id],
+      metCount: () => Object.keys(S().met).length,
+      played: () => S().play,
       // quests: several can be active; each has its own step
       at: (q) => (q in S().quests ? S().quests[q] : -1),
       is: (st) => {
@@ -401,7 +414,7 @@ class Game {
     this.checkQuest()
   }
 
-  // Start quest `id` (at `step`, when its first steps are already done). Others stay active.
+  // Start quest `id` (at `step`, when its first steps are already done). One mission at a time.
   startQuest(id, quiet = false, step = 0) {
     const s = this.state
     if (!QUESTS[id] || s.done.includes(id)) return
@@ -409,6 +422,7 @@ class Game {
       if (step > s.quests[id]) this.advance(id, step)
       return
     }
+    if (Object.keys(s.quests).length) return
     s.quests[id] = step
     s.focus = id
     s.clues[id] ||= []
@@ -1074,6 +1088,7 @@ class Game {
     if (this.mode === 'play') {
       this.crowd.update(dt, t)
       this.helpers.update(dt)
+      this.chatter.update(dt)
       this.shows.update(dt, t)
     }
     this.updateNpcs(dt, t)
