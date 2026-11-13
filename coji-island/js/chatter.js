@@ -32,13 +32,15 @@ function kindOf(look) {
   if (look.kid) return 'kid'
   return 'grownup'
 }
-// a man's, a woman's or a child's voice, and a pitch that fits (older people a little lower)
+// Bright, friendly voices fit the island. Only armored knights (and the King's scripted calls) keep
+// a deep voice; age changes the pace a little, not the warmth of the pitch.
 function voiceOf(look) {
   if (look.grey) return { who: 'man', pitch: 1.7, rate: 1.15 }
   if (look.kid) return { who: 'kid', pitch: 1.35, rate: 1.05 }
+  if (look.hat === 'helmet') return { who: 'man', pitch: 0.82, rate: 0.9 }
   const old = look.hairStyle === 'bald' || /#f4f4f4|#ebe7e1|#ffffff/i.test(look.hair || '')
   const woman = !look.beard && (GIRLY.has(look.hairStyle) || look.dress)
-  return { who: woman ? 'woman' : 'man', pitch: (woman ? 1.08 : 0.95) - (old ? 0.12 : 0), rate: old ? 0.92 : 1.0 }
+  return { who: woman ? 'woman' : 'man', pitch: (woman ? 1.22 : 1.16) - (old ? 0.05 : 0), rate: old ? 0.94 : 1.03 }
 }
 const hash = (s) => [...String(s)].reduce((h, c) => (h * 31 + c.charCodeAt(0)) | 0, 7)
 

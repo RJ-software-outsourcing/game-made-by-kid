@@ -28,6 +28,7 @@ export class UI {
     this.hintEl = $('#hint')
     $('.hint-face', this.hintEl).innerHTML = BLANKIE_SVG
     this.toastsEl = $('#toasts')
+    this.eventEl = $('#event-banner')
     this.lastCoins = null
     this.tipTimes = {}
 
@@ -216,6 +217,21 @@ export class UI {
     t.textContent = text
     this.toastsEl.append(t)
     setTimeout(() => t.remove(), 2300)
+  }
+
+  eventBanner(title, detail = '', time = 5) {
+    clearTimeout(this.eventT)
+    $('strong', this.eventEl).textContent = title
+    $('small', this.eventEl).textContent = detail
+    this.eventEl.classList.remove('hidden')
+    this.eventEl.style.animation = 'none'
+    void this.eventEl.offsetWidth
+    this.eventEl.style.animation = ''
+    this.eventT = setTimeout(() => this.hideEventBanner(), time * 1000)
+  }
+  hideEventBanner() {
+    clearTimeout(this.eventT)
+    this.eventEl.classList.add('hidden')
   }
 
   // ---------- bag ----------

@@ -5,6 +5,7 @@ import * as THREE from 'three'
 import * as L from './land.js'
 import { Parts, SMOOTH, SHINE, GLOW, box, cyl, cone, sphere, torus, textCanvas } from './build.js'
 import { sfx, sayAs } from './audio.js'
+import { makeDragon, disposeDragon } from './dragon.js'
 
 const pick = (a) => a[Math.floor(Math.random() * a.length)]
 const BANNERS = ['HELLO, COJI!', 'READ EVERY DAY!', 'HAVE A HAPPY DAY!', 'YOU ARE A STAR!', 'BE KIND!', 'LET\'S PLAY!']
@@ -76,6 +77,11 @@ export class Shows {
 
   // The UFO comes back for an alien.
   ufoPickup(it) {
+    // Stop the alien as soon as the pickup is called. Previously it could walk several metres while
+    // the UFO was approaching, leaving the beam shining beside it.
+    it.path.length = 0
+    it.ch.speed = 0
+    it.beamWaiting = true
     const s = ufo(this, it)
     s.t = 0
     this.scene.add(s.root)
@@ -457,41 +463,14 @@ function dolphins(S) {
   }
 }
 
-function redDragon() {
-  const root = new THREE.Group()
-  const p = new Parts(SMOOTH)
-  p.add(sphere(1.5, 16, 10), '#b51f28', { sy: 0.72, sz: 2.2, jitter: 0.035, rough: 0.68 })
-  p.add(sphere(0.85, 12, 9), '#d63632', { y: 0.35, z: 2.45, sx: 1.0, sy: 0.75, sz: 1.15, jitter: 0.03, rough: 0.65 })
-  p.add(sphere(0.58, 12, 8), '#d63632', { y: 0.43, z: 3.45, sx: 1.15, sy: 0.7, sz: 1.15, jitter: 0.025, rough: 0.65 })
-  for (const side of [-1, 1]) {
-    p.add(sphere(0.12, 8, 6), '#ffe66d', { x: side * 0.3, y: 0.62, z: 3.9, sz: 0.55, jitter: 0, rough: 0.18 })
-    p.add(cone(0.18, 0.72, 7), '#f0d6a0', { x: side * 0.34, y: 1.05, z: 3.25, rx: -0.28, rz: side * 0.25, jitter: 0.02, rough: 0.78 })
-    p.add(cone(0.22, 0.85, 7), '#8f1720', { x: side * 0.82, y: -0.78, z: 0.65, rx: Math.PI, rz: side * 0.2, jitter: 0.03, rough: 0.75 })
-  }
-  for (let i = 0; i < 6; i++) p.add(cone(0.18 + i * 0.025, 0.6, 7), '#f0d6a0', { y: 1.0 - i * 0.1, z: 1.2 - i * 0.62, rx: -0.25, jitter: 0.02, rough: 0.8 })
-  p.add(cone(0.78, 5.0, 10), '#a61d26', { y: 0.05, z: -4.0, rx: -Math.PI / 2, sz: 1.15, jitter: 0.04, rough: 0.7 })
-  root.add(p.build({ shadow: false }))
-  const wings = []
-  for (const side of [-1, 1]) {
-    const g = new THREE.BufferGeometry()
-    g.setAttribute('position', new THREE.Float32BufferAttribute([0, 0.35, 0.5, side * 6.4, 0.1, -1.0, side * 4.5, 0.1, 3.2, 0, 0.35, 0.5, side * 4.5, 0.1, 3.2, side * 2.0, 0.1, 3.6], 3))
-    g.computeVertexNormals()
-    const wing = new THREE.Mesh(g, new THREE.MeshBasicMaterial({ color: side < 0 ? 0xb51f28 : 0xa91b25, side: THREE.DoubleSide, fog: true }))
-    root.add(wing)
-    wings.push(wing)
-  }
-  root.userData.wings = wings
-  return root
-}
-
-// A rare island-wide ten-second event: the dragon circles the castle, lightning flashes, thunder
-// rolls, and the King's call is spoken at full volume no matter where Coji is exploring.
+// A rare island-wide twenty-second event: Ember circles the castle, the whole sky goes dark, bolts
+// strike near Coji wherever he is, and the King's panicked calls carry across the island.
 function dragon(S) {
   const root = new THREE.Group()
   root.position.set(L.CASTLE.x, 0, L.CASTLE.z)
-  const beast = redDragon()
+  const beast = makeDragon()
   root.add(beast)
-  const points = new Float32Array(9 * 3)
+  const points = new Float32Array(11 * 3)
   const lightningGeo = new THREE.BufferGeometry()
   lightningGeo.setAttribute('position', new THREE.BufferAttribute(points, 3))
   const lightning = new THREE.Line(lightningGeo, new THREE.LineBasicMaterial({ color: 0xeaf7ff, transparent: true, opacity: 0.95, depthWrite: false, fog: false }))
@@ -499,23 +478,30 @@ function dragon(S) {
   root.add(lightning)
   const flash = new THREE.AmbientLight(0xcfe8ff, 0)
   root.add(flash)
-  const strikes = [1.1, 4.0, 7.2]
+  const strikes = [1.4, 3.8, 6.4, 9.1, 12.2, 15.4, 18.2]
   const fired = new Set()
-  sayAs('Help! A red dragon is circling the castle!', { who: 'man', seed: 41, pitch: 0.8, rate: 0.92, volume: 1, queue: true })
-  S.game.ui.toast('👑 King Arlo shouts across the island: "Help! A red dragon!" 🐉')
+  S.game.stormTarget = 1
+  sfx('dragonRoar')
   if (S.world.king) {
-    S.world.king.cheer = 10
-    S.world.king.wave = 10
+    S.world.king.cheer = 20
+    S.world.king.wave = 20
   }
   const redrawLightning = () => {
     const a = lightning.geometry.attributes.position.array
-    const startX = beast.position.x
-    const startZ = beast.position.z
-    for (let i = 0; i < 9; i++) {
-      const k = i / 8
-      a[i * 3] = L.lerp(startX, 0, k) + (i && i < 8 ? (Math.random() - 0.5) * 2.6 : 0)
-      a[i * 3 + 1] = L.lerp(31, 7, k)
-      a[i * 3 + 2] = L.lerp(startZ, 0, k) + (i && i < 8 ? (Math.random() - 0.5) * 2.6 : 0)
+    // Put most bolts close enough for Coji to see. Coordinates are local to the castle-rooted show.
+    const nearCoji = fired.size % 3 !== 0 || Math.hypot(S.game.player.x - L.CASTLE.x, S.game.player.z - L.CASTLE.z) > 30
+    const tx = (nearCoji ? S.game.player.x : L.CASTLE.x) - L.CASTLE.x + (Math.random() - 0.5) * 15
+    const tz = (nearCoji ? S.game.player.z : L.CASTLE.z) - L.CASTLE.z + (Math.random() - 0.5) * 15
+    const worldX = tx + L.CASTLE.x
+    const worldZ = tz + L.CASTLE.z
+    const ground = S.world.surfaceY(worldX, worldZ) + 0.5
+    const sx = tx + (Math.random() - 0.5) * 8
+    const sz = tz + (Math.random() - 0.5) * 8
+    for (let i = 0; i < 11; i++) {
+      const k = i / 10
+      a[i * 3] = L.lerp(sx, tx, k) + (i && i < 10 ? (Math.random() - 0.5) * 3.2 : 0)
+      a[i * 3 + 1] = L.lerp(38, ground, k)
+      a[i * 3 + 2] = L.lerp(sz, tz, k) + (i && i < 10 ? (Math.random() - 0.5) * 3.2 : 0)
     }
     lightning.geometry.attributes.position.needsUpdate = true
   }
@@ -523,18 +509,24 @@ function dragon(S) {
     root,
     tip: '🐉 A red dragon is circling the castle! Thunder and lightning shake Sunny Island!',
     dispose() {
+      S.game.stormTarget = 0
+      S.game.ui.hideEventBanner()
       lightningGeo.dispose()
       lightning.material.dispose()
-      beast.traverse((o) => o.geometry?.dispose())
+      disposeDragon(beast)
     },
     update(dt, t) {
       const T = this.t
-      const a = T * 1.05
-      beast.position.set(Math.cos(a) * 13, 20 + Math.sin(t * 2.4) * 1.2, Math.sin(a) * 13)
+      const a = T * 0.76
+      beast.position.set(Math.cos(a) * 14.5, 20.5 + Math.sin(t * 2.1) * 1.25, Math.sin(a) * 14.5)
       beast.rotation.y = -a
       beast.rotation.z = Math.sin(t * 1.8) * 0.08
-      beast.userData.wings[0].rotation.z = Math.sin(t * 6.5) * 0.48
-      beast.userData.wings[1].rotation.z = -Math.sin(t * 6.5) * 0.48
+      beast.userData.animate(t, { roar: T < 2.2 })
+      if (T > 1.9 && !this.firstCry) {
+        this.firstCry = true
+        S.game.ui.eventBanner('King Arlo is panicking!', '“Oh no! Ember is back! Help me!”', 5.4)
+        sayAs('Oh no! Ember is back! Help me!', { who: 'man', seed: 41, pitch: 0.78, rate: 1.02, volume: 1, queue: true })
+      }
       let active = -1
       strikes.forEach((at, i) => {
         if (T >= at && !fired.has(i)) {
@@ -545,13 +537,19 @@ function dragon(S) {
         if (T >= at && T < at + 0.2) active = i
       })
       lightning.visible = active >= 0
-      flash.intensity = active >= 0 ? 2.8 * (1 - (T - strikes[active]) / 0.2) : 0
+      flash.intensity = active >= 0 ? 3.4 * (1 - (T - strikes[active]) / 0.2) : 0
       if (active >= 0 && Math.floor(T * 50) % 2 === 0) redrawLightning()
-      if (T > 5 && !this.secondCry) {
+      if (T > 7 && !this.secondCry) {
         this.secondCry = true
-        sayAs('Knights, protect the castle!', { who: 'man', seed: 41, pitch: 0.78, rate: 0.9, volume: 1, queue: true })
+        S.game.ui.eventBanner('The King calls for help!', '“Knights! Ring the bells! Keep Ember away!”', 4.8)
+        sayAs('Knights! Ring the bells! Keep Ember away from the castle!', { who: 'man', seed: 41, pitch: 0.76, rate: 1.04, volume: 1, queue: true })
       }
-      if (T >= 10) this.done = true
+      if (T > 14 && !this.thirdCry) {
+        this.thirdCry = true
+        S.game.ui.eventBanner('King Arlo needs a hero!', '“Coji! Sunny Island needs someone brave!”', 4.5)
+        sayAs('Coji! Sunny Island needs someone brave!', { who: 'man', seed: 41, pitch: 0.8, rate: 1.02, volume: 1, queue: true })
+      }
+      if (T >= 20) this.done = true
     },
   }
 }
@@ -674,8 +672,8 @@ function ufo(S, pickupFor) {
     if (!spot) return { root, update() { this.done = true } }
     ;[hx, hz] = spot
   }
-  const ground = S.world.terrainY(hx, hz)
-  const hoverY = ground + 9
+  let ground = S.world.surfaceY(hx, hz)
+  let hoverY = ground + 9
   const from = new THREE.Vector3(hx + 90, 60, hz - 60)
   const to = new THREE.Vector3(hx - 90, 70, hz + 60)
   const dropAlien = !pickupFor && Math.random() < 0.6
@@ -686,6 +684,12 @@ function ufo(S, pickupFor) {
     quiet: !!pickupFor,
     update(dt, t) {
       const T = this.t
+      if (pickupFor && !this.took) {
+        hx = pickupFor.e.x
+        hz = pickupFor.e.z
+        ground = S.world.surfaceY(hx, hz)
+        hoverY = ground + 9
+      }
       root.rotation.y += dt * 1.5
       lights.forEach((l, i) => (l.visible = Math.floor(t * 6 + i) % 2 === 0))
       const hover = new THREE.Vector3(hx, hoverY + Math.sin(t * 2) * 0.3, hz)
@@ -719,6 +723,7 @@ function ufo(S, pickupFor) {
       }
       if (pickupFor && T > 5.5 && !this.took) {
         const a = pickupFor
+        a.beamWaiting = false
         a.lifted = true
         const k = L.smoothstep(5.5, 8.6, T)
         a.ch.root.position.y = ground + 7 * k
@@ -726,6 +731,7 @@ function ufo(S, pickupFor) {
         if (k >= 1) {
           this.took = true
           a.alien = false
+          a.beamWaiting = false
           a.life = -1
           g.crowd.remove(a)
         }

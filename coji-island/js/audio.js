@@ -196,6 +196,16 @@ const SFX = {
     tone({ type: 'sawtooth', f: 82, f2: 38, dur: 1.5, gain: 0.09 })
     noise({ at: 0.28, dur: 1.4, gain: 0.2, type: 'bandpass', f: 180, f2: 70, q: 2 })
   },
+  dragonRoar: () => {
+    // A long animal-like roar: breath and rasp on top of a falling chest resonance. It is made in
+    // Web Audio like the other effects, so there is no large sound file to download on iPad.
+    noise({ dur: 1.75, gain: 0.34, type: 'bandpass', f: 520, f2: 135, q: 1.8 })
+    noise({ at: 0.12, dur: 1.45, gain: 0.24, type: 'lowpass', f: 900, f2: 90, q: 1 })
+    tone({ type: 'sawtooth', f: 155, f2: 58, dur: 1.55, gain: 0.105 })
+    tone({ type: 'square', f: 245, f2: 82, at: 0.08, dur: 1.25, gain: 0.045 })
+    tone({ type: 'sine', f: 92, f2: 48, at: 0.2, dur: 1.65, gain: 0.12 })
+    noise({ at: 1.1, dur: 0.65, gain: 0.2, type: 'bandpass', f: 420, f2: 110, q: 2.5 })
+  },
   ghost: () => {
     tone({ type: 'sine', f: 320, f2: 640, dur: 0.6, gain: 0.12 })
     tone({ type: 'sine', f: 640, f2: 420, at: 0.5, dur: 0.6, gain: 0.08 })

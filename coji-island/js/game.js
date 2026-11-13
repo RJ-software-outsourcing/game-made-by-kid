@@ -126,6 +126,8 @@ class Game {
     this.skeletons = []
     this.spook = 0
     this.nightK = 0
+    this.storm = 0
+    this.stormTarget = 0
     this.asked = new Set()
     const touch = matchMedia('(pointer: coarse)').matches
     this.maxPR = Math.min(window.devicePixelRatio || 1, touch ? 1.5 : 1.75)
@@ -176,7 +178,11 @@ class Game {
     this.dialogue = new Dialogue({
       portrait: (id) => this.portraitOf(id),
       nameOf: (id) => (id === 'coji' ? 'Coji' : CAST[id].name),
-      voiceOf: (id) => CAST[id]?.voice ?? 1,
+      voiceOf: (id) => {
+        const c = CAST[id]
+        const knight = /^Sir\b/.test(c?.name || '')
+        return knight ? c?.voice ?? 0.9 : Math.max(c?.voice ?? 1.15, c?.animal ? 1.3 : 1.15)
+      },
       onChange: () => this.afterChange(),
       onClose: () => this.endTalk(),
       onTalk: (id) => {
@@ -1107,7 +1113,8 @@ class Game {
     this.updateSkeletons(dt, t)
     const sp = this.mode === 'title' ? 0 : L.spookiness(this.player.x, this.player.z)
     this.spook += (sp - this.spook) * Math.min(1, dt * 1.5)
-    this.world.setEnv(this.nightK, this.spook)
+    this.storm += ((this.stormTarget || 0) - this.storm) * Math.min(1, dt * (this.stormTarget ? 2.2 : 0.75))
+    this.world.setEnv(this.nightK, this.spook, this.storm)
     setMood(this.spook > 0.45 ? 'spooky' : 'happy')
     this.updateMarkers(t)
     // the tap ring fades

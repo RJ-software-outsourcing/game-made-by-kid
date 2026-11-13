@@ -1,4 +1,4 @@
-# Coji's Island Adventure: game spec (v0.4)
+# Coji's Island Adventure: game spec (v0.5)
 
 A cute 3D adventure game for a 6-year-old reader. **The game is about reading English while having
 fun**: everything the child needs (quests, clues, jobs, signs, chit-chat, even the banner behind a
@@ -11,6 +11,23 @@ quest at a time. This version has **3 quests**; the King's quest in the castle w
 - Language: English, at the reading level of KCIS Grade 1 (see "English" below).
 - Engine: [three.js](https://threejs.org) r170, loaded from jsDelivr. Plain ES modules, no build step
   (same as the rest of this repo).
+
+## What changed in v0.5
+
+- **The dragon storm is now a full island event**: Ember has a reusable, more detailed model with
+  expressive eyes, horns, claws, belly plates, an opening jaw, jointed tail and rigged wings. Ember
+  roars first, the whole sky darkens, lightning strikes near Coji wherever he is, and the event lasts
+  about 20 seconds. A central warning says King Arlo is panicking while his frightened calls carry
+  across the island.
+- **The King and Ember history is part of the world** (section 6). Every permanent friend, resident,
+  wandering villager, animal and alien knows only a fragment. Talking to many characters slowly
+  reveals the old friendship, the Great Black Storm, the borrowed Heartfire Ruby and Arlo's broken
+  promise. Discovered fragments are saved for the later final quest.
+- **Safer roads**: occupied cars brake and stop when Coji, an islander or an animal is ahead, then
+  start smoothly after the road clears.
+- **Character polish**: cats have large visible glossy eyes and blink; voices are bright and cute for
+  everyone except the King and knights. UFOs hold their alien pickup target still and keep the beam
+  centered on it.
 
 ## What changed in v0.4
 
@@ -354,12 +371,21 @@ twice in a row.
   story, sometimes a cookie). If nobody is home, there is a note on the door to read. Owners also
   step outside by themselves sometimes.
 - **Knights**: three knights march on the castle walls; Sir Percy walks around the castle road.
+- **Road traffic**: small occupied cars travel around the ring road. They look ahead and brake for
+  Coji, people and animals instead of driving through them.
+- **Island cats**: Momo and five cats around the island have clearly visible iris, pupil and
+  catch-light eyes. Some sit in a favorite place; others walk nearby. They meow and can be talked to.
 - **Shows** (`shows.js`): the first one after ~20 s, then one every 35–70 s, near Coji. At sea: a
   whale (spout), a big ocean liner (horn), a kraken (purple tentacles), dolphins. In the sky: a plane with
   a banner to read ("READ EVERY DAY!"), a hot-air balloon, a UFO. Blankie points each one out
   ("Look up! A hot-air balloon! 🎈"). The UFO sometimes beams down an alien, who walks around and can
   be talked to, then comes back to beam it up. The aliens are little **greys**: grey all over, a big
   bulb of a head, huge glossy black almond eyes, a tiny mouth, and thin arms and legs.
+  The pickup alien waits under the returning UFO, and the beam follows its exact position.
+- **Ember's dragon storm** is a separate rare show, about 20 seconds long. A roar comes first. Then
+  the sky and island darken, repeated lightning bolts appear near Coji as well as the castle, thunder
+  rolls, and King Arlo panics in a central message and several island-wide spoken calls. Ember's model
+  lives in `dragon.js` so the final quest can reuse the same dragon on the ground or in the air.
 - **The big ship** is a grand old ocean liner with four funnels:
   - a long black hull with a pointed bow, a red bottom and a thin white line, with round portholes
     set right on its sides
@@ -369,8 +395,8 @@ twice in a row.
 - **People say hello**: walking past someone, Coji hears them greet him out loud ("Good morning!",
   "Hi, Coji! How are you?", and at night "Good evening, Coji!"). The words also appear in a speech
   bubble over their head to read, and they wave.
-  - Each person keeps their own natural voice: a man's, a woman's or a child's, a little lower for older
-    people, and squeaky for aliens.
+  - Each person keeps their own natural voice. Everyone sounds bright and cute (and aliens are
+    squeaky); only King Arlo and the knights keep deep voices.
   - A person says hello at most every 1½ minutes, and nobody talks over Coji or over each other.
 - **"Long live the King!"**: near the castle, every minute or two the knights on the walls jump and
   wave and shout "Long live the King!" (two deep voices and a crowd cheer). The words also show as a
@@ -402,6 +428,37 @@ Coji arrives at Sunny Island on Captain Pip's boat.
 Pip welcomes Coji and sends him off to explore. After a little while, friends start asking for
 help, one mission at a time, in any order, except that the lighthouse comes after the bear (see 5.6).
 
+### Island history: King Arlo, Ember and the Heartfire Ruby 🐉
+
+This is the story behind the future final quest. The complete truth is written here for design use,
+but no one character tells Coji all of it.
+
+1. **Arlo and Ember were childhood friends.** Before Arlo was King, he met a young red dragon named
+   Ember. They played in the castle garden. Granny Bee fed them honey cakes, and Hoot watched them
+   make a promise to remain friends.
+2. **The Great Black Storm came.** Clouds hid the stars and every normal lamp went out. Ships could
+   not find Sunny Island. Ember owned the **Heartfire Ruby**, a warm red stone linked to the dragon's
+   own fire. Ember lent it to Prince Arlo for one night. Its red light powered the castle beacons and
+   Grandpa Gus's old lighthouse, guiding every ship home.
+3. **Arlo promised to return it.** The promise was written in a letter and in the old bank ledger.
+   But after the storm, frightened advisers said the island could not be safe while a dragon held so
+   much power. They sealed the ruby in the crown vault. When Ember came back, Arlo was too afraid to
+   oppose them. He said the ruby was lost.
+4. **The friendship broke.** Ember knew Arlo was lying. The dragon left angry and hurt. The history
+   page about the two friends was removed, and later stories called Ember a monster. The truth
+   survived in an old rhyme, a sailor's memory, a hidden mural, a ledger and the stories of islanders.
+5. **Ember still returns for Heartfire.** The ruby and Ember call to each other. When Ember comes
+   close, their joined power pulls dark clouds and lightning over the whole island. Ember circles the
+   castle and calls Arlo's name; it does not attack the village or chase ships.
+6. **Arlo is afraid of more than fire.** He fears Ember's anger, but he also fears everyone learning
+   that he broke his promise and hid the stone. That is why he panics before Ember reaches the castle.
+
+Dialogue fragments deliberately show different views: Hoot and Mr. Oak remember the friendship;
+Gus and Old Sam remember the rescue; Penny saw the ledger; Max saw the letter; Momo and the castle
+mice know about the glowing vault; knights know the King's orders; animals notice Ember never hunts
+them; aliens can detect matching Heartfire signals in Ember and the castle. These discoveries are
+saved as `history:dragon:*` flags for later use.
+
 ### Quest: The Hungry Bear 🐻 (from Captain Pip, Bruno or his friends)
 1. **Find out what Bear likes to eat.** (clue "Bears love honey")
 2. **Get some honey.** Granny Bee, 5 coins (jobs, treasures, apples, Momo).
@@ -423,7 +480,8 @@ Everyone mentions the sad little ghost in the graveyard. Boo is scared of the da
 
 ### Last quest (later): the King 👑
 Sir Lance keeps the castle gate closed: "The King has a big job for a hero." The final quest will
-open the gate and involve King Arlo (to be designed).
+open the gate and ask Coji to help King Arlo make Ember leave the island. The quest mechanics and
+ending are not designed yet; the history above leaves room for a brave, non-violent solution.
 
 ## 7. English
 
@@ -543,6 +601,7 @@ coji-island/
     props.js       buildings and objects (houses, shops, castle, lighthouse, graveyard pieces…)
     nature.js      trees, bushes, rocks, grass tufts, flowers, lamps, clouds; near/far plant pools; wind
     characters.js  Coji, people, animals, ghosts and skeletons, with simple animations
+    dragon.js      reusable detailed Ember model and flight/roar animation rig
     camera.js      follow camera (can look up); tap / drag / pinch / wheel input
     items.js       item catalog and shops
     story.js       quests, clues and every character's dialogue (incl. villagers, residents, animals)

@@ -19,6 +19,7 @@ function catCast(name) {
   return {
     name,
     animal: true,
+    loreKind: 'cat',
     voice: 1.65,
     greet: () => pick(CAT_HELLOS),
     chat: { q: 'Can I pet you?', a: ['Meow! Purr, purr...', 'That feels nice!'] },
@@ -83,7 +84,7 @@ export class Crowd {
       const root = islandCar(color, skin)
       root.visible = false
       this.game.scene.add(root)
-      return { root, wait, life: 0, distance: 0, speed: 5.2 + i * 0.45 }
+      return { root, wait, life: 0, distance: 0, speed: 5.2 + i * 0.45, currentSpeed: 0 }
     })
   }
 
@@ -92,7 +93,39 @@ export class Crowd {
     const segLen = this.trafficCum[hit.seg + 1] - this.trafficCum[hit.seg]
     car.distance = (this.trafficCum[hit.seg] + hit.t * segLen - 24 + this.trafficTotal) % this.trafficTotal
     car.life = 28 + Math.random() * 12
+    car.currentSpeed = 0
     car.root.visible = true
+  }
+
+  trafficPose(distance) {
+    let seg = 0
+    while (seg < this.trafficCum.length - 2 && this.trafficCum[seg + 1] < distance) seg++
+    const a = L.RING[seg]
+    const b = L.RING[seg + 1]
+    const len = this.trafficCum[seg + 1] - this.trafficCum[seg]
+    const k = (distance - this.trafficCum[seg]) / len
+    return { seg, x: L.lerp(a[0], b[0], k), z: L.lerp(a[1], b[1], k), fx: (b[0] - a[0]) / len, fz: (b[1] - a[1]) / len }
+  }
+
+  // Cars look several metres ahead and brake for Coji, islanders and animals. The sideways check
+  // keeps a cat beside the road from stopping traffic, while the height check ignores wall guards.
+  trafficBlocked(car, pose) {
+    const candidates = [{ x: this.game.player.x, z: this.game.player.z, y: this.world.surfaceY(this.game.player.x, this.game.player.z) }]
+    for (const e of Object.values(this.world.npcs)) {
+      if (!e?.ch?.root?.parent || e.lifted) continue
+      candidates.push({ x: e.x, z: e.z, y: e.y })
+    }
+    const roadY = this.world.surfaceY(pose.x, pose.z)
+    const stopAhead = 3.8 + Math.max(car.currentSpeed, 2) * 0.55
+    for (const q of candidates) {
+      if (Math.abs((q.y ?? roadY) - roadY) > 1.8) continue
+      const dx = q.x - pose.x
+      const dz = q.z - pose.z
+      const ahead = dx * pose.fx + dz * pose.fz
+      const side = Math.abs(dx * pose.fz - dz * pose.fx)
+      if (ahead > 0.35 && ahead < stopAhead && side < 1.65) return true
+    }
+    return false
   }
 
   updateTraffic(dt) {
@@ -102,17 +135,17 @@ export class Crowd {
         if (car.wait <= 0) this.startCar(car)
         continue
       }
-      car.life -= dt
-      car.distance = (car.distance + car.speed * dt) % this.trafficTotal
-      let seg = 0
-      while (seg < this.trafficCum.length - 2 && this.trafficCum[seg + 1] < car.distance) seg++
-      const a = L.RING[seg]
-      const b = L.RING[seg + 1]
-      const k = (car.distance - this.trafficCum[seg]) / (this.trafficCum[seg + 1] - this.trafficCum[seg])
-      const x = L.lerp(a[0], b[0], k)
-      const z = L.lerp(a[1], b[1], k)
-      car.root.position.set(x, this.world.surfaceY(x, z) + 0.05, z)
-      car.root.rotation.y = Math.atan2(b[0] - a[0], b[1] - a[1])
+      let pose = this.trafficPose(car.distance)
+      const blocked = this.trafficBlocked(car, pose)
+      const desired = blocked ? 0 : car.speed
+      const response = blocked ? 5.5 : 1.8
+      car.currentSpeed += (desired - car.currentSpeed) * Math.min(1, dt * response)
+      if (blocked && car.currentSpeed < 0.08) car.currentSpeed = 0
+      car.distance = (car.distance + car.currentSpeed * dt) % this.trafficTotal
+      if (!blocked || car.currentSpeed > 0.2) car.life -= dt
+      pose = this.trafficPose(car.distance)
+      car.root.position.set(pose.x, this.world.surfaceY(pose.x, pose.z) + 0.05, pose.z)
+      car.root.rotation.y = Math.atan2(pose.fx, pose.fz)
       if (car.life <= 0) {
         car.root.visible = false
         car.wait = 30 + Math.random() * 55
@@ -371,7 +404,10 @@ export class Crowd {
         it.leaving = true
         g.shows?.ufoPickup(it)
       }
-      if (it.lifted) continue
+      if (it.lifted || it.beamWaiting) {
+        ch.speed = 0
+        continue
+      }
       this.walk(it, dt)
     }
   }

@@ -78,6 +78,7 @@
           tryAdd('gravestone2', () => P.gravestone(2))
         } else if (set === 'characters') {
           const Ch = await import('./js/characters.js')
+          const Dr = await import('./js/dragon.js')
           for (const k of Object.keys(Ch.LOOKS)) tryAdd(k, () => new Ch.Person(Ch.LOOKS[k]))
           ;(Ch.RESIDENT_LOOKS || []).forEach((l, i) => tryAdd('resident' + i, () => new Ch.Person(l)))
           for (const k of ['Bear', 'Owl', 'Cat', 'Bunny', 'Ghost', 'Skeleton']) tryAdd(k.toLowerCase(), () => new Ch[k]())
@@ -86,6 +87,7 @@
           tryAdd('duck2', () => Ch.makeDuck(true))
           tryAdd('gull', () => Ch.makeGull())
           tryAdd('butterfly', () => Ch.makeButterfly('#ff9fd1'))
+          tryAdd('dragon', () => Dr.makeDragon())
         } else if (set === 'plants') {
           const N = await import('./js/nature.js')
           const P = await import('./js/props.js')

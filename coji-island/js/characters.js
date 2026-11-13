@@ -1511,7 +1511,6 @@ export class Cat extends Animal {
     shadeAll(hp, (x, y, z) => 0.9 + 0.12 * sm(-0.2, 0.2, z))
     for (const s of [-1, 1]) {
       hp.add(cone(0.055, 0.11, S(6)), '#ffb3b3', { x: s * 0.14, y: 0.2, z: 0.035, rz: -s * 0.25, jitter: 0, rough: 0.8 })
-      animalEye(hp, s * 0.1, 0.03, 0.2, 0.042, { ry: s * 0.4, rx: -0.1, iris: eyes, slit: true, sy: 1.15 })
       for (let i = 0; i < 3; i++) hp.add(cyl(0.003, 0.002, 0.18, S(3)), '#ffffff', { x: s * 0.2, y: -0.06 - i * 0.025, z: 0.2, rz: s * (Math.PI / 2 - 0.15 + i * 0.12), jitter: 0, rough: 0.5 })
       hp.add(capsule(0.012, 0.05, S(3), S(4)), dark, { x: s * 0.06, y: 0.21, z: 0.17, rz: s * 0.3, rx: -0.4, jitter: 0, rough: 0.9 })
     }
@@ -1521,6 +1520,12 @@ export class Cat extends Animal {
     for (const s of [-1, 1]) hp.add(torus(0.025, 0.006, S(3), S(8), ma), '#9a5a3a', { x: s * 0.024, y: -0.085, z: 0.258, rz: -Math.PI / 2 - ma / 2, jitter: 0, rough: 0.7 })
     hp.add(capsule(0.012, 0.05, S(3), S(4)), dark, { y: 0.2, z: 0.18, rx: -0.5, jitter: 0, rough: 0.9 })
     head.add(hp.build())
+    // Keep the glossy eyes in their own mesh and just in front of the face. They used to sit inside
+    // the head sphere, so on some iPads the face looked completely eyeless after mesh merging.
+    const ep = new Parts(SMOOTH)
+    for (const s of [-1, 1]) animalEye(ep, s * 0.105, 0.035, 0.255, 0.056, { ry: s * 0.12, rx: -0.04, iris: eyes, slit: true, sy: 1.18 })
+    this.eyes = ep.build()
+    head.add(this.eyes)
     this.root.add(head)
     this.head = head
     const tail = new THREE.Group()
@@ -1548,6 +1553,7 @@ export class Cat extends Animal {
     this.tail.rotation.z = Math.sin(t * 2 + this.seed) * 0.5
     this.head.rotation.y = lerp(this.head.rotation.y, this.lookYaw, Math.min(1, dt * 4))
     this.head.rotation.z = this.talk > 0 ? Math.sin(t * 8) * 0.1 : Math.sin(t * 0.6) * 0.05
+    this.eyes.scale.y = Math.sin(t * 1.7 + this.seed) > 0.985 ? 0.14 : 1
     if (this.talk > 0) this.talk -= dt
     if (this.speed > 0.05) this.root.position.y = this.baseY + Math.abs(Math.sin(t * 8 + this.seed)) * 0.055
     else if (this.mood === 'happy') this.root.position.y = this.baseY + Math.abs(Math.sin(t * 6)) * 0.12

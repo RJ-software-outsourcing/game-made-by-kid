@@ -700,6 +700,97 @@ const COJI_BYE = ['Bye!', 'See you later!', 'Bye-bye!', 'I have to go. Bye!', 'S
 const NPC_BYE = ['Bye, Coji!', 'See you, Coji!', 'Have fun, Coji!', 'Come back soon!', 'Good luck, Coji!', 'See you later!', 'Bye-bye! Have a nice day!']
 const MORE_INTROS = ['Hmm, let me think...', 'Oh! I remember now!', 'Wait! I know more!', 'My friend told me this:', 'Hmm! I think...', 'Oh, yes!']
 
+// ---------- the broken promise: island history for the future final quest ----------
+// Nobody tells the whole tale. Named friends each know one piece; walkers, animals and visitors have
+// smaller rumor pools. The flags are deliberately saved now so a later King quest can build on what
+// Coji already learned without changing today's quest order.
+const DRAGON_QS = ['Why does the dragon come here?', 'What do you know about Ember?', 'Do you know the King and dragon story?', 'Why is King Arlo scared?']
+const DRAGON_HISTORY = {
+  pip: ['I saw Ember fly over the sea.', 'The dragon did not chase my boat.', 'It roared one name: “Arlo!”'],
+  finn: ['When thunder comes, I hear the dragon call.', 'It does not say “fire.”', 'It sounds like “Arlo... promise...”'],
+  momo: ['Meow... I slipped under the castle once.', 'A red stone glowed behind a locked gold door.', 'The King ran away when it hummed.'],
+  ben: ['My grandpa cooked during the Great Black Storm.', 'A red light from the castle kept every oven warm.', 'He said the fire came from a dragon stone.'],
+  granny: ['Prince Arlo and a little red dragon used to play here.', 'I gave them honey cakes.', 'The dragon was called Ember.'],
+  penny: ['The old bank book has one strange line:', '“Heartfire Ruby—borrowed from Ember.”', 'There is no line that says it came back.'],
+  tina: ['I found a red scale by the castle wall.', 'It is small, so Ember must have been young then.', 'I used its shape for my dragon toys.'],
+  leo: ['We learned an old rhyme at school:', '“Red friend, red light, bring our boats home tonight.”', 'Teacher Kim says one page is missing.'],
+  bun: ['Hop! I found warm red dust near the castle garden.', 'It made the carrots grow fast!', 'Hoot says it came from Heartfire.'],
+  hoot: ['Who-who. I saw the promise myself.', 'Ember lent Prince Arlo the Heartfire Ruby for one storm.', 'Arlo promised to give it back.'],
+  bruno: ['I can smell fear from far away.', 'When Ember comes, the fear comes from the castle—not the dragon.', 'The dragon smells angry... and sad.'],
+  gus: ['The Great Black Storm hid every star.', 'Ember’s Heartfire Ruby lit my old lighthouse.', 'Its red beam guided all the ships home.'],
+  coco: ['My grandmother said Ember saved the island.', 'After the storm, the King’s helpers called the dragon dangerous.', 'That part never made sense to her.'],
+  max: ['I once found an old letter with no stamp.', 'It said, “Dear Ember, I will return your Heartfire. —Arlo.”', 'The castle guard took it away.'],
+  kim: ['Our history book jumps over the Great Black Storm.', 'The page about Prince Arlo and Ember was cut out.', 'I keep wondering who removed it.'],
+  lance: ['The red dragon wants something inside the castle.', 'The King ordered us to keep the gate shut.', 'A knight follows orders—even when the King will not explain.'],
+  boo: ['An old castle ghost whispers at night:', '“A promise locked away is still a promise.”', 'Then it points toward the crown vault.'],
+  sam: ['Arr! I was a young sailor in the Great Black Storm.', 'A red light showed me the way home.', 'I owe my life to Ember’s Heartfire.'],
+  pam: ['The flowers close before Ember arrives.', 'They open again when the dragon leaves.', 'It feels like the whole island remembers the old storm.'],
+  percy: ['Once I heard Ember roar over the castle.', 'It sounded like, “Arlo! Give it back!”', 'The King dropped his crown and hid.'],
+  bones: ['Rattle! I remember the old King’s vault.', 'They carried in a bright red ruby after the storm.', 'Nobody carried it out. I watched for years!'],
+  'resident:0': ['My roses bloom red when Ember is near.', 'My grandmother said the dragon and Prince Arlo planted the first red rose together.'],
+  'resident:1': ['The old castle recipe says, “Bake by Heartfire.”', 'That was before the King locked the red ruby away.'],
+  'resident:2': ['I painted an old wall under the castle.', 'It shows a boy holding hands with a red dragon.', 'Someone later painted a crown over the dragon.'],
+  'resident:3': ['I knew Arlo when he was a boy.', 'Ember was his best friend.', 'Arlo is scared because Ember remembers the promise he broke.'],
+  'resident:4': ['Kids whisper that Ember wants the King’s crown.', 'But Mr. Oak says it wants a ruby, not a crown.'],
+  'resident:5': ['The King is not hurt when Ember comes.', 'He shakes before the dragon even reaches the castle.', 'That kind of fear can come from a secret.'],
+}
+const DRAGON_RUMORS = {
+  villager: [
+    ['My grandma says Ember once helped the island.', 'Now the King calls it a monster. Why did the story change?'],
+    ['I heard the dragon never burns the village.', 'It only circles the castle and calls for Arlo.'],
+    ['There is a locked room under the crown tower.', 'Sometimes a red light shines under its door.'],
+    ['The oldest song says a dragon lent us a light.', 'The last line of the song is missing.'],
+  ],
+  animal: [
+    ['The birds say Ember follows a warm red glow.', 'The glow comes from inside the castle.'],
+    ['Animals hide from thunder, but they do not run from Ember.', 'The dragon only watches the castle.'],
+    ['I heard Hoot say Ember was the King’s friend.', 'That was when the King was a boy.'],
+  ],
+  cat: [
+    ['Meow... Castle mice talk about a warm red ruby.', 'It sleeps behind a gold lock.'],
+    ['Purr... Ember never chases cats.', 'It looks at the King’s window and makes a sad sound.'],
+    ['Meow! The King smells like fear when thunder starts.', 'The dragon is still far away then.'],
+  ],
+  alien: [
+    ['Beep! My scanner found one Heartfire signal in the dragon.', 'It found the matching signal inside the castle!'],
+    ['On planet Pop, a borrowed star-stone must go home.', 'Maybe Earth kings have the same rule?'],
+    ['The dragon’s roar has words in it.', 'My computer hears: “Arlo... Heartfire...”'],
+  ],
+}
+
+function loreLines(id, kind, key = id) {
+  return DRAGON_HISTORY[key] || draw(`dragon-lore:${kind}:${key}`, DRAGON_RUMORS[kind] || DRAGON_RUMORS.villager)
+}
+function loreFlag(g, key) {
+  g.setFlag(`history:dragon:${key}`)
+}
+function loreHubOption(g, id) {
+  const C = CAST[id]
+  const kind = C.loreKind || (C.animal ? 'animal' : C.dynamic ? 'villager' : 'villager')
+  const key = C.loreKey || (DRAGON_HISTORY[id] ? id : `${kind}:${C.name}`)
+  const lines = loreLines(id, kind, C.loreKey || id)
+  return {
+    key: 'history:dragon',
+    text: draw('q:dragon:' + kind, DRAGON_QS),
+    pri: 3.8,
+    go: () => {
+      loreFlag(g, key)
+      return talkNode(g, id, lines, 'story')
+    },
+  }
+}
+function loreMiniOption(g, cfg, used, key, kind = 'villager') {
+  return {
+    key: 'history:dragon',
+    text: draw('q:dragon:' + kind, DRAGON_QS),
+    pri: 3.8,
+    go: () => {
+      loreFlag(g, key)
+      return miniHub(g, cfg, loreLines(key, kind, key), used)
+    },
+  }
+}
+
 // ---------- the cast ----------
 
 export const CAST = {
@@ -1351,6 +1442,7 @@ export function hub(g, id, line) {
   const C = CAST[id]
   const opts = []
   for (const s of C.specials ? C.specials(g) : []) if (s) opts.push({ key: 'sp:' + (s.key || s.text), ...s })
+  opts.push(loreHubOption(g, id))
   const of = offerFor(g, id)
   if (of) opts.push({ key: 'offer:' + of.q, text: of.text, pri: 6, go: () => offerNode(g, of, back(g, id)) })
   const tps = topicsFor(g, id)
@@ -1751,6 +1843,7 @@ CAST.bones = {
         const of = offerFor(gg, 'bones')
         return [
           of && { key: 'offer', pri: 6, text: of.text, go: () => offerNode(gg, of) },
+          loreMiniOption(gg, cfg, used, 'bones', 'villager'),
           {
             key: 'help',
             pri: 5,
@@ -1907,6 +2000,7 @@ export function villagerCast(name, kid) {
         bye: () => draw('vbye', ['Bye, Coji!', 'Have a nice day!', 'See you later!', 'Bye-bye! Have fun!', 'See you around, Coji!']),
         options: (gg, used) => [
           ...questOptions(gg, 'villager', cfg, used, 0.6, ['Hmm... I heard this:', 'My friend told me:', 'I heard people talk!', 'Oh! I know this!']),
+          loreMiniOption(gg, cfg, used, `villager:${name}`, 'villager'),
           giftOk && { key: 'snack', pri: 3.5, text: draw('q:snack', ['Do you have a snack?', 'I am hungry. Do you have food?']), go: () => miniHub(gg, cfg, [gift[1]], used, { onShow: () => { gg.give(gift[0]); gg.setFlag('gift-' + name) } }) },
           { key: 'going', text: draw('q:going', ['Where are you going?', 'What are you doing today?']), go: () => answerWithAsk(gg, cfg, draw('vstory', VILLAGER_STORIES), used, PEOPLE_ASKS, 'people') },
           { key: 'mood', text: draw('q:small:mood', SMALL_QS.mood), go: () => answerWithAsk(gg, cfg, draw('vmood', VILLAGER_MOODS), used, PEOPLE_ASKS, 'people') },
@@ -2030,6 +2124,7 @@ export function critterCast(kind) {
         bye: () => draw(kind + ':bye', c.bye),
         options: (gg, used) => [
           ...questOptions(gg, 'critter', cfg, used, 0.35, ANIMAL_INTROS),
+          loreMiniOption(gg, cfg, used, `animal:${kind}`, 'animal'),
           { key: 'eat', text: draw('q:small:eat', SMALL_QS.eat), go: () => say('eat')(used) },
           { key: 'mood', text: draw('q:small:mood', SMALL_QS.mood), go: () => say('mood')(used) },
           { key: 'facts', text: draw('q:small:facts', SMALL_QS.facts), go: () => say('facts')(used) },
@@ -2058,6 +2153,7 @@ export function alienCast(name) {
         bye: () => draw('alien:bye', ALIEN.bye),
         options: (gg, used) => [
           ...questOptions(gg, 'alien', cfg, used, 0.5, ['Beep boop! My space computer says:', 'My UFO heard this:']),
+          loreMiniOption(gg, cfg, used, `alien:${name}`, 'alien'),
           { key: 'planet', text: draw('q:planet', ['Where is the planet Pop?', 'What is Pop like?']), go: () => miniHub(gg, cfg, draw('alien:planet', ALIEN.planet), used) },
           { key: 'earth', text: draw('q:earth', ['Do you like Earth?', 'What do you like on Earth?']), go: () => miniHub(gg, cfg, draw('alien:earth', ALIEN.earth), used) },
           { key: 'fun', text: draw('q:alienfun', ['Say something in alien!', 'Tell me something cool!']), go: () => miniHub(gg, cfg, draw('alien:fun', ALIEN.fun), used) },
@@ -2126,6 +2222,7 @@ export function residentCast(i) {
         bye: () => draw('rbye', ['Bye, Coji!', 'Come again!', 'Come back any time!', 'Bye-bye! Be good!']),
         options: (gg, used) => [
           ...questOptions(gg, 'resident', cfg, used, 0.75, ['Let me think...', 'Hmm! I heard this:', 'My neighbor told me:']),
+          loreMiniOption(gg, cfg, used, `resident:${i}`, 'villager'),
           { key: 'story', text: draw('q:story', STORY_QS), go: () => answerWithAsk(gg, cfg, draw('res:story:' + i, R.stories), used, PEOPLE_ASKS, 'people') },
           { key: 'mood', text: draw('q:small:mood', SMALL_QS.mood), go: () => answerWithAsk(gg, cfg, draw('res:mood:' + i, R.moods), used, PEOPLE_ASKS, 'people') },
           !gg.flag('res-gift-' + i) && {
@@ -2197,6 +2294,7 @@ CAST.percy = {
       bye: () => draw('percy:bye', ['Farewell, little hero!', 'Stay brave, Coji!', 'Bye! I must walk on!']),
       options: (gg, used) => [
         ...questOptions(gg, 'percy', cfg, used, 0.7, ['A knight hears many things.', 'I heard this on my walk:']),
+        loreMiniOption(gg, cfg, used, 'percy', 'villager'),
         { key: 'knights', text: draw('q:knights', ['What do knights do?', 'Is it fun to be a knight?']), go: () => miniHub(gg, cfg, draw('percy:knights', [['We keep the castle safe.', 'We help people.', 'And we are always kind!'], ['I walk around the castle all day.', 'Left foot, right foot! It is good exercise!'], ['Knights must be brave.', 'And polite! Please and thank you!']]), used) },
         { key: 'mood', text: draw('q:small:mood', SMALL_QS.mood), go: () => miniHub(gg, cfg, draw('percy:mood', [['I feel strong today!'], ['My feet are tired.', 'This castle is big!'], ['I am happy.', 'The King waved at me!']]), used) },
       ],

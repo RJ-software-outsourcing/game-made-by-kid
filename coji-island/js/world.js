@@ -39,6 +39,9 @@ const DAY = { top: C('#2f86e6'), horizon: C('#63b9ee'), sun: C('#fff1dc'), sunI:
 const NIGHT = { top: C('#0b1236'), horizon: C('#33407a'), sun: C('#9fb6ff'), sunI: 0.55, hemiSky: C('#6f80c8'), hemiGround: C('#2a3350'), hemiI: 0.5, envI: 0.18, fog: C('#2a3566'), near: 120, far: 420 }
 // The graveyard: dark purple all around, so the world outside nearly disappears.
 const SPOOK = { top: C('#140e26'), horizon: C('#2c2346'), sun: C('#b6a6e6'), sunI: 0.75, hemiSky: C('#8a7cbe'), hemiGround: C('#2e2838'), hemiI: 0.75, envI: 0.22, fog: C('#221b38'), near: 9, far: 58 }
+// Dragon weather: a blue-black thunder sky without stars. It darkens the whole island, even when
+// Coji is nowhere near the castle, while keeping enough cool fill light to see where he is.
+const STORM = { top: C('#10182d'), horizon: C('#26344d'), sun: C('#9fb9d6'), sunI: 0.18, hemiSky: C('#566b8a'), hemiGround: C('#202838'), hemiI: 0.28, envI: 0.11, fog: C('#334158'), near: 90, far: 330 }
 
 export class World {
   constructor(scene, renderer) {
@@ -53,6 +56,7 @@ export class World {
     this.zones = L.ZONES.map((z) => ({ ...z, built: false, items: {} }))
     this.night = 0
     this.spook = 0
+    this.storm = 0
     this.lit = false
     this.pops = []
     this.coconutDrops = []
@@ -1766,19 +1770,21 @@ export class World {
 
   // ---------- day, night and spooky ----------
 
-  setEnv(night, spook) {
-    if (Math.abs(night - this.night) < 0.002 && Math.abs(spook - this.spook) < 0.002 && this.envSet) return
+  setEnv(night, spook, storm = 0) {
+    if (Math.abs(night - this.night) < 0.002 && Math.abs(spook - this.spook) < 0.002 && Math.abs(storm - this.storm) < 0.002 && this.envSet) return
     this.envSet = true
     this.night = night
     this.spook = spook
+    this.storm = storm
     const s = spook * (1 - night * 0.6)
     const mix = (k) => {
       const v = DAY[k].clone ? DAY[k].clone().lerp(NIGHT[k], night) : L.lerp(DAY[k], NIGHT[k], night)
-      return v.lerp ? v.lerp(SPOOK[k], s) : L.lerp(v, SPOOK[k], s)
+      const spooky = v.lerp ? v.lerp(SPOOK[k], s) : L.lerp(v, SPOOK[k], s)
+      return spooky.lerp ? spooky.lerp(STORM[k], storm) : L.lerp(spooky, STORM[k], storm)
     }
     this.skyMat.uniforms.top.value.copy(mix('top'))
     this.skyMat.uniforms.horizon.value.copy(mix('horizon'))
-    this.skyMat.uniforms.night.value = Math.max(night, s * 0.8)
+    this.skyMat.uniforms.night.value = Math.max(night, s * 0.8, storm * 0.95)
     this.scene.fog.color.copy(mix('fog'))
     this.scene.fog.near = mix('near')
     this.scene.fog.far = mix('far')
@@ -1789,18 +1795,18 @@ export class World {
     this.hemi.groundColor.copy(mix('hemiGround'))
     this.hemi.intensity = mix('hemiI')
     this.scene.environmentIntensity = mix('envI')
-    this.seaMat.uniforms.uNight.value = Math.max(night, s * 0.5)
+    this.seaMat.uniforms.uNight.value = Math.max(night, s * 0.5, storm * 0.9)
     this.seaMat.uniforms.uSky.value.copy(mix('horizon'))
     this.seaMat.uniforms.uTop.value.copy(mix('top'))
     this.freshMat.uniforms.uSky.value.copy(mix('horizon'))
     this.freshMat.uniforms.uTop.value.copy(mix('top'))
-    this.freshMat.uniforms.uNight.value = Math.max(night, s * 0.5)
-    GLOW.emissiveIntensity = Math.max(night * 0.9, s * 0.8)
-    CLOUD_MAT.emissiveIntensity = 0.32 * (1 - night * 0.85) * (1 - s * 0.7)
-    this.stars.material.opacity = night
+    this.freshMat.uniforms.uNight.value = Math.max(night, s * 0.5, storm * 0.9)
+    GLOW.emissiveIntensity = Math.max(night * 0.9, s * 0.8, storm * 0.18)
+    CLOUD_MAT.emissiveIntensity = 0.32 * (1 - night * 0.85) * (1 - s * 0.7) * (1 - storm * 0.8)
+    this.stars.material.opacity = night * (1 - storm)
   }
   setNight(k) {
-    this.setEnv(k, this.spook)
+    this.setEnv(k, this.spook, this.storm)
   }
 
   lightUp() {
