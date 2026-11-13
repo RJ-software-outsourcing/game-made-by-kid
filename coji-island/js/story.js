@@ -700,61 +700,61 @@ const COJI_BYE = ['Bye!', 'See you later!', 'Bye-bye!', 'I have to go. Bye!', 'S
 const NPC_BYE = ['Bye, Coji!', 'See you, Coji!', 'Have fun, Coji!', 'Come back soon!', 'Good luck, Coji!', 'See you later!', 'Bye-bye! Have a nice day!']
 const MORE_INTROS = ['Hmm, let me think...', 'Oh! I remember now!', 'Wait! I know more!', 'My friend told me this:', 'Hmm! I think...', 'Oh, yes!']
 
-// ---------- the broken promise: island history for the future final quest ----------
+// ---------- the stolen sacred sword: island history for the future final quest ----------
 // Nobody tells the whole tale. Named friends each know one piece; walkers, animals and visitors have
 // smaller rumor pools. The flags are deliberately saved now so a later King quest can build on what
 // Coji already learned without changing today's quest order.
-const DRAGON_QS = ['Why does the dragon come here?', 'What do you know about Ember?', 'Do you know the King and dragon story?', 'Why is King Arlo scared?']
+const DRAGON_QS = ['Why does the dragon come here?', 'What do you know about the Mystic Jewel?', 'What happened to the sacred sword?', 'Why is King Arlo scared?']
 const DRAGON_HISTORY = {
-  pip: ['I saw Ember fly over the sea.', 'The dragon did not chase my boat.', 'It roared one name: “Arlo!”'],
-  finn: ['When thunder comes, I hear the dragon call.', 'It does not say “fire.”', 'It sounds like “Arlo... promise...”'],
-  momo: ['Meow... I slipped under the castle once.', 'A red stone glowed behind a locked gold door.', 'The King ran away when it hummed.'],
-  ben: ['My grandpa cooked during the Great Black Storm.', 'A red light from the castle kept every oven warm.', 'He said the fire came from a dragon stone.'],
-  granny: ['Prince Arlo and a little red dragon used to play here.', 'I gave them honey cakes.', 'The dragon was called Ember.'],
-  penny: ['The old bank book has one strange line:', '“Heartfire Ruby—borrowed from Ember.”', 'There is no line that says it came back.'],
-  tina: ['I found a red scale by the castle wall.', 'It is small, so Ember must have been young then.', 'I used its shape for my dragon toys.'],
-  leo: ['We learned an old rhyme at school:', '“Red friend, red light, bring our boats home tonight.”', 'Teacher Kim says one page is missing.'],
-  bun: ['Hop! I found warm red dust near the castle garden.', 'It made the carrots grow fast!', 'Hoot says it came from Heartfire.'],
-  hoot: ['Who-who. I saw the promise myself.', 'Ember lent Prince Arlo the Heartfire Ruby for one storm.', 'Arlo promised to give it back.'],
-  bruno: ['I can smell fear from far away.', 'When Ember comes, the fear comes from the castle—not the dragon.', 'The dragon smells angry... and sad.'],
-  gus: ['The Great Black Storm hid every star.', 'Ember’s Heartfire Ruby lit my old lighthouse.', 'Its red beam guided all the ships home.'],
-  coco: ['My grandmother said Ember saved the island.', 'After the storm, the King’s helpers called the dragon dangerous.', 'That part never made sense to her.'],
-  max: ['I once found an old letter with no stamp.', 'It said, “Dear Ember, I will return your Heartfire. —Arlo.”', 'The castle guard took it away.'],
-  kim: ['Our history book jumps over the Great Black Storm.', 'The page about Prince Arlo and Ember was cut out.', 'I keep wondering who removed it.'],
-  lance: ['The red dragon wants something inside the castle.', 'The King ordered us to keep the gate shut.', 'A knight follows orders—even when the King will not explain.'],
-  boo: ['An old castle ghost whispers at night:', '“A promise locked away is still a promise.”', 'Then it points toward the crown vault.'],
-  sam: ['Arr! I was a young sailor in the Great Black Storm.', 'A red light showed me the way home.', 'I owe my life to Ember’s Heartfire.'],
-  pam: ['The flowers close before Ember arrives.', 'They open again when the dragon leaves.', 'It feels like the whole island remembers the old storm.'],
-  percy: ['Once I heard Ember roar over the castle.', 'It sounded like, “Arlo! Give it back!”', 'The King dropped his crown and hid.'],
-  bones: ['Rattle! I remember the old King’s vault.', 'They carried in a bright red ruby after the storm.', 'Nobody carried it out. I watched for years!'],
-  'resident:0': ['My roses bloom red when Ember is near.', 'My grandmother said the dragon and Prince Arlo planted the first red rose together.'],
-  'resident:1': ['The old castle recipe says, “Bake by Heartfire.”', 'That was before the King locked the red ruby away.'],
-  'resident:2': ['I painted an old wall under the castle.', 'It shows a boy holding hands with a red dragon.', 'Someone later painted a crown over the dragon.'],
-  'resident:3': ['I knew Arlo when he was a boy.', 'Ember was his best friend.', 'Arlo is scared because Ember remembers the promise he broke.'],
-  'resident:4': ['Kids whisper that Ember wants the King’s crown.', 'But Mr. Oak says it wants a ruby, not a crown.'],
-  'resident:5': ['The King is not hurt when Ember comes.', 'He shakes before the dragon even reaches the castle.', 'That kind of fear can come from a secret.'],
+  pip: ['The night the sacred sword vanished, I saw a black boat leave the island.', 'Its sail had no flag.', 'Someone wanted to escape without being seen.'],
+  finn: ['When Ember roars, it looks straight at the castle tower.', 'The Mystic Jewel is kept in that tower.', 'That is what the dragon wants.'],
+  momo: ['Meow... I saw muddy footprints in a secret castle passage.', 'They went from the sword room to the sea.', 'They did not belong to a knight.'],
+  ben: ['The Sword of Dawn was made by a village smith long ago.', 'A sacred sword is difficult to make—but not impossible.', 'If its old recipe still exists, a new one could be forged.'],
+  granny: ['My grandmother told me about the Mystic Jewel.', 'It was already here before the first King.', 'No one knows where it came from.'],
+  penny: ['The royal account book lists a missing treasure:', '“Sword of Dawn—guardian of the Mystic Jewel.”', 'The next page says, “Stolen.”'],
+  tina: ['I make toy dragons, but Ember is not a friendly one.', 'It has tried to reach the Mystic Jewel for hundreds of years.', 'The sacred sword always drove it away.'],
+  leo: ['We learned an old rhyme at school:', '“Star-iron bright, waterfall clear, morning light keeps dragons from here.”', 'Teacher Kim says it describes the sacred sword.'],
+  bun: ['Hop! I found a shiny metal chip near the old forge.', 'It sparkles like a tiny star.', 'Mr. Oak called it star-iron.'],
+  hoot: ['Who-who. Long ago, Ember tried to enter the kingdom.', 'The Sword of Dawn filled the sky with golden light.', 'The dragon could not cross it.'],
+  bruno: ['I smelled a stranger near the castle on the night of the theft.', 'Oil, wet rope and smoke...', 'It was the smell of a spy.'],
+  gus: ['The old lighthouse lens helped awaken the first Sword of Dawn.', 'It focused the first morning light onto the blade.', 'The lens could do it again.'],
+  coco: ['The first sacred sword was cooled in water from the castle waterfall.', 'That water still runs today.', 'Grandma said it made the blade shine.'],
+  max: ['I found part of an old sword plan in a castle book.', 'It shows star-iron, waterfall water and a sunbeam.', 'The bottom half of the plan is missing.'],
+  kim: ['The Mystic Jewel has been guarded by the island kingdom since ancient times.', 'Old books say its power is enormous.', 'That is why Ember has always wanted it.'],
+  lance: ['I must tell the truth: the Sword of Dawn is gone.', 'A spy stole it while the guards were changing shifts.', 'Without it, our magical shield cannot protect the kingdom.'],
+  boo: ['I saw a shadow sneak through the castle wall.', 'It carried a long bundle shaped like a sword.', 'Then it disappeared into the old sea tunnel.'],
+  sam: ['Arr! Long ago, my ship carried star-iron to the island.', 'It came from a stone that fell out of the sky.', 'The royal smith used it for the sacred sword.'],
+  pam: ['The golden flowers around the castle used to glow near the sacred sword.', 'They stopped glowing the night it vanished.', 'Now they close whenever Ember comes.'],
+  percy: ['The Sword of Dawn never had to hurt the dragon.', 'Its light made a shield around the whole kingdom.', 'Without that light, Ember can fly right over our walls.'],
+  bones: ['Rattle! I guarded the old forge a very long time ago.', 'The first Sword of Dawn was made there.', 'I think the forge could still work!'],
+  'resident:0': ['My grandmother saw the Sword of Dawn once.', 'She said it shone like sunrise and made the dragon turn away.'],
+  'resident:1': ['The castle cooks heard metal ring on the night of the theft.', 'Then a hooded stranger ran past the kitchen door.'],
+  'resident:2': ['I repaired an old mural under the castle.', 'It shows the Mystic Jewel, a golden sword and a dragon outside a wall of light.'],
+  'resident:3': ['The old stories all say the same thing:', 'As long as the Sword of Dawn guarded the Jewel, the kingdom was safe.'],
+  'resident:4': ['Some kids think Ember wants the King’s crown.', 'They are wrong—it wants the Mystic Jewel in the high tower.'],
+  'resident:5': ['King Arlo knows the dragon can enter now.', 'That is why every roar makes him panic.', 'He is afraid the Jewel will be taken.'],
 }
 const DRAGON_RUMORS = {
   villager: [
-    ['My grandma says Ember once helped the island.', 'Now the King calls it a monster. Why did the story change?'],
-    ['I heard the dragon never burns the village.', 'It only circles the castle and calls for Arlo.'],
-    ['There is a locked room under the crown tower.', 'Sometimes a red light shines under its door.'],
-    ['The oldest song says a dragon lent us a light.', 'The last line of the song is missing.'],
+    ['The kingdom has guarded a mysterious Jewel since ancient times.', 'Ember has always wanted to steal its power.'],
+    ['The sacred sword used to make a golden shield over the island.', 'Since it vanished, Ember keeps coming back.'],
+    ['A spy stole the Sword of Dawn from the castle.', 'Nobody knows who sent the spy.'],
+    ['The King is scared because the kingdom has lost its magical protection.', 'Stone walls cannot stop this dragon.'],
   ],
   animal: [
-    ['The birds say Ember follows a warm red glow.', 'The glow comes from inside the castle.'],
-    ['Animals hide from thunder, but they do not run from Ember.', 'The dragon only watches the castle.'],
-    ['I heard Hoot say Ember was the King’s friend.', 'That was when the King was a boy.'],
+    ['The birds say Ember always looks at the highest castle tower.', 'The Mystic Jewel is hidden there.'],
+    ['Animals remember a warm golden light around the island.', 'It disappeared when the sacred sword was stolen.'],
+    ['The dragon could not cross the old shield.', 'Now there is no shield, so everyone hides.'],
   ],
   cat: [
-    ['Meow... Castle mice talk about a warm red ruby.', 'It sleeps behind a gold lock.'],
-    ['Purr... Ember never chases cats.', 'It looks at the King’s window and makes a sad sound.'],
-    ['Meow! The King smells like fear when thunder starts.', 'The dragon is still far away then.'],
+    ['Meow... Castle mice saw a hooded spy near the sword room.', 'The spy escaped through a tunnel.'],
+    ['Purr... The Mystic Jewel glows behind three golden locks.', 'Ember can see its light from the sky.'],
+    ['Meow! The sword room is empty now.', 'That is why the King starts shaking when thunder begins.'],
   ],
   alien: [
-    ['Beep! My scanner found one Heartfire signal in the dragon.', 'It found the matching signal inside the castle!'],
-    ['On planet Pop, a borrowed star-stone must go home.', 'Maybe Earth kings have the same rule?'],
-    ['The dragon’s roar has words in it.', 'My computer hears: “Arlo... Heartfire...”'],
+    ['Beep! My scanner found enormous energy inside the Mystic Jewel.', 'The dragon is flying toward that signal!'],
+    ['My scanner found pieces of star-iron near the old forge.', 'Earth people could use them to build something powerful.'],
+    ['The old sacred sword made a light barrier around the island.', 'My computer says that barrier can be made again.'],
   ],
 }
 

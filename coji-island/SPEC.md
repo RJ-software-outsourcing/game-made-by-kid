@@ -19,10 +19,10 @@ quest at a time. This version has **3 quests**; the King's quest in the castle w
   roars first, the whole sky darkens, lightning strikes near Coji wherever he is, and the event lasts
   about 20 seconds. A central warning says King Arlo is panicking while his frightened calls carry
   across the island.
-- **The King and Ember history is part of the world** (section 6). Every permanent friend, resident,
-  wandering villager, animal and alien knows only a fragment. Talking to many characters slowly
-  reveals the old friendship, the Great Black Storm, the borrowed Heartfire Ruby and Arlo's broken
-  promise. Discovered fragments are saved for the later final quest.
+- **The Jewel, dragon and sacred sword history is part of the world** (section 6). Every permanent
+  friend, resident, wandering villager, animal and alien knows only a fragment. Talking to many
+  characters reveals why Ember wants the Mystic Jewel, how a spy stole the Sword of Dawn and how the
+  island might forge a new one. Discovered fragments are saved for the later final quest.
 - **Safer roads**: occupied cars brake and stop when Coji, an islander or an animal is ahead, then
   start smoothly after the road clears.
 - **Character polish**: cats have large visible glossy eyes and blink; voices are bright and cute for
@@ -428,36 +428,37 @@ Coji arrives at Sunny Island on Captain Pip's boat.
 Pip welcomes Coji and sends him off to explore. After a little while, friends start asking for
 help, one mission at a time, in any order, except that the lighthouse comes after the bear (see 5.6).
 
-### Island history: King Arlo, Ember and the Heartfire Ruby 🐉
+### Island history: the Mystic Jewel and the Sword of Dawn 🐉⚔️
 
 This is the story behind the future final quest. The complete truth is written here for design use,
 but no one character tells Coji all of it.
 
-1. **Arlo and Ember were childhood friends.** Before Arlo was King, he met a young red dragon named
-   Ember. They played in the castle garden. Granny Bee fed them honey cakes, and Hoot watched them
-   make a promise to remain friends.
-2. **The Great Black Storm came.** Clouds hid the stars and every normal lamp went out. Ships could
-   not find Sunny Island. Ember owned the **Heartfire Ruby**, a warm red stone linked to the dragon's
-   own fire. Ember lent it to Prince Arlo for one night. Its red light powered the castle beacons and
-   Grandpa Gus's old lighthouse, guiding every ship home.
-3. **Arlo promised to return it.** The promise was written in a letter and in the old bank ledger.
-   But after the storm, frightened advisers said the island could not be safe while a dragon held so
-   much power. They sealed the ruby in the crown vault. When Ember came back, Arlo was too afraid to
-   oppose them. He said the ruby was lost.
-4. **The friendship broke.** Ember knew Arlo was lying. The dragon left angry and hurt. The history
-   page about the two friends was removed, and later stories called Ember a monster. The truth
-   survived in an old rhyme, a sailor's memory, a hidden mural, a ledger and the stories of islanders.
-5. **Ember still returns for Heartfire.** The ruby and Ember call to each other. When Ember comes
-   close, their joined power pulls dark clouds and lightning over the whole island. Ember circles the
-   castle and calls Arlo's name; it does not attack the village or chase ships.
-6. **Arlo is afraid of more than fire.** He fears Ember's anger, but he also fears everyone learning
-   that he broke his promise and hid the stone. That is why he panics before Ember reaches the castle.
+1. **The kingdom has always guarded the Mystic Jewel.** The mysterious Jewel was already on Sunny
+   Island before the first King. Nobody knows who made it or where it came from, but the old records
+   say it contains enormous magical power. It is locked behind three golden locks in the highest
+   castle tower.
+2. **Ember has always wanted the Jewel.** The red dragon believes the Jewel can make its fire and
+   storms unstoppable. Ember has tried to enter the island kingdom many times through the centuries.
+3. **The Sword of Dawn protected the kingdom.** A legendary smith named Mira forged this sacred
+   sword when Ember first attacked. The sword did not hurt the dragon. When raised at the castle, it
+   filled the sky with golden light and formed a magical shield Ember could not cross.
+4. **The sacred sword can be made.** Mira used **star-iron** from a stone that fell near the old
+   lighthouse, cooled the blade in water from the castle waterfall, then awakened it with the first
+   morning light focused through the lighthouse lens. The complete recipe was later split across old
+   books and songs so no thief could easily copy it.
+5. **A spy stole the Sword of Dawn.** One night, while the castle guards changed shifts, a hooded spy
+   took the sword and escaped through an old sea tunnel. Captain Pip saw a black boat with no flag
+   leave the island. The spy's identity, employer and the original sword's location remain mysteries.
+6. **The kingdom is now unprotected.** Without the Sword of Dawn, the golden shield is gone. Ember
+   can fly over the walls and repeatedly threatens the castle, hoping to seize the Mystic Jewel.
+   King Arlo panics because ordinary knights and stone walls cannot stop the dragon.
 
-Dialogue fragments deliberately show different views: Hoot and Mr. Oak remember the friendship;
-Gus and Old Sam remember the rescue; Penny saw the ledger; Max saw the letter; Momo and the castle
-mice know about the glowing vault; knights know the King's orders; animals notice Ember never hunts
-them; aliens can detect matching Heartfire signals in Ember and the castle. These discoveries are
-saved as `history:dragon:*` flags for later use.
+Dialogue fragments deliberately show different views: Pip, Momo, Bruno and Boo saw clues left by
+the spy; Penny and Sir Lance know the sword is missing; Granny, Hoot, Tina and the residents know why
+the Jewel and shield matter. Only a small group knows the sword can be remade: Ben knows it was
+forged, Leo remembers the recipe rhyme, Bun and Old Sam know about star-iron, Coco knows about the
+waterfall water, and Gus and Max know how the lighthouse beam completes the blade. These discoveries
+are saved as `history:dragon:*` flags for later use.
 
 ### Quest: The Hungry Bear 🐻 (from Captain Pip, Bruno or his friends)
 1. **Find out what Bear likes to eat.** (clue "Bears love honey")
@@ -480,8 +481,11 @@ Everyone mentions the sad little ghost in the graveyard. Boo is scared of the da
 
 ### Last quest (later): the King 👑
 Sir Lance keeps the castle gate closed: "The King has a big job for a hero." The final quest will
-open the gate and ask Coji to help King Arlo make Ember leave the island. The quest mechanics and
-ending are not designed yet; the history above leaves room for a brave, non-violent solution.
+open the gate and ask Coji to restore the kingdom's protection. Coji will solve the mystery of the
+stolen sword and collect the old recipe clues, find star-iron, take water from the castle waterfall,
+use the old forge and awaken a newly forged **Sword of Dawn** with the lighthouse's first morning
+beam. Giving it to King Arlo restores the golden shield and forces Ember away without fighting it.
+The precise puzzles, spy identity and original sword's fate are not designed yet.
 
 ## 7. English
 
@@ -616,7 +620,7 @@ coji-island/
 
 ## 11. Later
 
-- The King's final quest in the castle.
+- The King's final quest: solve the stolen-sword mystery and reforge the Sword of Dawn.
 - Day/night cycle during normal play, weather (rain → Coji's yellow boots and dino umbrella!).
 - A small house for Coji, a sticker book of helped friends, more jobs.
 - Parent settings: tip frequency, read-aloud on/off, text size.

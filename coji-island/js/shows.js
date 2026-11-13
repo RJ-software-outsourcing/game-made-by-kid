@@ -524,8 +524,8 @@ function dragon(S) {
       beast.userData.animate(t, { roar: T < 2.2 })
       if (T > 1.9 && !this.firstCry) {
         this.firstCry = true
-        S.game.ui.eventBanner('King Arlo is panicking!', '“Oh no! Ember is back! Help me!”', 5.4)
-        sayAs('Oh no! Ember is back! Help me!', { who: 'man', seed: 41, pitch: 0.78, rate: 1.02, volume: 1, queue: true })
+        S.game.ui.eventBanner('King Arlo is panicking!', '“Ember is back! The sacred sword is gone!”', 5.4)
+        sayAs('Ember is back! The sacred sword is gone! Help me!', { who: 'man', seed: 41, pitch: 0.78, rate: 1.02, volume: 1, queue: true })
       }
       let active = -1
       strikes.forEach((at, i) => {
@@ -541,13 +541,13 @@ function dragon(S) {
       if (active >= 0 && Math.floor(T * 50) % 2 === 0) redrawLightning()
       if (T > 7 && !this.secondCry) {
         this.secondCry = true
-        S.game.ui.eventBanner('The King calls for help!', '“Knights! Ring the bells! Keep Ember away!”', 4.8)
-        sayAs('Knights! Ring the bells! Keep Ember away from the castle!', { who: 'man', seed: 41, pitch: 0.76, rate: 1.04, volume: 1, queue: true })
+        S.game.ui.eventBanner('The King calls for help!', '“Knights! Protect the Mystic Jewel!”', 4.8)
+        sayAs('Knights! Ring the bells! Protect the Mystic Jewel!', { who: 'man', seed: 41, pitch: 0.76, rate: 1.04, volume: 1, queue: true })
       }
       if (T > 14 && !this.thirdCry) {
         this.thirdCry = true
-        S.game.ui.eventBanner('King Arlo needs a hero!', '“Coji! Sunny Island needs someone brave!”', 4.5)
-        sayAs('Coji! Sunny Island needs someone brave!', { who: 'man', seed: 41, pitch: 0.8, rate: 1.02, volume: 1, queue: true })
+        S.game.ui.eventBanner('King Arlo needs a hero!', '“Coji! We need the Sword of Dawn!”', 4.5)
+        sayAs('Coji! We need the Sword of Dawn!', { who: 'man', seed: 41, pitch: 0.8, rate: 1.02, volume: 1, queue: true })
       }
       if (T >= 20) this.done = true
     },
