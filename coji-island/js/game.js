@@ -6,12 +6,13 @@ import { Person, LOOKS, Skeleton } from './characters.js'
 import { FollowCam } from './camera.js'
 import { UI } from './ui.js'
 import { Dialogue } from './dialogue.js'
-import { CAST, QUESTS, talk, stepTip, targets } from './story.js'
+import { CAST, QUESTS, QUEST_ORDER, NEAR, talk, stepTip, targets, questNear } from './story.js'
 import { ITEMS } from './items.js'
 import { TUNE, energyCostFactor, restFactor } from './config.js'
 import { sfx, unlock, startMusic, setMood } from './audio.js'
 import { JobRunner, JOB_REST } from './jobs.js'
 import { Crowd } from './crowd.js'
+import { Helpers } from './help.js'
 import { Shows } from './shows.js'
 import { makeSprite, roundRect, SEE } from './build.js'
 
@@ -26,8 +27,8 @@ export function freshState() {
     water: TUNE.start.water,
     coins: 0,
     bag: {},
-    quest: null,
-    step: 0,
+    quests: {}, // active quests and their step: { bear: 1, boo: 0 }
+    focus: null, // the quest shown on the card (the last one started or moved on)
     done: [],
     clues: {},
     flags: {},
@@ -45,11 +46,24 @@ export function freshState() {
 export function readSave() {
   try {
     const s = JSON.parse(localStorage.getItem(SAVE_KEY))
-    if (s && s.v === 1) return { ...freshState(), ...s }
+    if (s && s.v === 1) return migrate({ ...freshState(), ...s })
   } catch {
     // no save
   }
   return null
+}
+// Older saves had one quest at a time (`quest` + `step`); now several can be active (`quests`).
+function migrate(s) {
+  if (s.quests && typeof s.quests === 'object' && !('quest' in s)) return s
+  const quests = {}
+  if (s.quest && QUESTS[s.quest]) quests[s.quest] = s.step || 0
+  // after the bear, the old game always went on with the lighthouse
+  else if (s.done.includes('bear') && !s.done.includes('light')) quests.light = 0
+  s.quests = { ...quests, ...(s.quests || {}) }
+  s.focus = s.quest || Object.keys(s.quests)[0] || null
+  delete s.quest
+  delete s.step
+  return s
 }
 function clearSave() {
   try {
@@ -59,7 +73,7 @@ function clearSave() {
   }
 }
 
-const PICKUPS = new Set(['shell', 'coin', 'glasses', 'mushroom'])
+const PICKUPS = new Set(['shell', 'coin', 'glasses', 'mushroom', 'treasure'])
 const regrowOf = (kind) => ({ appletree: TUNE.treeRegrow, berrybush: TUNE.bushRegrow, carrots: TUNE.carrotRegrow, pumpkin: 80 })[kind]
 
 const angleTo = (a, b) => {
@@ -73,8 +87,8 @@ export async function init({ onProgress }) {
   const canvas = document.getElementById('scene')
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' })
   renderer.outputColorSpace = THREE.SRGBColorSpace
-  renderer.toneMapping = THREE.ACESFilmicToneMapping
-  renderer.toneMappingExposure = 1.05
+  renderer.toneMapping = THREE.NeutralToneMapping
+  renderer.toneMappingExposure = 0.72
   renderer.shadowMap.enabled = true
   renderer.shadowMap.type = THREE.PCFSoftShadowMap
   const game = new Game(renderer, canvas)
@@ -106,6 +120,16 @@ class Game {
     const touch = matchMedia('(pointer: coarse)').matches
     this.maxPR = Math.min(window.devicePixelRatio || 1, touch ? 1.5 : 1.75)
     this.pr = this.maxPR
+    // Battery: draw at most 60 frames a second (120 Hz iPads would otherwise draw twice as often),
+    // and 30 when nothing much is happening (menus open, title screen, no touches for a while).
+    this.lastRender = 0
+    this.lastInput = performance.now()
+    this.quality = 0
+    const touched = () => (this.lastInput = performance.now())
+    window.addEventListener('pointerdown', touched, { passive: true })
+    window.addEventListener('pointermove', touched, { passive: true })
+    window.addEventListener('keydown', touched)
+    window.addEventListener('wheel', touched, { passive: true })
   }
 
   async load(progress) {
@@ -153,6 +177,7 @@ class Game {
     this.g = this.makeApi()
     this.jobs = new JobRunner(this)
     this.crowd = new Crowd(this)
+    this.helpers = new Helpers(this)
     this.shows = new Shows(this)
 
     progress(0.9, 'Waking up the animals…')
@@ -205,7 +230,6 @@ class Game {
     this.player.target = null
     this.placeCoji()
     this.world.buildAllNear(s.x, s.z)
-    if (s.done.includes('bear') && !s.quest && !s.done.includes('light')) this.startQuest('light', true)
     this.world.setBridgeBlocked(!s.done.includes('bear'))
     if (s.done.includes('light')) this.world.lightUp()
     for (const e of Object.values(this.world.npcs)) this.applyNpcState(e)
@@ -219,7 +243,7 @@ class Game {
     this.lastAction = performance.now()
     this.checkQuest()
     setTimeout(() => {
-      if (!s.met.pip) this.ui.tip("Hi! I'm Blankie Bear. 🧸 Tap Captain Pip to say hi! 👋", { key: 'welcome', force: true, time: 8 })
+      if (!s.met.pip && !Object.keys(s.quests).length) this.ui.tip("Hi! I'm Blankie Bear. 🧸 Tap Captain Pip to say hi! 👋", { key: 'welcome', force: true, time: 8 })
       else this.ui.tip(stepTip(this.g), { key: 'idle', force: true })
     }, 1600)
   }
@@ -267,12 +291,27 @@ class Game {
         S().flags[k] = v
       },
       met: (id) => !!S().met[id],
-      knows: (c) => (S().clues[S().quest] || []).includes(c),
-      clue: (c) => game.addClue(c),
-      startQuest: (id) => game.startQuest(id),
+      // quests: several can be active; each has its own step
+      at: (q) => (q in S().quests ? S().quests[q] : -1),
+      is: (st) => {
+        const [q, n] = st.split('.')
+        return q in S().quests && S().quests[q] === +n
+      },
+      focus: () => game.focusQuest(),
+      knows: (c, q) => (q ? S().clues[q] || [] : Object.values(S().clues).flat()).includes(c),
+      clue: (c, q) => game.addClue(c, q),
+      startQuest: (id, step = 0) => game.startQuest(id, false, step),
       completeQuest: (id) => game.completeQuest(id),
-      advance: () => game.advance(),
+      advance: (q) => game.advance(q),
       done: (id) => S().done.includes(id),
+      // where Coji is, and where a character is now (Bruno moves off the bridge)
+      pos: () => ({ x: game.player.x, z: game.player.z }),
+      npcPos: (id) => {
+        const r = game.world.npcs[id]?.ch?.root
+        return r ? { x: r.position.x, z: r.position.z } : L.NPCS[id]
+      },
+      // found: only treasures found on the island (not gift toys Coji may want to keep)
+      hasTreasure: (found = false) => Object.keys(S().bag).some((k) => S().bag[k] > 0 && ITEMS[k]?.treasure && !(found && ITEMS[k].gift)),
       mood: (id, m) => {
         const n = game.world.npcs[id]
         if (n) n.ch.mood = m
@@ -289,7 +328,7 @@ class Game {
         game.addCoins(3)
       },
       finale: () => game.finale(),
-      quest: () => S().quest,
+      quest: () => game.focusQuest(),
       asked: () => game.asked,
       jobReady: (id) => S().jobs[id] === undefined || S().play - S().jobs[id] > JOB_REST,
       openJob: (id) => game.jobs.start(id),
@@ -299,12 +338,19 @@ class Game {
     }
   }
 
+  // The quest on the card: the one last started or moved on (or that Coji walked up to).
+  focusQuest() {
+    const s = this.state
+    if (s.focus && s.focus in s.quests) return s.focus
+    return QUEST_ORDER.find((q) => q in s.quests) || Object.keys(s.quests)[0] || null
+  }
+  // "bear.1" for the quest on the card; "start", "free" or "end" when no quest is active.
   stage() {
     const s = this.state
-    if (s.quest) return `${s.quest}.${s.step}`
-    if (s.done.includes('boo')) return 'end'
-    if (s.done.includes('light')) return 'free'
-    if (s.done.includes('bear')) return 'light.0'
+    const q = this.focusQuest()
+    if (q) return `${q}.${s.quests[q]}`
+    if (QUEST_ORDER.every((id) => s.done.includes(id))) return 'end'
+    if (s.done.length) return 'free'
     return 'start'
   }
 
@@ -334,13 +380,19 @@ class Game {
     return FOOD.some((f) => this.state.bag[f] > 0)
   }
 
-  addClue(c) {
+  // A clue goes to quest q, or (without q) to every active quest that has it.
+  addClue(c, q) {
     const s = this.state
-    const q = s.quest
-    if (!q || !QUESTS[q].clues[c]) return
-    const list = (s.clues[q] ||= [])
-    if (list.includes(c)) return
-    list.push(c)
+    let added = null
+    for (const id of q ? [q] : Object.keys(s.quests)) {
+      if (!(id in s.quests) || !QUESTS[id]?.clues[c]) continue
+      const list = (s.clues[id] ||= [])
+      if (list.includes(c)) continue
+      list.push(c)
+      added = id
+    }
+    if (!added) return
+    s.focus = added
     sfx('clue')
     this.ui.toast('💡 New clue!')
     this.ui.renderQuest()
@@ -349,10 +401,16 @@ class Game {
     this.checkQuest()
   }
 
-  startQuest(id, quiet = false) {
+  // Start quest `id` (at `step`, when its first steps are already done). Others stay active.
+  startQuest(id, quiet = false, step = 0) {
     const s = this.state
-    s.quest = id
-    s.step = 0
+    if (!QUESTS[id] || s.done.includes(id)) return
+    if (id in s.quests) {
+      if (step > s.quests[id]) this.advance(id, step)
+      return
+    }
+    s.quests[id] = step
+    s.focus = id
     s.clues[id] ||= []
     if (!quiet) {
       sfx('quest')
@@ -366,37 +424,45 @@ class Game {
   completeQuest(id) {
     const s = this.state
     if (!s.done.includes(id)) s.done.push(id)
-    if (s.quest === id) {
-      s.quest = null
-      s.step = 0
-    }
+    delete s.quests[id]
+    if (s.focus === id) s.focus = null
     sfx('quest')
     this.ui.toast('⭐ Quest done! ⭐', true)
     if (id === 'bear') {
       this.world.setBridgeBlocked(false)
-      this.bearMove = { t: 0 }
+      this.bearMove = { t: 0, phase: 'hug' }
     }
     this.ui.renderQuest()
     this.save()
   }
-  advance() {
+  // Move quest q (default: the one on the card) to its next step, or to step `to`.
+  advance(q = this.focusQuest(), to) {
     const s = this.state
-    if (!s.quest) return
-    if (s.step < QUESTS[s.quest].steps.length - 1) {
-      s.step++
-      sfx('step')
-      this.ui.toast('✅ Good job! Next step!')
-      this.ui.renderQuest()
-      this.ui.flashQuest()
-      this.checkQuest()
-      this.save()
-    }
+    if (!q || !(q in s.quests)) return
+    const last = QUESTS[q].steps.length - 1
+    const next = Math.min(last, to ?? s.quests[q] + 1)
+    if (next <= s.quests[q]) return
+    s.quests[q] = next
+    s.focus = q
+    sfx('step')
+    this.ui.toast('✅ Good job! Next step!')
+    this.ui.renderQuest()
+    this.ui.flashQuest()
+    this.checkQuest()
+    this.save()
   }
+  // Steps that are already done (Coji has the honey, knows the price…) move on by themselves.
   checkQuest() {
     const s = this.state
-    if (!s.quest) return
-    const st = QUESTS[s.quest].steps[s.step]
-    if (st?.done && st.done(this.g)) this.advance()
+    for (const q of Object.keys(s.quests)) {
+      for (let guard = 0; guard < 8 && q in s.quests; guard++) {
+        const st = QUESTS[q].steps[s.quests[q]]
+        if (!st?.done || !st.done(this.g)) break
+        const before = s.quests[q]
+        this.advance(q)
+        if (s.quests[q] === before) break
+      }
+    }
   }
   afterChange() {
     this.ui?.update(this.state)
@@ -600,6 +666,7 @@ class Game {
       case 'coin':
       case 'glasses':
       case 'mushroom':
+      case 'treasure':
         return this.collect(e)
       case 'chest':
         return this.openChest(e)
@@ -655,6 +722,12 @@ class Game {
     s.taken[e.id] = s.play
     if (e.kind === 'shell') this.give('shell', 1)
     if (e.kind === 'mushroom') this.give('mushroom', 1)
+    if (e.kind === 'treasure') {
+      this.give(e.item, 1)
+      const it = ITEMS[e.item]
+      this.ui.toast(`${it.icon} ${it.name}! ${it.desc}`)
+      this.ui.tip('Treasure! 💎 Penny at the bank swaps treasures for coins.', { key: 'treasure', once: true })
+    }
     if (e.kind === 'coin') this.addCoins(1)
     if (e.kind === 'glasses') {
       this.give('glasses', 1)
@@ -860,17 +933,90 @@ class Game {
       if (d > 16) e.waved = false
       ch.update(dt, t)
     }
-    if (this.bearMove) {
-      this.bearMove.t += dt / 1.6
-      if (!this.talking) {
-        const k = Math.min(1, this.bearMove.t)
-        this.placeBear(k)
-        if (k >= 1) {
-          this.bearMove = null
-          const b = this.world.npcs.bruno
-          if (b) setTimeout(() => (b.ch.mood = 'idle'), 4000)
-        }
-      } else this.bearMove.t = 0
+    if (this.bearMove) this.updateBearMove(dt)
+  }
+
+  // After the honey: Bruno gives Coji a big bear hug, then waddles off the bridge to his new spot.
+  updateBearMove(dt) {
+    const m = this.bearMove
+    const b = this.world.npcs.bruno
+    if (!b) {
+      this.bearMove = null
+      return
+    }
+    if (this.talking) return
+    const ch = b.ch
+    const p = this.player
+    m.t += dt
+    m.phase ||= 'hug'
+    if (m.phase === 'hug') {
+      if (!m.started) {
+        m.started = true
+        // Coji steps right up to the bear, face to face
+        const a = Math.atan2(p.x - b.x, p.z - b.z)
+        p.x = b.x + Math.sin(a) * 1.35
+        p.z = b.z + Math.cos(a) * 1.35
+        p.face = a + Math.PI
+        p.path = []
+        p.target = null
+        this.placeCoji()
+        b.talkFace = a
+        ch.mood = 'hug'
+        sfx('happy')
+        this.ui.toast('🐻💕 A big bear hug! "Thank you, Coji!"')
+      }
+      p.path = []
+      p.target = null
+      if (m.t > 2.8) {
+        m.phase = 'walk'
+        m.t = 0
+        b.talkFace = null
+        ch.mood = 'walk'
+        this.coji.cheer = 0.8
+      }
+      return
+    }
+    if (m.phase === 'walk') {
+      // along the bridge to the shore first, then over to his spot beside the road
+      if (!m.wps) {
+        const B = L.BRIDGE
+        const ux = (B.bx - B.ax) / 16
+        const uz = (B.bz - B.az) / 16
+        m.wps = [
+          { x: B.ax - ux * 1.5, z: B.az - uz * 1.5 },
+          { x: L.BEAR_SPOT.x, z: L.BEAR_SPOT.z },
+        ]
+      }
+      const to = m.wps[0]
+      const dx = to.x - b.x
+      const dz = to.z - b.z
+      const d = Math.hypot(dx, dz)
+      const step = Math.min(d, dt * 1.6)
+      const r = ch.root
+      if (d > 0.05) {
+        b.x += (dx / d) * step
+        b.z += (dz / d) * step
+        r.rotation.y += angleTo(r.rotation.y, Math.atan2(dx, dz)) * Math.min(1, dt * 5)
+      }
+      const gy = this.world.groundY(b.x, b.z)
+      ch.baseY = gy
+      r.position.set(b.x, r.position.y, b.z)
+      b.proxy.position.set(b.x, gy + 1.6, b.z)
+      b.proxy.updateMatrixWorld()
+      if (d <= 0.05 && m.wps.length > 1) m.wps.shift()
+      else if (d <= 0.05) {
+        m.phase = 'settle'
+        m.t = 0
+        ch.mood = 'idle'
+        ch.homeFace = L.BEAR_SPOT.face
+      }
+      return
+    }
+    // settle: turn to face the road and sit down
+    if (m.t > 1.2) {
+      this.placeBear(1)
+      this.bearMove = null
+      this.save()
     }
   }
 
@@ -897,8 +1043,18 @@ class Game {
 
   // ---------- per frame ----------
 
-  loop() {
-    requestAnimationFrame(() => this.loop())
+  // Frames per second to aim for right now.
+  fpsTarget() {
+    const quiet = this.mode === 'title' || this.ui.anyPanel() || this.dialogue.open
+    const idle = performance.now() - this.lastInput > 45000 && !this.player.path.length
+    return quiet || idle ? 30 : 60
+  }
+
+  loop(now = performance.now()) {
+    requestAnimationFrame((ts) => this.loop(ts))
+    // skip this display refresh if it comes too soon after the last frame we drew
+    if (now - this.lastRender < 1000 / this.fpsTarget() - 2) return
+    this.lastRender = now
     const raw = this.clock.getDelta()
     const dt = Math.min(0.05, raw)
     const t = this.clock.elapsedTime
@@ -917,6 +1073,7 @@ class Game {
     this.coji.update(dt, t)
     if (this.mode === 'play') {
       this.crowd.update(dt, t)
+      this.helpers.update(dt)
       this.shows.update(dt, t)
     }
     this.updateNpcs(dt, t)
@@ -1060,7 +1217,7 @@ class Game {
       if (!e.mesh) continue
       if (PICKUPS.has(e.kind)) {
         let has = s.taken[e.id] === undefined
-        if (!has && (e.kind === 'shell' || e.kind === 'mushroom') && s.play - s.taken[e.id] > TUNE.shellRespawn) {
+        if (!has && (e.kind === 'shell' || e.kind === 'mushroom' || e.kind === 'treasure') && s.play - s.taken[e.id] > (e.respawn ?? TUNE.shellRespawn)) {
           delete s.taken[e.id]
           has = true
         }
@@ -1087,6 +1244,13 @@ class Game {
     const g = this.g
     const p = this.player
     const hasDrink = DRINKS.some((d) => s.bag[d] > 0)
+    // Close to where another quest's next step happens: show that quest on the card.
+    const qn = questNear(g)
+    if (qn && qn.dist < NEAR && qn.q !== this.focusQuest()) {
+      s.focus = qn.q
+      ui.renderQuest()
+      ui.flashQuest()
+    }
     if (s.energy < 12 && p.nap <= 0) {
       if (ui.tip(this.hasFood() ? 'Coji is very tired! 😫 Open your bag 🎒 and eat something!' : 'Coji is very tired! 😫 Rest 💤 or find food 🍎.', { key: 'e2', cooldown: 25 })) return
     }
@@ -1124,11 +1288,12 @@ class Game {
       pumpkin: 'Pumpkins! Tap one to pick it. 🎃',
       shell: 'A shiny shell! Walk to it to pick it up. 🐚',
       coin: 'A shiny coin! Walk to it to pick it up. 🪙',
+      treasure: 'Something shiny! A treasure? Walk to it to pick it up. ✨',
     }
     for (const e of this.world.entities) {
       const msg = THINGS[e.kind]
       if (!msg || s.tips['thing-' + e.kind]) continue
-      if (e.kind === 'shell' || e.kind === 'coin') {
+      if (e.kind === 'shell' || e.kind === 'coin' || e.kind === 'treasure') {
         if (!e.mesh || !e.mesh.visible) continue
       }
       if (Math.hypot(p.x - e.x, p.z - e.z) < 7 && ui.tip(msg, { key: 'thing-' + e.kind, once: true })) return
@@ -1136,6 +1301,8 @@ class Game {
     if (Math.hypot(p.x - L.CASTLE.x, p.z - L.CASTLE.z) < 34 && ui.tip('Look up! Knights walk on the castle walls. ⚔️', { key: 'knights', once: true })) return
     if (this.spook > 0.6 && ui.tip('Ooh, it is spooky here! 👻 Do not worry, the ghosts are friendly.', { key: 'spooky', once: true })) return
     if (this.skeletons.some((k) => Math.hypot(k.e.x - p.x, k.e.z - p.z) < 9) && ui.tip('A skeleton! 💀 It is friendly. Tap it to talk!', { key: 'skeleton', once: true })) return
+    // Coji came close to where the next step happens: a clear tip, once per step
+    if (qn && qn.dist < NEAR && qn.q === this.focusQuest() && ui.tip(stepTip(g), { key: 'here-' + qn.key + (qn.sub || ''), once: true })) return
     // nothing happening: what to do next
     if (performance.now() - this.lastAction > 28000) {
       if (ui.tip(stepTip(g), { key: 'idle', cooldown: 40 })) this.lastAction = performance.now() - 8000
@@ -1163,14 +1330,13 @@ class Game {
     const draw = () => {
       const s = this.state
       const stars = []
-      const q = s.quest
-      if (q) {
+      for (const q of Object.keys(s.quests)) {
         for (const c of s.clues[q] || []) {
-          const place = QUESTS[q].clues[c].place
+          const place = QUESTS[q].clues[c]?.place
           if (!place) continue
           if (place === 'owl') stars.push([L.OWL_TREE.x, L.OWL_TREE.z])
           else if (place === 'glasses') stars.push([L.GLASSES_SPOT.x, L.GLASSES_SPOT.z])
-          else stars.push([L.PLACES[place].x, L.PLACES[place].z])
+          else if (L.PLACES[place]) stars.push([L.PLACES[place].x, L.PLACES[place].z])
         }
       }
       const tg = [...targets(this.g)].map((id) => {
@@ -1210,8 +1376,8 @@ class Game {
   finale() {
     const s = this.state
     if (!s.done.includes('light')) s.done.push('light')
-    s.quest = null
-    s.step = 0
+    delete s.quests.light
+    if (s.focus === 'light') s.focus = null
     this.save()
     this.mode = 'finale'
     this.ui.hide()
@@ -1261,29 +1427,50 @@ class Game {
     this.ui.renderQuest()
     this.fin.back = true
     this.fin.bt = 0
-    this.ui.tip('Thank you, Coji! 🧸 Now you can explore the island!', { key: 'free', force: true })
+    const left = QUEST_ORDER.some((q) => !this.state.done.includes(q))
+    const busy = Object.keys(this.state.quests).length
+    const tip = busy ? 'Thank you, Coji! 🧸 A friend still needs your help. Look at your mission card! ⭐' : left ? 'Thank you, Coji! 🧸 Other friends need help too. Talk to them! 💬' : 'Thank you, Coji! 🧸 Now you can explore the island!'
+    this.ui.tip(tip, { key: 'free', force: true })
   }
 
   // ---------- adaptive quality ----------
 
-  // If frames are slow (below ~25 fps), lower the resolution, then the shadow detail.
-  // Very long gaps mean the tab was hidden or throttled, not that drawing is slow: skip those.
+  // If frames come too slowly (below ~45 fps), step the quality down, one notch at a time:
+  // 1-2: lower resolution; 3: smaller shadow map and a smaller grass circle; 4: no grass blades and
+  // fewer detailed trees. Very long gaps mean the tab was hidden or throttled, not that drawing is
+  // slow: skip those. Quality never goes back up during a session (no flicker back and forth).
   adapt(raw, cpuMs) {
-    if (raw > 0.1 || this.mode === 'title') return
+    if (raw > 0.1 || this.mode === 'title' || this.fpsTarget() < 60) {
+      this.frames.length = 0
+      return
+    }
     this.frames.push(raw)
-    if (this.frames.length < 120) return
-    const avg = this.frames.reduce((a, b) => a + b, 0) / this.frames.length
+    if (this.frames.length < 150) return
+    const sorted = this.frames.slice().sort((a, b) => a - b)
+    const median = sorted[sorted.length >> 1]
     this.frames.length = 0
     void cpuMs
-    if (avg > 0.04 && this.pr > 1) {
-      this.pr = Math.max(1, this.pr - 0.25)
-      this.resize()
-    } else if (avg > 0.045 && this.pr <= 1 && !this.lowShadows) {
-      this.lowShadows = true
+    if (median < 1 / 45 || this.quality >= 4) return
+    this.setQuality(this.quality + 1)
+  }
+
+  setQuality(q) {
+    this.quality = q
+    if (q === 1) this.pr = Math.max(1, this.maxPR - 0.25)
+    if (q >= 2) this.pr = 1
+    this.resize()
+    if (q >= 3) {
       const sh = this.world.sun.shadow
-      sh.mapSize.set(1024, 1024)
-      sh.map?.dispose()
-      sh.map = null
+      if (sh.mapSize.x > 1024) {
+        sh.mapSize.set(1024, 1024)
+        sh.map?.dispose()
+        sh.map = null
+      }
+      this.world.grass.setRadius(16)
+    }
+    if (q >= 4) {
+      this.world.grass.setVisible(false)
+      this.world.plants.setDetailRange(0.6)
     }
   }
 }

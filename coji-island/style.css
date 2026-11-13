@@ -869,6 +869,13 @@ button {
   font-size: 21px;
   min-width: 120px;
 }
+.shop-row .big-btn + .big-btn {
+  min-width: 96px;
+}
+/* bank rows for treasures you don't have yet: still shown (to read the prices), but dimmed */
+.shop-row.none {
+  opacity: 0.6;
+}
 .shop-sec {
   margin: 14px 0 4px;
   font-family: var(--fun);
@@ -1136,6 +1143,34 @@ button {
 .job-prompt .picture {
   font-size: 110px;
   line-height: 1.1;
+}
+/* help games: a row of things to count is smaller so it fits */
+.job-prompt .picture .many {
+  display: inline-block;
+  max-width: 520px;
+  font-size: 56px;
+  letter-spacing: 6px;
+  line-height: 1.25;
+}
+.job-prompt .ask b.gap {
+  font-family: var(--fun);
+  font-size: 1.4em;
+  letter-spacing: 0.18em;
+  color: #c0392b;
+}
+/* help games: a little letter to read */
+.job-prompt .note {
+  display: inline-block;
+  text-align: left;
+  margin: 4px auto 10px;
+  padding: 14px 22px;
+  background: #fffaf0;
+  border: 3px solid #e8d9b5;
+  border-radius: 12px;
+  box-shadow: 0 4px 0 #e8d9b5;
+  font-size: 26px;
+  line-height: 1.45;
+  transform: rotate(-1deg);
 }
 .job-preview {
   display: flex;

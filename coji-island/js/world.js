@@ -5,9 +5,15 @@ import * as L from './land.js'
 import { NavGrid } from './nav.js'
 import { Parts, MAT, SMOOTH, GLOW, TERRAIN_MAT, DECK_MAT, box, cyl, ico, makeSprite } from './build.js'
 import * as P from './props.js'
-import { instanced, cloud, blob, FLOWER_COLORS } from './nature.js'
+import { instanced, cloud, blob, FLOWER_COLORS, PlantPools, POOLED, WIND, TREE_MAT, CLOUD_MAT, addCrown, limb } from './nature.js'
+import { SUN_DIR, skyEnvironment } from './env.js'
+import { patchGround } from './ground.js'
+import { waterNormals } from './textures.js'
+import { GrassField } from './grass.js'
+import { TREASURES, treasureMesh } from './treasures.js'
 import { Person, LOOKS, Bear, Owl, Cat, Bunny, Ghost, makeDuck, makeGull, makeButterfly } from './characters.js'
 
+const _v3 = new THREE.Vector3()
 const RES = 1.45 // terrain grid spacing (2 × HALF / RES must be a whole number)
 
 // Give the browser a moment to paint the loading bar. Falls back to a timer when the tab is hidden
@@ -26,10 +32,11 @@ const nextFrame = () =>
   })
 
 const C = (h) => new THREE.Color(h)
-const DAY = { top: C('#2b8ef0'), horizon: C('#a9dcff'), sun: C('#fff3de'), sunI: 2.5, hemiSky: C('#cfe9ff'), hemiGround: C('#d8c7a0'), hemiI: 1.2, fog: C('#b4defd'), near: 160, far: 520 }
-const NIGHT = { top: C('#0b1236'), horizon: C('#33407a'), sun: C('#9fb6ff'), sunI: 0.55, hemiSky: C('#6f80c8'), hemiGround: C('#2a3350'), hemiI: 0.55, fog: C('#2a3566'), near: 120, far: 420 }
+// envI: how strongly the sky lights things (the environment map); hemiI tints the fill at night.
+const DAY = { top: C('#2f86e6'), horizon: C('#b9ddf7'), sun: C('#fff1dc'), sunI: 2.6, hemiSky: C('#cfe9ff'), hemiGround: C('#b9a77f'), hemiI: 0.25, envI: 1.0, fog: C('#c3e0f5'), near: 140, far: 560 }
+const NIGHT = { top: C('#0b1236'), horizon: C('#33407a'), sun: C('#9fb6ff'), sunI: 0.55, hemiSky: C('#6f80c8'), hemiGround: C('#2a3350'), hemiI: 0.5, envI: 0.18, fog: C('#2a3566'), near: 120, far: 420 }
 // The graveyard: dark purple all around, so the world outside nearly disappears.
-const SPOOK = { top: C('#140e26'), horizon: C('#2c2346'), sun: C('#b6a6e6'), sunI: 0.75, hemiSky: C('#8a7cbe'), hemiGround: C('#2e2838'), hemiI: 0.85, fog: C('#221b38'), near: 9, far: 58 }
+const SPOOK = { top: C('#140e26'), horizon: C('#2c2346'), sun: C('#b6a6e6'), sunI: 0.75, hemiSky: C('#8a7cbe'), hemiGround: C('#2e2838'), hemiI: 0.75, envI: 0.22, fog: C('#221b38'), near: 9, far: 58 }
 
 export class World {
   constructor(scene, renderer) {
@@ -122,6 +129,9 @@ export class World {
     this.makeObjects()
     this.makeLamps()
     this.planDecor()
+    this.bakeGroundAO()
+    this.makePlants()
+    this.grass = new GrassField(this)
     progress(0.75)
     await nextFrame()
     this.makeNav()
@@ -141,14 +151,20 @@ export class World {
       uniforms: {
         top: { value: DAY.top.clone() },
         horizon: { value: DAY.horizon.clone() },
-        sunDir: { value: new THREE.Vector3(0.45, 0.62, 0.35).normalize() },
+        sunDir: { value: SUN_DIR.clone() },
         night: { value: 0 },
       },
       vertexShader: `varying vec3 vDir; void main(){ vDir = normalize(position); gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.); }`,
       fragmentShader: `uniform vec3 top; uniform vec3 horizon; uniform vec3 sunDir; uniform float night; varying vec3 vDir;
-        void main(){ float h = clamp(vDir.y, 0., 1.); vec3 c = mix(horizon, top, pow(h, 0.45));
-          float s = max(dot(normalize(vDir), sunDir), 0.); c += vec3(1.,.95,.8) * pow(s, 48.) * (1.-night) * 0.5;
-          c += vec3(1.) * pow(s, 700.) * (1.-night);
+        void main(){ vec3 d = normalize(vDir); float h = clamp(d.y, 0., 1.);
+          // deep blue overhead, pale and hazy at the horizon, warmer on the sun's side
+          vec3 c = mix(horizon, top, pow(h, 0.55));
+          float s = max(dot(d, sunDir), 0.);
+          float haze = pow(1. - h, 6.);
+          c = mix(c, horizon * vec3(1.06, 1.03, 0.98), haze * 0.5);
+          c += vec3(1., .86, .62) * haze * pow(s, 3.) * 0.18 * (1. - night);
+          c += vec3(1., .93, .78) * (pow(s, 24.) * 0.22 + pow(s, 220.) * 0.9) * (1. - night);
+          c += vec3(1.) * smoothstep(0.9993, 0.9997, s) * 3. * (1. - night);
           gl_FragColor = vec4(c, 1.);
           #include <tonemapping_fragment>
           #include <colorspace_fragment>
@@ -171,12 +187,16 @@ export class World {
     c.bottom = -38
     c.near = 1
     c.far = 160
-    sun.shadow.bias = -0.0006
-    sun.shadow.normalBias = 0.04
+    sun.shadow.bias = -0.0005
+    sun.shadow.normalBias = 0.035
     scene.add(sun)
     scene.add(sun.target)
     this.sun = sun
-    this.sunOffset = new THREE.Vector3(45, 70, 35)
+    this.sunOffset = SUN_DIR.clone().multiplyScalar(80)
+
+    // the sky lights everything softly and shows in shiny things
+    scene.environment = skyEnvironment(this.renderer, { top: DAY.top, horizon: DAY.horizon, ground: C('#7f9a58'), sun: DAY.sun })
+    scene.environmentIntensity = DAY.envI
 
     // big puffy clouds
     this.clouds = []
@@ -210,17 +230,19 @@ export class World {
     const H = this.H
     const pos = new Float32Array(n * n * 3)
     const col = new Float32Array(n * n * 3)
+    // what the ground is made of (grass, sand, rock), for the detail shading
+    const mats = new Float32Array(n * n * 3)
     const c = new THREE.Color()
     const tmp = new THREE.Color()
-    const sand = C('#f2e0a8')
-    const wetSand = C('#d8c48c')
-    const grassA = C('#93d36c')
-    const grassB = C('#7cc45c')
-    const forestA = C('#5aa851')
-    const forestB = C('#6dba5c')
-    const rock = C('#a7a199')
-    const rockTop = C('#f1eee9')
-    const soil = C('#b59e74')
+    const sand = C('#efdcaa')
+    const wetSand = C('#cdb88b')
+    const grassA = C('#8cc762')
+    const grassB = C('#73b552')
+    const forestA = C('#4f9647')
+    const forestB = C('#62a650')
+    const rock = C('#a19a90')
+    const rockTop = C('#eceae5')
+    const soil = C('#a88f68')
     const spookA = C('#5d6b4f')
     const spookB = C('#6b5d6e')
     const M = L.MOUNTAIN
@@ -240,8 +262,18 @@ export class World {
         const big = L.vnoise(x * 0.025 + 7, z * 0.025 - 3)
         const md = Math.hypot(x - M.x, z - M.z)
         const isle = L.ISLETS.some((I) => Math.hypot(x - I.x, z - I.z) < I.r + 4)
-        if (h < -0.1) c.copy(wetSand).multiplyScalar(0.94 + 0.06 * noise)
-        else {
+        let wg = 1
+        let ws = 0
+        let wr = 0
+        const toward = (g, sa, r, t) => {
+          wg += (g - wg) * t
+          ws += (sa - ws) * t
+          wr += (r - wr) * t
+        }
+        if (h < -0.1) {
+          c.copy(wetSand).multiplyScalar(0.94 + 0.06 * noise)
+          toward(0, 1, 0, 1)
+        } else {
           c.copy(grassA).lerp(grassB, noise * 0.7 + big * 0.3)
           const f = L.forestness(x, z)
           if (f > 0) c.lerp(tmp.copy(forestA).lerp(forestB, noise), f)
@@ -250,16 +282,28 @@ export class World {
           const beach = (L.inland(x, z) < 20 || isle) && h < 1.15 ? L.smoothstep(1.05, 0.8, h) : 0
           const beachPad = L.smoothstep(13, 8, Math.hypot(x - L.PLACES.beach.x, z - L.PLACES.beach.z))
           c.lerp(sand, Math.max(beach, beachPad))
+          toward(0, 1, 0, Math.max(beach, beachPad))
+          // a darker band of wet sand where the waves reach
+          c.lerp(wetSand, L.smoothstep(0.32, -0.05, h) * 0.7)
+          toward(0, 1, 0, L.smoothstep(0.32, -0.05, h))
           if (md < M.r + 1 && h > 1.6) {
             const r = L.smoothstep(1.6, 4, h) * L.smoothstep(M.r + 1, M.r - 3, md)
             c.lerp(tmp.copy(rock).lerp(rockTop, L.smoothstep(13, 18, h)), r)
+            toward(0, 0, 1, r)
           }
-          if (slope > 0.45 && h > 1.2) c.lerp(rock, Math.min(0.6, (slope - 0.45) * 1.5))
+          if (slope > 0.45 && h > 1.2) {
+            c.lerp(rock, Math.min(0.6, (slope - 0.45) * 1.5))
+            toward(0, 0, 1, Math.min(0.8, (slope - 0.45) * 2))
+          }
           const bank = Math.max(L.smoothstep(L.STREAM_HALF + 1.8, L.STREAM_HALF, L.polyDist(x, z, L.STREAM).d), L.smoothstep(L.POND.r + 2.2, L.POND.r, Math.hypot(x - L.POND.x, z - L.POND.z)))
           const cd = Math.hypot(x - L.CASTLE.x, z - L.CASTLE.z)
           const moat = L.smoothstep(2.6, 1.2, Math.abs(cd - (L.CASTLE.moatIn + L.CASTLE.moatOut) / 2))
           c.lerp(soil, Math.max(bank, moat) * 0.85)
+          toward(0.3, 0.5, 0.2, Math.max(bank, moat) * 0.85)
         }
+        mats[k * 3] = wg
+        mats[k * 3 + 1] = ws
+        mats[k * 3 + 2] = wr
         const jit = 0.96 + L.vnoise(x * 0.9, z * 0.9) * 0.08
         col[k * 3] = c.r * jit
         col[k * 3 + 1] = c.g * jit
@@ -278,15 +322,19 @@ export class World {
     const g = new THREE.BufferGeometry()
     g.setAttribute('position', new THREE.BufferAttribute(pos, 3))
     g.setAttribute('color', new THREE.BufferAttribute(col, 3))
+    g.setAttribute('tmat', new THREE.BufferAttribute(mats, 3))
     g.setIndex(idx)
     g.computeVertexNormals()
     g.computeBoundingSphere()
+    this.terrainCol = col
+    this.terrainMats = mats
+    patchGround(TERRAIN_MAT)
     const mesh = new THREE.Mesh(g, TERRAIN_MAT)
     mesh.receiveShadow = true
     this.scene.add(mesh)
     this.terrain = mesh
     this.groundMeshes.push(mesh)
-    const floor = new THREE.Mesh(new THREE.PlaneGeometry(2000, 2000).rotateX(-Math.PI / 2), new THREE.MeshLambertMaterial({ color: 0x9c8f6a }))
+    const floor = new THREE.Mesh(new THREE.PlaneGeometry(2000, 2000).rotateX(-Math.PI / 2), new THREE.MeshStandardMaterial({ color: 0xa8976e, roughness: 1 }))
     floor.position.y = -7.2
     this.scene.add(floor)
   }
@@ -313,15 +361,19 @@ export class World {
         uTime: { value: 0 },
         uHeight: { value: null },
         uHalf: { value: L.HALF },
-        uShallow: { value: C('#5fe3e0') },
-        uDeep: { value: C('#1f86d6') },
+        uShallow: { value: C('#4fd6cf') },
+        uDeep: { value: C('#14609f') },
         uFoam: { value: C('#ffffff') },
         uSky: { value: DAY.horizon.clone() },
-        uSun: { value: new THREE.Vector3(0.45, 0.62, 0.35).normalize() },
+        uTop: { value: DAY.top.clone() },
+        uSun: { value: SUN_DIR.clone() },
+        uSunCol: { value: DAY.sun.clone() },
         uNight: { value: 0 },
+        uNormals: { value: null },
       },
     ])
     uniforms.uHeight.value = tex
+    uniforms.uNormals.value = this.waterTex = waterNormals(256)
     this.seaMat = new THREE.ShaderMaterial({
       uniforms,
       transparent: true,
@@ -334,27 +386,47 @@ export class World {
           vW = wp.xyz; vec4 mvPosition = viewMatrix * wp; gl_Position = projectionMatrix * mvPosition;
           #include <fog_vertex>
         }`,
-      fragmentShader: `uniform sampler2D uHeight; uniform float uHalf; uniform float uTime; uniform vec3 uShallow; uniform vec3 uDeep; uniform vec3 uFoam; uniform vec3 uSky; uniform vec3 uSun; uniform float uNight; varying vec3 vW;
+      // The sea: rippled by two scrolling normal maps (plus slow swells), it reflects the sky more at
+      // grazing angles, glints in the sun, is clear turquoise over sand and deep blue further out, and
+      // has foam that laps at the shore.
+      fragmentShader: `uniform sampler2D uHeight; uniform sampler2D uNormals; uniform float uHalf; uniform float uTime;
+        uniform vec3 uShallow; uniform vec3 uDeep; uniform vec3 uFoam; uniform vec3 uSky; uniform vec3 uTop; uniform vec3 uSun; uniform vec3 uSunCol; uniform float uNight; varying vec3 vW;
         #include <fog_pars_fragment>
         void main(){
           vec2 uv = (vW.xz + uHalf) / (2.*uHalf);
           float h = -7.;
           if (uv.x > 0. && uv.x < 1. && uv.y > 0. && uv.y < 1.) h = texture2D(uHeight, uv).r * 9. - 7.;
           float depth = max(0., vW.y - h);
-          vec3 col = mix(uShallow, uDeep, smoothstep(0.3, 6., depth));
-          // little waves tilt the surface: sky reflection and sun glints
-          vec3 n = normalize(vec3(sin(vW.x*0.9 + uTime*1.6)*0.08 + sin(vW.z*1.7 - uTime*1.2)*0.05, 1., cos(vW.z*0.8 + uTime*1.3)*0.08 + cos(vW.x*1.5 + uTime)*0.05));
+          vec2 p = vW.xz;
+          vec4 r1 = texture2D(uNormals, p * 0.045 + vec2(uTime * 0.013, uTime * 0.009));
+          vec4 r2 = texture2D(uNormals, p * 0.11 + vec2(-uTime * 0.019, uTime * 0.014));
+          vec4 r3 = texture2D(uNormals, p * 0.009 + vec2(uTime * 0.004, -uTime * 0.003));
+          vec2 sl = (r1.xy - 0.5) + (r2.xy - 0.5) * 0.8 + (r3.xy - 0.5) * 1.6;
+          float dist = length(cameraPosition - vW);
+          sl *= mix(1.0, 0.35, smoothstep(60., 380., dist));
+          vec3 n = normalize(vec3(sl.x, 1.0, sl.y));
           vec3 v = normalize(cameraPosition - vW);
-          float fres = pow(1. - max(dot(v, n), 0.), 3.);
-          col = mix(col, uSky, fres * 0.55);
-          float glint = pow(max(dot(reflect(-uSun, n), v), 0.), 120.);
-          col += vec3(1.) * glint * 0.8 * (1. - uNight);
-          float band = sin(depth*7. - uTime*1.7 + sin(vW.x*0.25 + vW.z*0.2)*1.2)*0.5 + 0.5;
-          float foam = smoothstep(0.45, 0.05, depth) + smoothstep(0.8, 1., band) * smoothstep(1.6, 0.3, depth) * 0.75;
-          col = mix(col, uFoam, clamp(foam, 0., 1.) * 0.85);
+          float ndv = max(dot(v, n), 0.);
+          float fres = 0.02 + 0.98 * pow(1. - ndv, 5.);
+          vec3 rd = reflect(-v, n);
+          vec3 sky = mix(uSky, uTop, pow(clamp(rd.y, 0., 1.), 0.55));
+          vec3 body = mix(uShallow, uDeep, smoothstep(0.3, 7.5, depth));
+          // a soft wobbly light pattern on the sand under shallow water
+          float caust = smoothstep(0.55, 0.9, r2.a) * smoothstep(2.5, 0.4, depth) * 0.25;
+          body += vec3(caust);
+          vec3 col = mix(body, sky, clamp(fres * 1.15, 0., 0.85));
+          vec3 hv = normalize(uSun + v);
+          float nh = max(dot(n, hv), 0.);
+          col += uSunCol * (pow(nh, 500.) * 4.0 + pow(nh, 60.) * 0.18) * (1. - uNight);
+          float fn = texture2D(uNormals, p * 0.21 + vec2(uTime * 0.02, 0.)).a;
+          float shore = smoothstep(0.5, 0.02, depth + (fn - 0.5) * 0.45);
+          float band = sin(depth * 6. - uTime * 1.6 + fn * 5.) * 0.5 + 0.5;
+          float foam = shore + smoothstep(0.78, 1., band) * smoothstep(1.5, 0.2, depth) * smoothstep(0.3, 0.6, fn);
+          foam = clamp(foam, 0., 1.);
+          col = mix(col, uFoam * mix(0.95, 1.05, fn), foam * 0.9);
           col *= mix(1., 0.4, uNight);
-          float alpha = mix(0.5, 0.95, smoothstep(0., 2.6, depth));
-          alpha = max(alpha, clamp(foam, 0., 1.) * 0.95);
+          float alpha = mix(0.45, 0.96, smoothstep(0., 3.2, depth));
+          alpha = max(alpha, max(foam * 0.95, fres * 0.9));
           gl_FragColor = vec4(col, alpha);
           #include <tonemapping_fragment>
           #include <colorspace_fragment>
@@ -367,7 +439,12 @@ export class World {
   }
 
   makeFreshWater() {
-    const uniforms = THREE.UniformsUtils.merge([THREE.UniformsLib.fog, { uTime: { value: 0 }, uNight: { value: 0 } }])
+    const uniforms = THREE.UniformsUtils.merge([
+      THREE.UniformsLib.fog,
+      { uTime: { value: 0 }, uNight: { value: 0 }, uNormals: { value: null }, uSky: { value: DAY.horizon.clone() }, uTop: { value: DAY.top.clone() }, uSun: { value: SUN_DIR.clone() }, uSunCol: { value: DAY.sun.clone() } },
+    ])
+    uniforms.uNormals.value = this.waterTex
+    // Streams, the pond and the moat: greener, calmer water with small ripples and sky reflections.
     this.freshMat = new THREE.ShaderMaterial({
       uniforms,
       transparent: true,
@@ -379,13 +456,23 @@ export class World {
         void main(){ vec4 wp = modelMatrix * vec4(position,1.); vW = wp.xyz; vec4 mvPosition = viewMatrix * wp; gl_Position = projectionMatrix * mvPosition;
           #include <fog_vertex>
         }`,
-      fragmentShader: `uniform float uTime; uniform float uNight; varying vec3 vW;
+      fragmentShader: `uniform float uTime; uniform float uNight; uniform sampler2D uNormals; uniform vec3 uSky; uniform vec3 uTop; uniform vec3 uSun; uniform vec3 uSunCol; varying vec3 vW;
         #include <fog_pars_fragment>
-        void main(){ vec3 col = vec3(0.3, 0.74, 0.9);
-          float r = sin(vW.x*1.4 + vW.z*0.6 + uTime*2.2) * sin(vW.z*1.2 - vW.x*0.5 - uTime*1.6);
-          col = mix(col, vec3(1.), smoothstep(0.8, 1., r) * 0.6);
+        void main(){
+          vec2 p = vW.xz;
+          vec4 r1 = texture2D(uNormals, p * 0.16 + vec2(uTime * 0.03, uTime * 0.02));
+          vec4 r2 = texture2D(uNormals, p * 0.37 + vec2(-uTime * 0.04, uTime * 0.03));
+          vec2 sl = ((r1.xy - 0.5) + (r2.xy - 0.5)) * 0.55;
+          vec3 n = normalize(vec3(sl.x, 1.0, sl.y));
+          vec3 v = normalize(cameraPosition - vW);
+          float fres = 0.02 + 0.98 * pow(1. - max(dot(v, n), 0.), 5.);
+          vec3 rd = reflect(-v, n);
+          vec3 sky = mix(uSky, uTop, pow(clamp(rd.y, 0., 1.), 0.55));
+          vec3 col = mix(vec3(0.07, 0.3, 0.33), sky, clamp(fres * 1.2 + 0.12, 0., 0.85));
+          float nh = max(dot(n, normalize(uSun + v)), 0.);
+          col += uSunCol * pow(nh, 400.) * 3. * (1. - uNight);
           col *= mix(1., 0.4, uNight);
-          gl_FragColor = vec4(col, 0.86);
+          gl_FragColor = vec4(col, 0.9);
           #include <tonemapping_fragment>
           #include <colorspace_fragment>
           #include <fog_fragment>
@@ -421,7 +508,7 @@ export class World {
   }
 
   makeRoads() {
-    const roadMat = new THREE.MeshLambertMaterial({ vertexColors: true, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 })
+    const roadMat = patchGround(new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.92, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }), { weights: [0.15, 0.7, 0.15], bump: 1.2, key: 'road' })
     const p = new Parts()
     for (const r of L.ROADS) {
       this.ribbon(p, r.pts, r.w + 0.7, 0.07, '#d6b981', roadMat)
@@ -432,6 +519,8 @@ export class World {
     const pl = new Parts()
     const y = this.terrainY(L.PLAZA.x, L.PLAZA.z) + 0.13
     const at = { x: L.PLAZA.x, z: L.PLAZA.z, rx: -Math.PI / 2, mat: roadMat }
+    // the plaza is paved with stones
+    at.mat = patchGround(new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.85, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }), { weights: [0, 0.15, 0.85], scale: 0.42, bump: 1.4, key: 'plaza' })
     pl.add(new THREE.CircleGeometry(L.PLAZA.r + 0.6, 48), '#d9c9a6', { ...at, y: y - 0.01, jitter: 0.02 })
     pl.add(new THREE.RingGeometry(3.2, L.PLAZA.r, 48, 3), '#ece0c6', { ...at, y, jitter: 0.04 })
     pl.add(new THREE.RingGeometry(1.8, 3.2, 32, 1), '#cdb990', { ...at, y, jitter: 0.04 })
@@ -701,6 +790,7 @@ export class World {
         }
       }
     }
+    this.placeTreasures()
     L.HIDDEN_COINS.forEach(([x, z], i) => this.addEntity({ id: `coin-${i}`, kind: 'coin', x, z, tapR: 1.0, tapH: 1.6, reach: 0.9, zone: this.zoneOf(x, z) }))
     this.addEntity({ id: 'glasses', kind: 'glasses', x: L.GLASSES_SPOT.x, z: L.GLASSES_SPOT.z, tapR: 1.0, tapH: 1.2, reach: 0.9, zone: 'forest' })
     // mushrooms to pick in the forest (they grow back)
@@ -734,6 +824,81 @@ export class World {
     return best
   }
 
+  // Treasures to swap at the bank, each kind in its own kind of place (see treasures.js).
+  placeTreasures() {
+    const rand = L.mulberry32(2024)
+    const M = L.MOUNTAIN
+    const slope = (x, z) => Math.hypot(this.terrainY(x + 0.5, z) - this.terrainY(x - 0.5, z), this.terrainY(x, z + 0.5) - this.terrainY(x, z - 0.5))
+    const clear = (x, z) =>
+      !L.nearRoad(x, z, 0.8) && !L.onPier(x, z) && !L.inStream(x, z, 1.2) && !L.inPond(x, z, 1.2) && !L.inMoat(x, z, 1.2) && L.bridgeAt(x, z, 1) === null &&
+      !L.BUILDINGS.some((b) => Math.hypot(x - b.x, z - b.z) < Math.max(b.w, b.d) / 2 + 1.5) &&
+      !this.entities.some((e) => Math.hypot(e.x - x, e.z - z) < 3)
+    const place = (kind, n, pick, tries = 4000) => {
+      let k = 0
+      for (let i = 0; i < tries && k < n; i++) {
+        const pt = pick()
+        if (!pt) continue
+        const [x, z] = pt
+        const h = this.terrainY(x, z)
+        if (h < 0.25 || slope(x, z) > 0.6 || !clear(x, z)) continue
+        this.addEntity({ id: `t-${kind}-${k}`, kind: 'treasure', item: kind, respawn: TREASURES[kind].respawn, x, z, tapR: 1.0, tapH: 1.2, reach: 0.9, zone: this.zoneOf(x, z) })
+        k++
+      }
+    }
+    const anywhere = () => [(rand() * 2 - 1) * L.HALF, (rand() * 2 - 1) * L.HALF]
+    // starfish near the water's edge
+    place('starfish', 7, () => {
+      const a = rand() * Math.PI * 2
+      const R = L.coastRadius(a)
+      for (let r = R + 2; r > R - 20; r -= 0.4) {
+        const h = this.terrainY(Math.cos(a) * r, Math.sin(a) * r)
+        if (h > 0.26 && h < 0.5) return [Math.cos(a) * r, Math.sin(a) * r]
+      }
+      return null
+    })
+    // acorns under the forest trees
+    place('acorn', 10, () => {
+      const [x, z] = anywhere()
+      return L.forestness(x, z) > 0.55 && !L.inMountain(x, z) ? [x, z] : null
+    })
+    // lucky clovers out in the open meadows (not the forest, not the village)
+    place('clover', 5, () => {
+      const [x, z] = anywhere()
+      const t = L.inland(x, z)
+      if (t < 18 || L.forestness(x, z) > 0.2 || L.spookiness(x, z) > 0.1 || Math.hypot(x - L.VILLAGE.x, z - L.VILLAGE.z) < 30) return null
+      if (Math.hypot(x - M.x, z - M.z) < M.r + 3 || this.terrainY(x, z) < 1) return null
+      return [x, z]
+    })
+    // dino bones dug up around the farm
+    const F = L.PLACES.farm
+    place('bone', 4, () => {
+      const a = rand() * Math.PI * 2
+      const r = 8 + rand() * 18
+      return [F.x + Math.cos(a) * r, F.z + Math.sin(a) * r]
+    })
+    // pearls on the beaches of the little islands
+    let isle = 0
+    place('pearl', 4, () => {
+      const I = L.ISLETS[isle++ % L.ISLETS.length]
+      const a = rand() * Math.PI * 2
+      const r = I.r - 2 - rand() * 3
+      return [I.x + Math.cos(a) * r, I.z + Math.sin(a) * r]
+    })
+    // old keys in the graveyard
+    const G = L.GRAVEYARD
+    place('key', 3, () => {
+      const a = rand() * Math.PI * 2
+      const r = rand() * (G.r - 2)
+      return [G.x + Math.cos(a) * r, G.z + Math.sin(a) * r]
+    })
+    // crystals at the foot of the mountain
+    place('crystal', 3, () => {
+      const a = rand() * Math.PI * 2
+      const r = M.r - 3 + rand() * 6
+      return [M.x + Math.cos(a) * r, M.z + Math.sin(a) * r]
+    })
+  }
+
   // Street lamps along the roads (they glow at night and in the graveyard).
   makeLamps() {
     const posts = []
@@ -759,6 +924,60 @@ export class World {
     this.lampSpots = spots
     this.scene.add(instanced('lamppost', posts))
     this.scene.add(instanced('lamphead', posts, { shadow: false }))
+  }
+
+  // Soft contact shade on the ground around buildings, trees, bushes and rocks (baked once): the sky
+  // can't reach the ground right next to them, so they look like they stand on it, not float.
+  bakeGroundAO() {
+    const n = this.gn
+    const shade = new Float32Array(n * n).fill(1)
+    const visit = (x0, z0, r, fn) => {
+      const i0 = Math.max(0, Math.floor((x0 - r + L.HALF) / RES))
+      const i1 = Math.min(n - 1, Math.ceil((x0 + r + L.HALF) / RES))
+      const j0 = Math.max(0, Math.floor((z0 - r + L.HALF) / RES))
+      const j1 = Math.min(n - 1, Math.ceil((z0 + r + L.HALF) / RES))
+      for (let j = j0; j <= j1; j++)
+        for (let i = i0; i <= i1; i++) {
+          const k = j * n + i
+          shade[k] = Math.min(shade[k], fn(-L.HALF + i * RES, -L.HALF + j * RES))
+        }
+    }
+    for (const b of L.BUILDINGS) {
+      const hw = b.w / 2
+      const hd = b.d / 2
+      const ca = Math.cos(b.rot || 0)
+      const sa = Math.sin(b.rot || 0)
+      visit(b.x, b.z, Math.hypot(hw, hd) + 3, (x, z) => {
+        const dx = x - b.x
+        const dz = z - b.z
+        const lx = dx * ca - dz * sa
+        const lz = dx * sa + dz * ca
+        const d = Math.hypot(Math.max(0, Math.abs(lx) - hw), Math.max(0, Math.abs(lz) - hd))
+        return 0.6 + 0.4 * L.smoothstep(0, 2.6, d)
+      })
+    }
+    for (const [x, z, , r] of this.treeSpots) visit(x, z, r * 1.2, (px, pz) => 0.7 + 0.3 * L.smoothstep(0.1, 1, Math.hypot(px - x, pz - z) / (r * 1.2)))
+    for (const [x, z, r] of this.solids) visit(x, z, r * 2.2, (px, pz) => 0.78 + 0.22 * L.smoothstep(0.3, 1, Math.hypot(px - x, pz - z) / (r * 2.2)))
+    const col = this.terrainCol
+    for (let k = 0; k < n * n; k++) {
+      col[k * 3] *= shade[k]
+      col[k * 3 + 1] *= shade[k]
+      col[k * 3 + 2] *= shade[k]
+    }
+    this.terrain.geometry.attributes.color.needsUpdate = true
+  }
+
+  // Trees, bushes, rocks, grass tufts and flowers live in near/far pools for the whole island (see
+  // PlantPools); the zones still build everything else when Coji gets near.
+  makePlants() {
+    const byType = {}
+    for (const z of this.zones)
+      for (const type of Object.keys(z.items)) {
+        if (!POOLED(type)) continue
+        ;(byType[type] ||= []).push(...z.items[type])
+        delete z.items[type]
+      }
+    this.plants = new PlantPools(this.scene, byType)
   }
 
   // ---------- plants: positions now, meshes when the zone is built ----------
@@ -1044,7 +1263,7 @@ export class World {
         m.position.set(e.x, e.y, e.z)
         m.scale.setScalar(1.3)
         e.mesh = m
-        group.add(m)
+        group.add(this.small(e, [m]))
       }
       if (e.kind === 'chest') {
         const m = P.treasureChest()
@@ -1058,16 +1277,15 @@ export class World {
         m.position.set(e.x, e.y - 0.05, e.z)
         group.add(m)
       }
-      if (e.kind === 'shell' || e.kind === 'coin' || e.kind === 'glasses') {
-        const m = e.kind === 'shell' ? P.shellMesh() : e.kind === 'coin' ? P.coinMesh() : P.glassesMesh()
+      if (e.kind === 'shell' || e.kind === 'coin' || e.kind === 'glasses' || e.kind === 'treasure') {
+        const m = e.kind === 'treasure' ? treasureMesh(e.item) : e.kind === 'shell' ? P.shellMesh() : e.kind === 'coin' ? P.coinMesh() : P.glassesMesh()
         m.position.set(e.x, e.y + (e.kind === 'coin' ? 0.55 : 0.02), e.z)
         m.rotation.y = Math.random() * 6
         e.mesh = m
-        group.add(m)
         const sparkle = this.sparkle()
         sparkle.position.set(e.x, e.y + 0.9, e.z)
         e.sparkle = sparkle
-        group.add(sparkle)
+        group.add(this.small(e, [m, sparkle]))
       }
       if (e.kind === 'grave') {
         const m = P.gravestone(e.type)
@@ -1120,6 +1338,7 @@ export class World {
       void T
     }
     if (zone.id === 'graveyard') this.buildGraveyard(group)
+    ;(this.zoneGroups ||= []).push(group)
     if (['farm', 'village', 'lighthouse', 'school', 'post', 'flower'].includes(zone.id)) {
       const cols = ['#ff9fd1', '#ffe066', '#9fd8ff', '#c9a7ff']
       for (let i = 0; i < 3; i++) {
@@ -1131,6 +1350,21 @@ export class World {
       }
     }
     this.scene.add(group)
+  }
+
+  // Little things (pickups, mushrooms) cost a draw call each: no shadows, and they are hidden when far
+  // from the camera (see update). The holder's visibility is ours; the pickup's own is the game's.
+  small(e, parts) {
+    const holder = new THREE.Group()
+    for (const o of parts) {
+      o.traverse((m) => {
+        if (m.isMesh) m.castShadow = false
+      })
+      holder.add(o)
+    }
+    holder.userData.small = true
+    ;(this.smalls ||= []).push({ holder, x: e.x, z: e.z })
+    return holder
   }
 
   buildCastleLife(group) {
@@ -1213,18 +1447,23 @@ export class World {
   }
 
   owlTree(it) {
-    const p = new Parts()
-    p.add(cyl(0.6, 0.85, 5.5, 10), '#7a4e27', { y: 2.75 })
-    p.add(ico(0.42, 1), '#3a2414', { y: 2.2, z: 0.62, sz: 0.4, sy: 1.3 })
-    p.add(cyl(0.18, 0.25, 2.2, 7), '#7a4e27', { y: 4.35, z: 1.1, rx: Math.PI / 2 - 0.15 })
+    // a big old oak with a hollow for Hoot: thick trunk with roots, a stubby branch, a full crown
+    const p = new Parts(TREE_MAT)
+    const bark = '#6b4a2e'
+    limb(p, [0, -0.2, 0], [0.1, 3.0, 0], 0.9, 0.68, bark, 14)
+    limb(p, [0.1, 3.0, 0], [0.05, 5.6, -0.1], 0.68, 0.45, bark, 14)
+    for (let i = 0; i < 7; i++) {
+      const a = i * 0.9 + 0.2
+      limb(p, [Math.cos(a) * 0.4, 0.9, Math.sin(a) * 0.4], [Math.cos(a) * 1.5, -0.15, Math.sin(a) * 1.5], 0.32, 0.08, '#5f412a', 7)
+    }
+    p.add(new THREE.SphereGeometry(0.42, 14, 10), '#2a190d', { y: 2.2, z: 0.66, sz: 0.4, sy: 1.3, jitter: 0, flat: false })
+    p.add(new THREE.TorusGeometry(0.44, 0.09, 8, 18), '#5a3c24', { y: 2.2, z: 0.7, sy: 1.3, jitter: 0.05, flat: false })
+    limb(p, [0, 4.0, 0.3], [0, 4.6, 2.1], 0.24, 0.14, bark, 9)
+    limb(p, [0, 5.2, 0], [1.7, 6.6, 0.4], 0.28, 0.12, bark, 9)
+    limb(p, [0, 5.3, 0], [-1.6, 6.7, -0.5], 0.28, 0.12, bark, 9)
+    addCrown(p, TREE_MAT, [0, 7.3, 0], [3.1, 2.3, 3.1], { n: 48, r: 0.85 })
     const g = new THREE.Group()
     g.add(p.build())
-    const leaves = new Parts()
-    leaves.add(blobGeo(2.8, 1), '#4f9f4a', { y: 7.2, sy: 0.85, mat: SMOOTH })
-    leaves.add(blobGeo(1.9, 2), '#5aad52', { x: 1.9, y: 6.4, z: 0.6, mat: SMOOTH })
-    leaves.add(blobGeo(1.9, 3), '#479442', { x: -1.8, y: 6.6, z: -0.6, mat: SMOOTH })
-    leaves.add(blobGeo(1.6, 4), '#5fb456', { x: 0.2, y: 8.6, z: -0.4, mat: SMOOTH })
-    g.add(leaves.build())
     g.position.set(it.x, it.y - 0.1, it.z)
     g.rotation.y = Math.atan2(L.NPCS.hoot.x - it.x, L.NPCS.hoot.z - it.z)
     return g
@@ -1267,6 +1506,7 @@ export class World {
     else if (e.id === 'bun') ch = new Bunny()
     else if (e.id === 'boo') ch = new Ghost(true)
     else ch = new Person(LOOKS[e.id])
+    ch.root.userData.moves = true
     let y = e.y
     let { x, z } = n
     if (e.id === 'hoot') {
@@ -1308,6 +1548,30 @@ export class World {
 
   update(dt, t, focus) {
     this.t = t
+    WIND.uTime.value = t
+    this.plants.update(this.camera ? this.camera.position : focus)
+    this.grass.update(focus, t)
+    this.smallT = (this.smallT ?? 0) - dt
+    if (this.smalls && this.smallT <= 0) {
+      this.smallT = 0.5
+      const c = this.camera ? this.camera.position : focus
+      for (const s of this.smalls) s.holder.visible = Math.abs(s.x - c.x) + Math.abs(s.z - c.z) < 64
+      // small props (benches, crates, fences, people standing still) far away: a few pixels, skip them
+      for (const zg of this.zoneGroups || [])
+        for (const o of zg.children) {
+          if (o.userData.small) continue
+          if (o.userData.cullR === undefined) {
+            const b = new THREE.Box3().setFromObject(o)
+            o.userData.cullR = b.isEmpty() ? 0 : b.getSize(_v3).length() / 2
+            o.userData.cx = b.isEmpty() ? o.position.x : (b.min.x + b.max.x) / 2
+            o.userData.cz = b.isEmpty() ? o.position.z : (b.min.z + b.max.z) / 2
+          }
+          if (o.userData.cullR > 3 || o.isSprite) continue
+          const x = o.userData.moves ? o.position.x : o.userData.cx
+          const z = o.userData.moves ? o.position.z : o.userData.cz
+          o.visible = Math.hypot(x - c.x, z - c.z) < 75
+        }
+    }
     this.seaMat.uniforms.uTime.value = t
     this.freshMat.uniforms.uTime.value = t
     const snap = 2
@@ -1445,10 +1709,15 @@ export class World {
     this.hemi.color.copy(mix('hemiSky'))
     this.hemi.groundColor.copy(mix('hemiGround'))
     this.hemi.intensity = mix('hemiI')
+    this.scene.environmentIntensity = mix('envI')
     this.seaMat.uniforms.uNight.value = Math.max(night, s * 0.5)
     this.seaMat.uniforms.uSky.value.copy(mix('horizon'))
+    this.seaMat.uniforms.uTop.value.copy(mix('top'))
+    this.freshMat.uniforms.uSky.value.copy(mix('horizon'))
+    this.freshMat.uniforms.uTop.value.copy(mix('top'))
     this.freshMat.uniforms.uNight.value = Math.max(night, s * 0.5)
     GLOW.emissiveIntensity = Math.max(night * 0.9, s * 0.8)
+    CLOUD_MAT.emissiveIntensity = 0.32 * (1 - night * 0.85) * (1 - s * 0.7)
     this.stars.material.opacity = night
   }
   setNight(k) {
@@ -1554,6 +1823,10 @@ export class World {
     root.scale.setScalar(1)
     if (ch.head) ch.head.rotation.set(0, 0, 0)
     root.updateMatrixWorld(true)
+    // fused characters (rig.js): move their bones to the portrait pose now, not on the next frame
+    const skins = []
+    root.traverse((o) => o.isSkinnedMesh && skins.push(o.skeleton))
+    for (const sk of skins) sk.update()
     const fy = ch.faceY ?? 1.5
     const dist = ch.portraitDist ?? 2.4
     this.portraitCam.position.set(0.25 * dist, fy + 0.15 * dist, dist)
@@ -1572,6 +1845,8 @@ export class World {
     root.position.copy(saved.p)
     root.rotation.y = saved.r
     root.scale.setScalar(saved.s)
+    root.updateMatrixWorld(true)
+    for (const sk of skins) sk.update()
     const cv = document.createElement('canvas')
     cv.width = size
     cv.height = size

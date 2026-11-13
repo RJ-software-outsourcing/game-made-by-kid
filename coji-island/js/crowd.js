@@ -23,6 +23,9 @@ export class Crowd {
     this.homes = L.BUILDINGS.map((b, i) => ({ b, i })).filter((h) => h.b.kind === 'house').map((h, k) => ({ ...h, k }))
     this.knights = []
     this.outsideChecked = false
+    // villagers and animals who walked away are kept and reused (building a new one takes a moment)
+    this.pool = { adult: [], kid: [] }
+    this.animalPool = {}
     this.makeDoors()
   }
 
@@ -57,6 +60,13 @@ export class Crowd {
     delete CAST[e.id]
     this.game.removeMarkers(e)
     this.items.splice(this.items.indexOf(it), 1)
+    if (it.kind === 'villager') {
+      const list = this.pool[ch.look.kid ? 'kid' : 'adult']
+      if (list.length < 5) list.push(ch)
+    } else if (it.kind === 'animal') {
+      const list = (this.animalPool[it.animal] ||= [])
+      if (list.length < 3) list.push(ch)
+    }
     return true
   }
 
@@ -81,7 +91,11 @@ export class Crowd {
     const kid = Math.random() < 0.3
     const rand = Math.random
     const name = pick(NAMES.filter((n) => !this.items.some((it) => CAST[it.id]?.name === n)))
-    this.add('villager', new Person(randomLook(rand, kid)), s[0], s[1], villagerCast(name, kid), { speed: kid ? 2.2 : 1.6, roads: true })
+    const reuse = this.pool[kid ? 'kid' : 'adult']
+    const ch = reuse.length ? reuse.splice(Math.floor(Math.random() * reuse.length), 1)[0] : new Person(randomLook(rand, kid))
+    ch.speed = 0
+    ch.talk = 0
+    this.add('villager', ch, s[0], s[1], villagerCast(name, kid), { speed: kid ? 2.2 : 1.6, roads: true })
   }
 
   spawnAnimal() {
@@ -102,7 +116,8 @@ export class Crowd {
       return h > 0.9 && !L.nearRoad(x, z, 0.5) && (L.polyDist(x, z, L.RING).d < 14 || L.forestness(x, z) > 0.3)
     })
     if (!s) return
-    const ch = new Critter(kind)
+    const ch = this.animalPool[kind]?.pop() || new Critter(kind)
+    ch.speed = 0
     const small = ['hedgehog', 'crab', 'frog', 'duckling', 'squirrel'].includes(kind)
     this.add('animal', ch, s[0], s[1], critterCast(kind), { speed: kind === 'deer' ? 2.4 : kind === 'fox' ? 2.0 : small ? 0.9 : 1.2, animal: kind, tapR: small ? 0.7 : 1.1, tapH: small ? 0.8 : 1.8, reach: small ? 1.2 : 1.8 })
   }
@@ -257,7 +272,8 @@ export class Crowd {
     } else {
       ch.speed = 0
       it.wait -= dt
-      if (it.wait <= 0) this.chooseTarget(it)
+      // someone coming to ask Coji for help is steered by help.js
+      if (it.wait <= 0 && !it.follow) this.chooseTarget(it)
     }
     e.y = g.world.surfaceY(e.x, e.z)
     ch.root.position.set(e.x, e.y, e.z)

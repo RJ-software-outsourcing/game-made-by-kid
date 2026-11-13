@@ -14,7 +14,26 @@ export const ITEMS = {
   sandwich: { name: 'Sandwich', icon: '🥪', energy: 30, desc: 'A picnic sandwich.', use: 'Eat it when you are tired.' },
   candle: { name: 'Candle', icon: '🕯️', desc: 'A little candle.', use: 'Boo the ghost needs one for a pumpkin lantern.' },
   fish: { name: 'Fish', icon: '🐟', desc: 'A fresh fish.', use: 'Give it to Momo the cat at the harbor.' },
-  shell: { name: 'Shell', icon: '🐚', desc: 'A pretty shell.', use: 'Take it to Penny at the bank. 1 shell = 1 coin.' },
+  // treasures: swap them at the bank (rare things are worth more coins)
+  shell: { name: 'Shell', icon: '🐚', treasure: true, desc: 'A pretty shell from the beach.', use: 'Swap it with Penny at the bank. 1 shell = 1 coin.' },
+  acorn: { name: 'Acorn', icon: '🌰', treasure: true, desc: 'A little brown acorn from the forest.', use: 'Swap it with Penny at the bank. 1 acorn = 1 coin.' },
+  starfish: { name: 'Starfish', plural: 'starfish', icon: '⭐', treasure: true, desc: 'An orange starfish with five arms.', use: 'Swap it with Penny at the bank. 1 starfish = 2 coins.' },
+  clover: { name: 'Lucky Clover', icon: '🍀', treasure: true, desc: 'A clover with four leaves. So lucky!', use: 'Swap it with Penny at the bank. 1 clover = 3 coins.' },
+  bone: { name: 'Dino Bone', icon: '🦴', treasure: true, desc: 'A very, very old bone. Was it a dinosaur?', use: 'Swap it with Penny at the bank. 1 bone = 4 coins.' },
+  pearl: { name: 'Pearl', icon: '🦪', treasure: true, desc: 'A shiny white pearl in a shell.', use: 'Swap it with Penny at the bank. 1 pearl = 5 coins.' },
+  key: { name: 'Old Key', icon: '🗝️', treasure: true, desc: 'An old gold key. What did it open?', use: 'Swap it with Penny at the bank. 1 key = 6 coins.' },
+  crystal: { name: 'Crystal', icon: '💎', treasure: true, desc: 'A purple crystal from the mountain. It shines!', use: 'Swap it with Penny at the bank. 1 crystal = 8 coins.' },
+  // gifts from people Coji helps: toys to keep (or swap at the bank) and snacks
+  ball: { name: 'Ball', icon: '⚽', treasure: true, gift: true, desc: 'A bouncy ball. Kick it!', use: 'A gift! Keep it, or swap it at the bank. 1 ball = 2 coins.' },
+  yoyo: { name: 'Yo-yo', icon: '🪀', treasure: true, gift: true, desc: 'A yo-yo. It goes up and down!', use: 'A gift! Keep it, or swap it at the bank. 1 yo-yo = 2 coins.' },
+  crayons: { name: 'Crayons', plural: 'boxes of crayons', icon: '🖍️', treasure: true, gift: true, desc: 'A box of crayons in many colors.', use: 'A gift! Keep them, or swap them at the bank. 1 box = 2 coins.' },
+  kite: { name: 'Kite', icon: '🪁', treasure: true, gift: true, desc: 'A kite with a long tail. It flies high!', use: 'A gift! Keep it, or swap it at the bank. 1 kite = 3 coins.' },
+  toycar: { name: 'Toy Car', icon: '🚗', treasure: true, gift: true, desc: 'A little red toy car. Vroom!', use: 'A gift! Keep it, or swap it at the bank. 1 toy car = 3 coins.' },
+  book: { name: 'Story Book', icon: '📘', treasure: true, gift: true, desc: 'A book full of fun stories.', use: 'A gift! Keep it, or swap it at the bank. 1 book = 3 coins.' },
+  medal: { name: 'Helper Medal', icon: '🏅', treasure: true, gift: true, desc: 'A gold medal for a great helper!', use: 'A gift! Keep it, or swap it at the bank. 1 medal = 5 coins.' },
+  lollipop: { name: 'Lollipop', icon: '🍭', energy: 10, desc: 'A sweet, swirly lollipop.', use: 'A gift! Eat it for a little energy.' },
+  cupcake: { name: 'Cupcake', icon: '🧁', energy: 25, desc: 'A cupcake with pink icing.', use: 'A gift! Eat it for energy.' },
+  pie: { name: 'Apple Pie', icon: '🥧', energy: 35, desc: 'A warm apple pie. Yum!', use: 'A gift! Eat it when you are tired.' },
   honey: { name: 'Honey', icon: '🍯', quest: true, desc: 'A jar of sweet honey.', use: 'Give it to Bruno the bear on Bear Bridge.' },
   glasses: { name: 'Round Glasses', icon: '👓', quest: true, desc: 'Round glasses.', use: 'Someone lost these. Who has big eyes and cannot see?' },
   feather: { name: 'Owl Feather', icon: '🪶', quest: true, desc: 'A big, soft owl feather.', use: 'Tina at the Toy Shop wants a soft feather.' },
@@ -22,6 +41,29 @@ export const ITEMS = {
 }
 
 export const SHOPS = {
+  // Penny's bank: it only takes treasures and pays coins for them.
+  bank: {
+    title: 'Island Bank',
+    who: 'penny',
+    buy: [],
+    sell: [
+      ['shell', 1],
+      ['acorn', 1],
+      ['starfish', 2],
+      ['clover', 3],
+      ['bone', 4],
+      ['pearl', 5],
+      ['key', 6],
+      ['crystal', 8],
+      ['ball', 2],
+      ['yoyo', 2],
+      ['crayons', 2],
+      ['kite', 3],
+      ['toycar', 3],
+      ['book', 3],
+      ['medal', 5],
+    ],
+  },
   ben: {
     title: 'Burger Hut',
     who: 'ben',

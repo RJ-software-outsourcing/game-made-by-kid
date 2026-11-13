@@ -1,4 +1,4 @@
-# Coji's Island Adventure: game spec (v0.3)
+# Coji's Island Adventure: game spec (v0.4)
 
 A cute 3D adventure game for a 6-year-old reader. **The game is about reading English while having
 fun**: everything the child needs (quests, clues, jobs, signs, chit-chat, even the banner behind a
@@ -11,6 +11,31 @@ quest at a time. This version has **3 quests**; the King's quest in the castle w
 - Language: English, at the reading level of KCIS Grade 1 (see "English" below).
 - Engine: [three.js](https://threejs.org) r170, loaded from jsDelivr. Plain ES modules, no build step
   (same as the rest of this repo).
+
+## What changed in v0.4
+
+- **A more realistic island**, still cute and still fast on an iPad (details in 8 and 9):
+  - **Light:** real (PBR) materials lit by a lower, warmer sun and by the sky itself, with soft shadows.
+  - **Ground:** grass, sand and stone detail, wet sand at the waterline, and a meadow of real grass blades
+    around Coji that sway and bend away from his feet.
+  - **Water:** a rippled sea and ponds that reflect the sky and glint in the sun.
+  - **Trees and plants:** leafy trees, layered pines and palms with leaflets that sway in the wind.
+  - **Buildings and props:** siding, stone, tiles, window glass and frames, gutters, and much more.
+  - **People and animals:** faces with irises and catch-lights, layered hair, real clothes and shoes,
+    and fur shading. People blink.
+- **Quests in any order, from many characters**: the bear, his friends and anyone near him can start
+  the bear's quest (the same for the others), and several quests can run at once (5.6).
+- **Clues by distance**: far from the next place, clues are general ("Someone in the village knows");
+  close by, people nearby give the exact clue (5.6).
+- **More to read**: Coji's answers come from big pools that don't repeat and fit the moment, and
+  animals, villagers and everyone else have many more lines (5.5).
+- **Coji** no longer wears a cap, and closes his eyes when he rests on a bench or naps.
+- **Treasures for the bank**: acorns, starfish, lucky clovers, dino bones, pearls, old keys and
+  crystals are hidden in their own kinds of places, each worth a different number of coins (5.3).
+- **People ask Coji for help**: every few minutes someone runs up with a problem. Helping is a short
+  reading game, and they give Coji a gift (5.4).
+- **A crazy, scary graveyard tune** (5.7), **grey aliens** with big black eyes, **Bruno hugs Coji** and
+  walks to his new spot, and squirrels and frogs hop properly (5.8).
 
 ## What changed in v0.3
 
@@ -185,7 +210,9 @@ Helping animals always gives something good (coins, berries, a feather, an open 
 | 🎃 Pumpkin | +20 energy; Boo's quest | Graveyard pumpkin patch (regrows) |
 | 🕯️ Candle | Boo's quest | Granny Bee, 2 coins |
 | 🐟 Fish | For Momo | Fisher Finn |
-| 🐚 Shell | Swap at the bank | Beaches (shells come back after a while) |
+| 🐚 Shell, 🌰 Acorn, ⭐ Starfish, 🍀 Lucky Clover, 🦴 Dino Bone, 🦪 Pearl, 🗝️ Old Key, 💎 Crystal | Treasures: swap at the bank (1–8 coins) | See 5.3 (they come back after a while) |
+| ⚽ Ball, 🪀 Yo-yo, 🖍️ Crayons, 🪁 Kite, 🚗 Toy Car, 📘 Story Book, 🏅 Helper Medal | Gifts to keep, or swap at the bank (2–5 coins) | People Coji helps (5.4) |
+| 🍭 Lollipop, 🧁 Cupcake, 🥧 Apple Pie | +10 / +25 / +35 energy | Gifts from people Coji helps |
 | 🍯 Honey, 👓 glasses, 🪶 feather, 💡 bulb | Quest items | See the quests |
 
 Tap something in the bag to see what it is **and what to do with it** ("👉 Give it to Momo the cat
@@ -193,13 +220,48 @@ at the harbor."). The first thing is picked when the bag opens. Messages like "+
 "Yum! +15 ⚡" pop up in the middle of the screen, above the bag and shops.
 
 ### 5.3 Coins 🪙
-Ways to earn: **jobs**, swap shells at the bank, sell apples/berries to Granny Bee, feed Momo, help
+Ways to earn: **jobs**, swap treasures at the bank, sell apples/berries to Granny Bee, feed Momo, help
 Hoot, finish Boo's quest, Old Sam's chest, hidden coins. Shops show the price and how many coins are missing.
+
+**Treasures and the bank.** Treasures lie around the island, each kind in its own kind of place, and
+glitter so they can be spotted. Walking over one picks it up and shows its name and a short
+description to read. Rare ones are worth more. Penny's bank ("Can I swap my treasures?") lists every
+treasure with its price ("1 pearl = 5 coins. You have 2."). The ones Coji has come first, and there is
+a Swap button and an All button for each. Gifts from helping (5.4) can be swapped there too.
+
+| Treasure | Coins | Where | Comes back after |
+|---|---|---|---|
+| 🐚 Shell | 1 | beaches | 2 min |
+| 🌰 Acorn | 1 | under the forest trees (10) | 2.5 min |
+| ⭐ Starfish | 2 | at the water's edge (7) | 3.3 min |
+| 🍀 Lucky Clover | 3 | open meadows, away from the village (5) | 5 min |
+| 🦴 Dino Bone | 4 | around the farm (4) | 6 min |
+| 🦪 Pearl | 5 | the beaches of the little islands (4) | 7 min |
+| 🗝️ Old Key | 6 | the graveyard (3) | 8 min |
+| 💎 Crystal | 8 | the foot of the mountain (3) | 10 min |
 
 ### 5.4 Jobs 💼
 Talk to the job person and choose "Can I work here? 💼". A shift is 5 rounds; each right answer pays
 1 coin, a perfect shift pays 1 more. Wrong answers show the right ones in green. After a shift the
 job rests for 60 seconds of play ("Come back a little later!"). Leaving early still pays.
+
+**Someone needs help!** (`help.js`) About every 2½–4½ minutes of play, outside the graveyard and
+off the bridges, a villager runs up to Coji (Blankie: "Someone is running to you!"). They say who they
+are and what is wrong, and Coji can say yes or "not now". If he says not now, they wait nearby: tap
+them later. Helping opens a 3-round reading game in the job panel. At the end they give a **gift**
+(not coins): a toy to keep or swap at the bank, or a snack. The next request is never the same kind
+twice in a row.
+
+| Request | The reading game |
+|---|---|
+| 🐾 Find My Pets | "Where is my rabbit? Tap the rabbit!": pictures only, so the child reads the word |
+| 🛒 The Shopping List | "Please get bread and eggs for me.": tap the pictures, then Done |
+| ✉️ Read My Letters | A short letter ("I am at the park. I have a red kite. Love, Ava"), then a question about it |
+| 🔤 Fix the Signs | "The sign says c_t. Which letter is missing?" |
+| 🔢 Count with Me | A row of pictures: "How many ducks? Tap the word." (number words) |
+| 🎵 Rhyme Time | "Which word rhymes with cake?" |
+| ↔️ Opposites | "What is the opposite of hot?" |
+| 🎨 Which Color? | "My kite is purple. Which one is mine?": color swatches only |
 
 | Job | Who | What the child does | Skill |
 |---|---|---|---|
@@ -219,21 +281,61 @@ job rests for 60 seconds of play ("Come back a little later!"). Leaving early st
 - Something already asked moves down the list, so the other choices get a turn.
 - No read-aloud button: the child reads the lines. After the child taps an answer, Coji says it out
   loud in a kid's voice.
-- **Small talk**: "Tell me about you!" gets a little story (a few short lines). Coji's answers vary
-  and sometimes react ("Wow! 🤩", "Really? 😮", "Ha ha!"), and the character answers the reaction.
-  Thanks and goodbyes change each time.
-- **Every character talks about the current quest.** The first question gives a hint, a follow-up
-  gives a better clue, chit-chat gives no clue.
+- **Coji's answers are always different**, so the child keeps reading new words.
+  - Every kind of answer comes from a pool of phrasings: questions about the quest (5 ways to ask about
+    honey), follow-ups, reactions, thanks, "Tell me about you", greetings, goodbyes, yes and not now.
+  - Each pool is a shuffled bag: a line comes back only after all the others, never twice in a row.
+  - Answers fit the moment: after a clue "Now I know! Thanks!", after a story "What a fun story!", after
+    sad news "Oh no! 😢" / "Do not worry!". The character answers each kind of reaction in its own way.
+- **Small talk**: "Tell me about you!" gets one of three little stories. Characters also share moods
+  and facts, tell jokes, and ask Coji questions back (two answers to pick from).
+- **Animals have lots to say**, and none of it repeats soon. Each walking animal has several
+  greetings plus food, moods, facts, jokes, its own goodbyes and questions. ("Do you have a tail,
+  Coji?" → "Yes! My blanket!" → "Ha ha! A blanket tail!") Momo, Bun, Hoot, Bruno, Boo and Mr. Bones
+  have their own pools too. Villagers, house owners, aliens and Sir Percy have many more lines.
+- **Every character talks about the quests**, with a clue that depends on how close Coji is (5.6).
+  A follow-up gives a better clue, and chit-chat gives none.
 
 ### 5.6 Quests
-- **Only one quest at a time.** The quest card (top left) shows the quest, the current step, step
-  dots and the clues found (tap to open). Clues with a place put a ⭐ on the map.
-- The target character gets a gold "!" over the head; everyone else has a small "…" bubble.
+- **Quests can be done in any order, and several can be active at once.** Each quest keeps its own
+  steps in order.
+- **Many characters can start a quest**: its giver, its subject, friends nearby, and anyone walking
+  around near the subject. Each says the problem in its own voice ("Meow! A big bear sits on the
+  bridge. His tummy says GRRR!"), and Coji answers yes or "not now". Characters who can't start it
+  pass on the news ("Captain Pip knows more. Ask him!").
+
+| Quest | Giver | Subject | Friends nearby | Also |
+|---|---|---|---|---|
+| 🐻 The Hungry Bear | Captain Pip | Bruno | Finn, Momo, Hoot | anyone walking within 40 m of Bruno |
+| 🗼 The Dark Lighthouse | Bruno (after he is fed) | Grandpa Gus | Pip, Coco, Kim | anyone walking within 40 m of Gus |
+| 🎃 Boo's Pumpkin Lantern | Boo | Boo | Mr. Bones, Kim, Bun | anyone walking near the graveyard |
+
+- **Clues by distance**:
+  - Every quest step has a place (Granny Bee's stall for honey, the pond for the glasses, and so on).
+  - Far from it (more than 65 m), clues are general: "Someone in the village has honey. Go and ask!"
+  - Halfway (30–65 m), they name the place: "Look for the Market… Granny Bee sells honey there!"
+  - Close (30 m or less), people nearby give the exact clue: "Look! The yellow stall! That is Granny
+    Bee… It costs 5 coins."
+  - Blankie Bear's tips work the same way ("Let's go to the Market…" → "The Market is close…" → "Tap
+    Granny Bee to buy honey!").
+- **The quest card** (top left) shows the quest last started or moved on. It switches by itself when
+  Coji comes within 30 m of another quest's next step. The label counts the active quests ("⭐
+  MISSIONS: 2 · 🎃 🐻"), and the opened card lists each one with its step and clues. Clues with a
+  place put a ⭐ on the map.
+- Characters who can help right now get a gold "!" over the head; everyone else has a small "…"
+  bubble.
+- Saves from v0.3 (one quest at a time) are converted when they load.
 
 ### 5.7 The Spooky Graveyard 👻
 - Walking in makes the world turn spooky: a dark night-purple sky, close dark fog and very dim light
-  over the whole island, glowing lamps, drifting mist, green wisps, bats, and a scary tune (low
-  drone, wind, far-off howls, a church bell, creaks, owl hoots). Walking out turns it back.
+  over the whole island, glowing lamps, drifting mist, green wisps and bats. Walking out turns it back.
+- **The music goes crazy and scary**:
+  - a pounding heartbeat and a creeping chromatic bass
+  - organ stabs on clashing chords, a wailing theremin, and a wonky out-of-tune music box
+  - wild organ runs at the end of each phrase
+  - a tempo that speeds up through each phrase and snaps back
+  - every so often a sudden scare: a loud stab with a whoosh and a howl, bell, creak or hoot
+  - all over a low drone and howling wind
 - **Tap a gravestone**: a little ghost pops out, turns to look at you, floats up with a "whoo" and
   fades away. Each tap has a 30% chance that a **skeleton (Mr. Bones)** climbs out (at most 2), walks
   around for 25–37 seconds, then sinks back (also right away if Coji leaves the graveyard).
@@ -252,7 +354,13 @@ job rests for 60 seconds of play ("Come back a little later!"). Leaving early st
   whale (spout), a pirate ship (horn), a kraken (purple tentacles), dolphins. In the sky: a plane with
   a banner to read ("READ EVERY DAY!"), a hot-air balloon, a UFO. Blankie points each one out
   ("Look up! A hot-air balloon! 🎈"). The UFO sometimes beams down an alien, who walks around and can
-  be talked to, then comes back to beam it up.
+  be talked to, then comes back to beam it up. The aliens are little **greys**: grey all over, a big
+  bulb of a head, huge glossy black almond eyes, a tiny mouth, and thin arms and legs.
+- **Bruno's thank-you**: after the honey, Bruno gives Coji a big bear hug. Then he stands up on his
+  feet, walks along the bridge to the shore and over to his new spot, and sits back down.
+- **Little animals**: squirrels and frogs hop with their whole body (legs push off and reach forward
+  to land); the others walk.
+- **People blink** now and then, and Coji closes his eyes while he rests or naps.
 
 ### 5.9 Map 🗺️
 The whole island: ring road, castle and moat, places with icons and names, Coji's arrow and what the
@@ -265,26 +373,30 @@ skeleton, new clues, and a reminder after 30 seconds of nothing happening (menti
 are needed).
 
 ### 5.11 Saving
-Auto-saves to `localStorage` (position, stats, coins, bag, quests, clues, flags such as the opened
-chest, job rests).
+Auto-saves to `localStorage` (position, stats, coins, bag, active quests and their steps, the quest on
+the card, clues, flags such as the opened chest, job rests, how many people Coji helped).
 
 ## 6. Story
 
 Coji arrives at Sunny Island on Captain Pip's boat.
 
-### Quest 1: The Hungry Bear 🐻 (from Captain Pip)
-1. **Find out what Bear likes to eat.** (clue "Bears love honey")
-2. **Get some honey.** Granny Bee, 5 coins (jobs, shells, apples, Momo).
-3. **Give the honey to Bear.** Bruno moves off Bear Bridge and gives quest 2.
+The three quests can be done in any order (see 5.6). The Lighthouse can start before the bear is fed;
+its clues then remind Coji that Bruno is still blocking the bridge.
 
-### Quest 2: The Dark Lighthouse 🗼 (from Bruno)
+### Quest 1: The Hungry Bear 🐻 (from Captain Pip, Bruno or his friends)
+1. **Find out what Bear likes to eat.** (clue "Bears love honey")
+2. **Get some honey.** Granny Bee, 5 coins (jobs, treasures, apples, Momo).
+3. **Give the honey to Bear.** Bruno gives Coji a big bear hug, stands up and walks off Bear Bridge
+   to his new spot, and can start quest 2.
+
+### Quest 2: The Dark Lighthouse 🗼 (from Bruno, Gus or their friends)
 1. **Talk to Grandpa Gus** on Lighthouse Island.
 2. **Find a big, bright light bulb.** (Tina's Toy Shop)
 3. **Get the bulb from Tina.** 8 coins, or an owl feather (find Hoot's glasses by the pond).
 4. **Bring the bulb to Grandpa Gus.** Finale: night falls, the lighthouse beam sweeps the sea,
    fireworks, "You did it!". Then free time.
 
-### Quest 3: Boo's Pumpkin Lantern 🎃 (from Boo, after the lighthouse)
+### Quest 3: Boo's Pumpkin Lantern 🎃 (from Boo, Mr. Bones or their friends)
 Everyone mentions the sad little ghost in the graveyard. Boo is scared of the dark.
 1. **Find a pumpkin.** (graveyard pumpkin patch)
 2. **Find a candle.** (Granny Bee, 2 coins)
@@ -305,29 +417,72 @@ open the gate and involve King Arlo (to be designed).
 
 ## 8. Look and feel
 
-- Cute, bright, cheerful. Blue sky with big puffy white clouds, soft shadows, light fog far away.
-- Smooth-shaded terrain with blended colors (grass, forest, sand, rock, the graveyard's purple-green);
-  characters, tree tops and bushes are smooth and round; buildings keep crisp edges with roof tiles,
-  ridge caps, shutters, porch lamps and mailboxes. Street lamps along the main roads glow at night
-  and in the graveyard.
-- Water: turquoise shallows with foam lines, deep blue farther out, sky reflections and sun glints.
+- Cute and cheerful, but with realistic light and materials.
+- **Light**:
+  - Every material is physically based (PBR), with a per-part roughness and shine for glass, metal,
+    varnish and skin.
+  - Lit by a warm sun about 40° up (long, soft shadows) and by the sky itself: an environment map
+    made from the sky colors gives soft fill light and reflections.
+  - Neutral tone mapping keeps the colors true. At night the sky light dims to blue moonlight and
+    windows and lamps glow.
+- **Sky**: deep blue overhead, hazy at the horizon, warmer toward the sun, with a sun disc and glow.
+  Puffy clouds have bright tops and soft grey-blue bellies.
+- **Ground**:
+  - Painted colors (grass, forest, sand, rock, soil, the graveyard's purple-green) get fine detail from
+    a small seamless texture made in code: grass blades, sand grain and ripples, stones with cracks.
+    It is sampled at three sizes so it never looks tiled, plus a gentle bump.
+  - Dry and damp patches, a wet-sand band at the waterline, and soft contact shade around buildings,
+    trees and rocks. The plaza is paved with stones.
+- **Grass**: a meadow of thousands of real grass blades in a circle around Coji, colored like the
+  ground beneath. They sway in the wind and bend away from his feet.
+- **Water**:
+  - The sea has two scrolling ripple maps plus slow swells, sky reflections that grow at low angles, a
+    sharp sun glint, clear turquoise over sand, wobbly light on the sandy bottom, deep blue farther
+    out, and foam that laps at the shore.
+  - Streams, the pond and the moat are greener and calmer, with small ripples.
+- **Plants**:
+  - Round trees are built from dozens of leafy clumps on branches and a trunk with roots. The crown is
+    shaded as one soft ball, darker inside and underneath.
+  - Pines have layered, drooping skirts; palms have fronds with leaflets; bushes are leafy; rocks
+    are lumpy, with lichen on top. Flowers have petals and leaves.
+  - Everything sways a little in the wind. The owl's tree is a big old oak with roots and a hollow.
+- **Buildings and props**: siding or stone courses, corner trims, stone foundations, framed glass
+  windows with sills and shutters, panel doors with brass knobs, tiled roofs with ridge caps, gutters
+  and chimneys, and the castle's stonework, arrow slits and portcullis.
+- **People and animals**: soft heads with cheeks, eyes with iris, pupil and catch-lights, brows,
+  layered hair, real clothes (collars, cuffs, buttons, pleats), shoes with soles and laces, hands with
+  a thumb, and fur shaded darker on the back. Each character's detail level fits its role (Coji most).
 - Synthesized sounds and music (Web Audio, no files). 🔊 mutes everything.
 
-## 9. Performance and loading
+## 9. Performance, battery and loading
 
-- **No asset files.** Every model is generated in code: the download is three.js (~170 KB gzip) +
-  the game code.
+- **No asset files.** Every model and texture is generated in code: the download is three.js
+  (~170 KB gzip) + the game code.
 - **Title first**, the island loads behind it (~2 s on a laptop).
 - **Stream the world:** the core is built up front; each zone's details are built when Coji gets near,
   the rest during idle time. The map module is loaded on first use.
-- **Cheap rendering:** a few shared materials, merged static meshes, instanced plants and lamps, one
-  shadow light that follows Coji. About 100 draw calls and ~250k visible triangles; ~1 ms per frame
-  on an M1 laptop.
-- **Life stays cheap:** villagers, animals, residents and shows exist only near Coji (about 10 extra
-  characters at most) and are removed when far away; see-through is a tiny shader addition, not
-  extra draw calls.
-- **Adaptive quality:** if the frame rate stays low (< ~25 fps), the game lowers the pixel ratio and
-  then the shadow map size by itself (throttled/hidden frames are ignored).
+- **Battery**:
+  - At most **60 frames a second**, even on 120 Hz iPads, which halves the work.
+  - **30 frames a second** when nothing much is happening: title screen, a menu or dialogue open, or no
+    touch for 45 seconds.
+- **Few draw calls** (each one costs the iPad's CPU):
+  - Every character, made of dozens of little pieces, is fused into one skinned mesh. All animation
+    still works; this cut a character from 7–13 draw calls to 1–2.
+  - Each building and prop is one mesh, with glass in a second one. A signpost is 2.
+  - Plants are instanced in near and far pools for the whole island. Near Coji they use the detailed
+    model; far away, a light one; small plants (grass tufts, flowers) are only drawn up close.
+  - Pickups cast no shadow, and small props more than ~75 m away are skipped.
+- **Budget, measured on a laptop at iPad size**:
+  - About 70–160 draw calls per frame including the shadow pass; v0.3 was 106–349.
+  - 470k–640k triangles.
+  - 1–2.5 ms of CPU per frame.
+- **Adaptive quality**: if frames come slower than ~45 fps, the game steps down one notch at a time:
+  - lower resolution
+  - then a smaller shadow map and a smaller grass circle
+  - then no grass blades and fewer detailed trees
+  It never steps back up during a session, and throttled or hidden frames are ignored.
+- **No hitches**: villagers and animals that walk away are kept and reused, so new arrivals don't
+  stall a frame while they are built.
 
 ## 10. Code layout
 
@@ -336,24 +491,33 @@ coji-island/
   index.html     title screen, HUD, dialogue, bag, shop, job, map and finale markup
   style.css      all UI styles
   SPEC.md        this file
+  dev-models.html  dev tool (not part of the game): every model in its own tile, lit like the game,
+                 with its triangles and draw calls (?set=props|characters|plants&only=a,b)
   js/
     boot.js        title screen; imports the game in the background
     game.js        renderer, main loop, state and saving, Coji, taps, talking, tips, graveyard, finale
     config.js      tunable numbers and character colors
     land.js        island layout, heights, roads, castle, graveyard (pure JS, no three.js)
     nav.js         walkable grid + A* path-finding
-    build.js       low-poly builder: merges colored primitives into one mesh; materials (with the
-                   see-through effect around Coji)
+    build.js       builder: merges colored primitives into one mesh; PBR materials with per-part
+                   roughness/metal, facet normals, soft color variation, the see-through effect
+    env.js         the sun's direction and the sky environment map (light and reflections)
+    textures.js    seamless textures made in code: ground detail, water ripples
+    ground.js      ground shading: detail at three sizes plus bump, for terrain, roads and plaza
+    grass.js       the meadow of grass blades around Coji (tiles, wind, bending)
+    rig.js         fuses a character's pieces into one skinned mesh (one draw call)
+    treasures.js   treasures to find and swap at the bank (models, prices, where they grow)
+    help.js        people who ask Coji for help: the reading games and gifts
     world.js       sky, terrain, water, roads, buildings, lamps, zones, spooky/day/night, fireworks
     props.js       buildings and objects (houses, shops, castle, lighthouse, graveyard pieces…)
-    nature.js      trees, bushes, rocks, flowers, lamps, clouds (instanced)
+    nature.js      trees, bushes, rocks, grass tufts, flowers, lamps, clouds; near/far plant pools; wind
     characters.js  Coji, people, animals, ghosts and skeletons, with simple animations
     camera.js      follow camera (can look up); tap / drag / pinch / wheel input
     items.js       item catalog and shops
     story.js       quests, clues and every character's dialogue (incl. villagers, residents, animals)
     crowd.js       wandering villagers and animals, house doors and residents, knights
     shows.js       sea and sky shows: whale, ship, kraken, dolphins, plane, balloon, UFO
-    jobs.js        the four job mini-games
+    jobs.js        the four job mini-games (and the help games' panel)
     dialogue.js    dialogue box (lines, answers, portraits; speaks Coji's chosen answer)
     ui.js          HUD, quest card, tips, bag, shop, toasts, finale screen
     map.js         map screen (loaded on first use)

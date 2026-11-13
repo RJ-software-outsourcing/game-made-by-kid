@@ -1,6 +1,7 @@
 // Jobs: short reading mini-games that pay coins. A shift has 5 rounds; each right answer pays 1 coin,
 // a perfect shift pays 1 more. After a shift the job needs a little rest (JOB_REST seconds of play).
 import { sfx } from './audio.js'
+import { ITEMS } from './items.js'
 
 export const JOB_REST = 60
 const ROUNDS = 5
@@ -177,6 +178,21 @@ export class JobRunner {
   start(id) {
     this.id = id
     this.job = JOBS[id]
+    this.begin()
+  }
+
+  // A help request (from help.js): a few rounds, and a gift at the end instead of coins.
+  startHelp(job) {
+    this.id = null
+    this.job = job
+    this.begin()
+  }
+
+  get rounds() {
+    return this.job.rounds || ROUNDS
+  }
+
+  begin() {
     this.round = 0
     this.right = 0
     this.$('.job-title').textContent = this.job.title
@@ -185,14 +201,14 @@ export class JobRunner {
   }
 
   quit() {
-    // Leaving early still pays what was earned.
-    if (this.right > 0 && !this.paid) this.pay()
+    // Leaving a job early still pays what was earned (a help request only gives its gift at the end).
+    if (this.right > 0 && !this.paid && !this.job.gift) this.pay()
     this.game.ui.closePanel('job')
   }
 
   next() {
     this.paid = false
-    if (this.round >= ROUNDS) return this.finish()
+    if (this.round >= this.rounds) return this.finish()
     this.r = this.job.gen(this.round)
     this.sel = new Set()
     this.locked = false
@@ -201,10 +217,11 @@ export class JobRunner {
 
   render() {
     const r = this.r
-    this.$('.job-dots').innerHTML = Array.from({ length: ROUNDS }, (_, i) => `<i class="${i < this.round ? 'done' : i === this.round ? 'now' : ''}"></i>`).join('')
-    this.$('.job-earn').innerHTML = `<i class="coin-ico"></i>+${this.right}`
+    this.$('.job-dots').innerHTML = Array.from({ length: this.rounds }, (_, i) => `<i class="${i < this.round ? 'done' : i === this.round ? 'now' : ''}"></i>`).join('')
+    this.$('.job-earn').innerHTML = this.job.gift ? `🎁` : `<i class="coin-ico"></i>+${this.right}`
     const prompt = this.$('.job-prompt')
-    if (r.letter)
+    if (r.note) prompt.innerHTML = `<div class="note">${r.note}</div><div class="ask">${r.text}</div>`
+    else if (r.letter)
       prompt.innerHTML = `<div class="ask">${r.ask}</div><div class="letter"><div class="stamp">✉️</div><div class="addr">${r.address.map((l, i) => `<div class="${i === r.address.length - 1 ? 'country' : ''}">${l}</div>`).join('')}</div><div class="postmark">AIR MAIL</div></div>`
     else if (r.picture) prompt.innerHTML = `<div class="picture">${r.picture}</div><div class="ask">${r.text}</div>`
     else prompt.innerHTML = `<div class="order"><span class="who">${r.who}</span><div class="bubble">${r.text}</div></div>`
@@ -277,14 +294,14 @@ export class JobRunner {
     if (ok) {
       this.right++
       sfx('coin')
-      msg.textContent = pick(['✅ Great job! +1', '✅ Perfect! +1', '✅ Yummy! +1', '✅ You did it! +1'])
+      msg.textContent = this.job.gift ? pick(['✅ Great job!', '✅ Yes! That is right!', '✅ You did it!', '✅ Super!']) : pick(['✅ Great job! +1', '✅ Perfect! +1', '✅ Yummy! +1', '✅ You did it! +1'])
       msg.className = 'job-msg ok'
     } else {
       sfx('nope')
       msg.textContent = '❌ Oops! The green ones were right.'
       msg.className = 'job-msg bad'
     }
-    this.$('.job-earn').innerHTML = `<i class="coin-ico"></i>+${this.right}`
+    if (!this.job.gift) this.$('.job-earn').innerHTML = `<i class="coin-ico"></i>+${this.right}`
     this.round++
     setTimeout(() => this.next(), ok ? 1100 : 1900)
   }
@@ -302,6 +319,7 @@ export class JobRunner {
   }
 
   finish() {
+    if (this.job.gift) return this.finishHelp()
     const { total, bonus } = this.pay()
     const stars = '⭐'.repeat(Math.max(1, Math.round((this.right / ROUNDS) * 3)))
     this.$('.job-dots').innerHTML = ''
@@ -318,5 +336,26 @@ export class JobRunner {
     b.addEventListener('click', () => this.game.ui.closePanel('job'))
     opts.append(b)
     sfx(this.right >= 4 ? 'quest' : 'happy')
+  }
+
+  finishHelp() {
+    const j = this.job
+    const it = ITEMS[j.gift]
+    this.paid = true
+    j.onDone?.()
+    this.$('.job-dots').innerHTML = ''
+    this.$('.job-preview').innerHTML = ''
+    this.$('.job-serve').classList.add('hidden')
+    this.$('.job-msg').textContent = ''
+    this.$('.job-prompt').innerHTML = `<div class="job-done"><div class="stars">🎁</div><b>You helped ${j.who}! ${this.right} of ${this.rounds} ${j.done}.</b><span>${j.who} gave you a gift: ${it.icon} ${it.name}!</span><span>${it.desc}</span></div>`
+    const opts = this.$('.job-options')
+    opts.className = 'job-options list'
+    opts.innerHTML = ''
+    const b = document.createElement('button')
+    b.className = 'big-btn'
+    b.textContent = pick(['Thank you! 👋', 'Yay! Thanks! 😊', 'Wow! Thank you! 🎁'])
+    b.addEventListener('click', () => this.game.ui.closePanel('job'))
+    opts.append(b)
+    sfx('quest')
   }
 }

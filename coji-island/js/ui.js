@@ -132,32 +132,47 @@ export class UI {
   }
 
   // ---------- quest card ----------
+  // Several quests can be active. The card shows one (the last one started or moved on, or the one
+  // Coji is close to); the label shows the others' icons, and the open card lists them all.
   renderQuest() {
     const s = this.game.state
     const el = this.questEl
-    if (!s.quest) {
-      if (s.done.includes('light')) {
+    const quests = s.quests || {}
+    const id = this.game.focusQuest?.()
+    $('.q-label', el).textContent = '⭐ MISSION'
+    if (!id) {
+      if (s.done.length) {
+        const left = Object.keys(QUESTS).some((k) => !s.done.includes(k))
         el.classList.remove('hidden')
         $('.q-icon', el).textContent = '🏝️'
         $('.q-title', el).textContent = 'FREE TIME'
-        $('.q-step', el).textContent = 'Explore Sunny Island!'
+        $('.q-step', el).textContent = left ? 'Someone needs help! Talk to friends. 💬' : 'Explore Sunny Island!'
         $('.q-dots', el).innerHTML = ''
         $('.q-clues', el).innerHTML = ''
         $('.q-toggle', el).textContent = ''
       } else el.classList.add('hidden')
       return
     }
-    const q = QUESTS[s.quest]
+    const q = QUESTS[id]
+    const step = quests[id]
+    const others = Object.keys(quests).filter((k) => k !== id && QUESTS[k])
     el.classList.remove('hidden')
+    if (others.length) $('.q-label', el).textContent = `⭐ MISSIONS: ${others.length + 1} · ${[id, ...others].map((k) => QUESTS[k].icon).join(' ')}`
     $('.q-icon', el).textContent = q.icon
     $('.q-title', el).textContent = q.title.toUpperCase()
-    $('.q-step', el).textContent = q.steps[s.step].text
-    $('.q-dots', el).innerHTML = q.steps.map((_, i) => `<i class="${i < s.step ? 'done' : i === s.step ? 'now' : ''}"></i>`).join('')
-    const clues = s.clues[s.quest] || []
-    $('.q-clues', el).innerHTML = clues.length
-      ? clues.map((c) => `<div>💡 ${q.clues[c].text}</div>`).join('')
-      : '<div class="none">No clues yet. Talk to people! 💬</div>'
-    $('.q-toggle', el).textContent = el.classList.contains('open') ? '▲ Hide clues' : `💡 Clues: ${clues.length} · tap to see`
+    $('.q-step', el).textContent = q.steps[step].text
+    $('.q-dots', el).innerHTML = q.steps.map((_, i) => `<i class="${i < step ? 'done' : i === step ? 'now' : ''}"></i>`).join('')
+    const list = (k) => (s.clues[k] || []).filter((c) => QUESTS[k].clues[c])
+    const clues = list(id)
+    let html = clues.length ? clues.map((c) => `<div>💡 ${q.clues[c].text}</div>`).join('') : '<div class="none">No clues yet. Talk to people! 💬</div>'
+    for (const k of others) {
+      const o = QUESTS[k]
+      html += `<div><b>${o.icon} ${o.title}:</b> ${o.steps[quests[k]].text}</div>`
+      html += list(k).map((c) => `<div>💡 ${o.clues[c].text}</div>`).join('')
+    }
+    $('.q-clues', el).innerHTML = html
+    const n = clues.length + others.reduce((a, k) => a + list(k).length, 0)
+    $('.q-toggle', el).textContent = el.classList.contains('open') ? '▲ Hide clues' : `💡 Clues: ${n} · tap to see`
   }
   flashQuest() {
     this.questEl.classList.remove('flash')
@@ -278,7 +293,7 @@ export class UI {
       d.textContent = t
       body.append(d)
     }
-    sec('Buy')
+    if (shop.buy.length) sec('Buy')
     for (const [id, price] of shop.buy) {
       const it = ITEMS[id]
       const row = document.createElement('div')
@@ -303,16 +318,21 @@ export class UI {
       body.append(row)
     }
     if (shop.sell.length) {
-      sec('Sell')
-      for (const [id, price] of shop.sell) {
+      // the bank swaps treasures for coins: things you have come first
+      const swap = this.shopId === 'bank'
+      sec(swap ? 'Swap your treasures for coins' : 'Sell')
+      const list = swap ? [...shop.sell].sort((a, b) => (s.bag[b[0]] ? 1 : 0) - (s.bag[a[0]] ? 1 : 0) || a[1] - b[1]) : shop.sell
+      for (const [id, price] of list) {
         const it = ITEMS[id]
         const have = s.bag[id] || 0
         const row = document.createElement('div')
-        row.className = 'shop-row'
-        row.innerHTML = `<span class="e">${it.icon}</span><div class="n">${it.name}<small>You have ${have}.</small></div>`
+        row.className = 'shop-row' + (have ? '' : ' none')
+        const one = it.name.toLowerCase()
+        const rate = swap ? `1 ${one} = ${price} ${price === 1 ? 'coin' : 'coins'}. You have ${have}.` : `You have ${have}.`
+        row.innerHTML = `<span class="e">${it.icon}</span><div class="n">${it.name}<small>${rate}</small></div>`
         const b = document.createElement('button')
         b.className = 'big-btn soft'
-        b.innerHTML = `Sell +<i class="coin-ico"></i>${price}`
+        b.innerHTML = `${swap ? 'Swap' : 'Sell'} +<i class="coin-ico"></i>${price}`
         b.disabled = have < 1
         b.addEventListener('click', () => {
           if ((s.bag[id] || 0) < 1) return
@@ -321,6 +341,18 @@ export class UI {
           this.renderShop()
         })
         row.append(b)
+        if (swap && have > 1) {
+          const all = document.createElement('button')
+          all.className = 'big-btn soft'
+          all.innerHTML = `All +<i class="coin-ico"></i>${price * have}`
+          all.addEventListener('click', () => {
+            const n = s.bag[id] || 0
+            for (let i = 0; i < n; i++) this.game.sell(id, price)
+            this.shopMsg(`${n} ${n === 1 ? one : it.plural || one + 's'} = ${n * price} coins! Thank you! 🪙`, true)
+            this.renderShop()
+          })
+          row.append(all)
+        }
         body.append(row)
       }
     }

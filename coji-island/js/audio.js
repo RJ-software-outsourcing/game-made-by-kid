@@ -225,16 +225,8 @@ const SONGS = {
     ],
     melody: [523, 587, 659, 784, 659, 587, 523, 440, 523, 659, 784, 880, 784, 659, 587, 523],
   },
-  // spooky: slow minor chords with a creepy music-box tune full of odd jumps
-  spooky: {
-    chords: [
-      [110, 131, 165],
-      [117, 139, 165],
-      [104, 131, 156],
-      [98, 117, 139],
-    ],
-    melody: [880, 0, 0, 831, 0, 622, 0, 0, 880, 932, 0, 0, 659, 0, 622, 0],
-  },
+  // spooky has its own scheduler (scheduleSpooky)
+  spooky: { chords: [], melody: [] },
 }
 let song = SONGS.happy
 let mood = 'happy'
@@ -244,6 +236,8 @@ export function setMood(m) {
   if (m === mood || !SONGS[m]) return
   mood = m
   song = SONGS[m]
+  sBeat = 0
+  scareT = 24
   const c = ctx
   if (!c) return
   if (m === 'spooky' && !drone) {
@@ -279,15 +273,29 @@ export function setMood(m) {
     wind.connect(wf).connect(wg).connect(g)
     wind.start()
     lfo.start()
-    drone = { g, stop: [...oscs, wind, lfo] }
+    // a wailing "theremin" that glides between eerie notes (moved by the spooky scheduler)
+    const th = c.createOscillator()
+    th.type = 'sine'
+    th.frequency.value = 880
+    const vib = c.createOscillator()
+    vib.frequency.value = 5.5
+    const vg = c.createGain()
+    vg.gain.value = 9
+    vib.connect(vg).connect(th.frequency)
+    const tg = c.createGain()
+    tg.gain.value = 0.0001
+    th.connect(tg).connect(music)
+    th.start()
+    vib.start()
+    drone = { g, stop: [...oscs, wind, lfo, th, vib], theremin: th, thereminGain: tg }
   } else if (m !== 'spooky' && drone) {
     const d = drone
     drone = null
     d.g.gain.setTargetAtTime(0.0001, c.currentTime, 0.6)
+    d.thereminGain.gain.setTargetAtTime(0.0001, c.currentTime, 0.3)
     setTimeout(() => d.stop.forEach((o) => o.stop()), 3000)
   }
 }
-let spookyT = 0
 
 function pluck(f, t, gain) {
   const c = ctx
@@ -303,9 +311,111 @@ function pluck(f, t, gain) {
   o.stop(t + 0.55)
 }
 
+// ---------- the spooky graveyard: crazy, creepy and fast ----------
+// A pounding heartbeat, a chromatic bass that creeps up and down, organ stabs on dissonant chords,
+// a wailing theremin, a wonky music box, wild organ runs, a tempo that speeds up and snaps back,
+// and every so often a sudden scare (a loud stab with a whoosh and a howl or a bell).
+const A2 = 110
+const semis = (f, n) => f * Math.pow(2, n / 12)
+const SPOOK_BASS = [0, 0, 12, 0, 1, 0, 6, 0, 0, 0, 12, 0, -1, 0, 6, 5]
+const SPOOK_BOX = [1760, 0, 2093, 1976, 0, 1480, 0, 1245, 1760, 0, 2489, 0, 2349, 0, 1480, 0]
+const SPOOK_CHORDS = [
+  [0, 3, 6, 9],
+  [1, 4, 7, 10],
+  [-1, 2, 5, 8],
+  [0, 3, 6, 11],
+]
+const THEREMIN = [880, 1047, 1245, 1480, 1760, 1661, 1319]
+let sBeat = 0
+let scareT = 40
+
+function saw(f, t, dur, gain, cut0, cut1, type = 'sawtooth') {
+  const c = ctx
+  const fl = c.createBiquadFilter()
+  fl.type = 'lowpass'
+  fl.Q.value = 6
+  fl.frequency.setValueAtTime(cut0, t)
+  fl.frequency.exponentialRampToValueAtTime(cut1, t + dur)
+  const g = c.createGain()
+  g.gain.setValueAtTime(0.0001, t)
+  g.gain.exponentialRampToValueAtTime(gain, t + 0.008)
+  g.gain.exponentialRampToValueAtTime(0.0001, t + dur)
+  fl.connect(g).connect(music)
+  for (const d of [-7, 7]) {
+    const o = c.createOscillator()
+    o.type = type
+    o.frequency.value = f
+    o.detune.value = d
+    o.connect(fl)
+    o.start(t)
+    o.stop(t + dur + 0.05)
+  }
+}
+function thump(t, gain) {
+  const c = ctx
+  const o = c.createOscillator()
+  const g = c.createGain()
+  o.frequency.setValueAtTime(120, t)
+  o.frequency.exponentialRampToValueAtTime(42, t + 0.16)
+  g.gain.setValueAtTime(0.0001, t)
+  g.gain.exponentialRampToValueAtTime(gain, t + 0.005)
+  g.gain.exponentialRampToValueAtTime(0.0001, t + 0.22)
+  o.connect(g).connect(music)
+  o.start(t)
+  o.stop(t + 0.25)
+}
+function scheduleSpooky(c) {
+  while (nextTime < c.currentTime + 0.4) {
+    const t = nextTime
+    const step = sBeat % 16 // eighth notes, two bars
+    const bar = Math.floor(sBeat / 8)
+    const phrase = bar % 8
+    // heartbeat: lub-dub on every bar
+    if (sBeat % 8 === 0) thump(t, 1.1)
+    if (sBeat % 8 === 1) thump(t, 0.7)
+    // creeping chromatic bass, shifted down a step every other phrase
+    const shift = Math.floor(bar / 8) % 2 ? -2 : 0
+    saw(semis(A2, SPOOK_BASS[step] + shift), t, 0.2, 0.32, 900, 140)
+    // organ stab on dissonant chords
+    if (sBeat % 8 === 0) {
+      const ch = SPOOK_CHORDS[Math.floor(bar / 2) % 4]
+      for (const n of ch) saw(semis(220, n + shift), t, phrase % 2 ? 0.5 : 1.3, 0.09, 2600, 400)
+    }
+    // the music box plays every other two bars, a little out of tune
+    if (Math.floor(bar / 2) % 2 === 1 && SPOOK_BOX[step]) saw(SPOOK_BOX[step] * (1 + (Math.random() - 0.5) * 0.012), t, 0.45, 0.07, 6000, 3000, 'triangle')
+    // wild organ runs at the end of a phrase: up, then down
+    if (phrase === 7) {
+      const dir = Math.floor(bar / 8) % 2 ? -1 : 1
+      for (let k = 0; k < 2; k++) saw(semis(440, dir * ((step % 8) * 2 + k)), t + k * spookStep() * 0.5, 0.14, 0.08, 4000, 900, 'square')
+    }
+    // the theremin glides to a new note each bar and swells in and out
+    if (drone && sBeat % 8 === 0) {
+      const f = THEREMIN[Math.floor(Math.random() * THEREMIN.length)]
+      drone.theremin.frequency.setTargetAtTime(f, t, 0.18)
+      drone.thereminGain.gain.setTargetAtTime(phrase % 4 === 3 ? 0.0001 : 0.09, t, 0.4)
+    }
+    nextTime += spookStep()
+    sBeat++
+    if (!muted && --scareT <= 0) {
+      scareT = 70 + Math.floor(Math.random() * 60)
+      // a sudden scare
+      for (const n of [0, 1, 6, 7]) saw(semis(110, n), nextTime, 1.6, 0.16, 5000, 200)
+      noise({ at: nextTime - c.currentTime, dur: 0.9, gain: 0.25, type: 'bandpass', f: 300, f2: 3000, q: 2 })
+      const f = ['howl', 'bell', 'creak', 'hoot'][Math.floor(Math.random() * 4)]
+      setTimeout(() => SFX[f](), Math.max(0, (nextTime - c.currentTime) * 1000 + 400))
+    }
+  }
+}
+// eighth-note length: the tempo speeds up through each 8-bar phrase, then snaps back
+function spookStep() {
+  const phrase = Math.floor(sBeat / 8) % 8
+  return 60 / (132 + phrase * 9) / 2
+}
+
 function schedule() {
   const c = ctx
   if (!c) return
+  if (mood === 'spooky') return scheduleSpooky(c)
   const spb = 60 / 100 / 2
   while (nextTime < c.currentTime + 0.4) {
     const bar = Math.floor(beat / 8) % 4
@@ -313,17 +423,9 @@ function schedule() {
     if (beat % 2 === 0) pluck(ch[(beat / 2) % 3] / 2, nextTime, 0.5)
     if (beat % 4 === 2) for (const f of ch) pluck(f, nextTime, 0.18)
     const m = song.melody[(beat / 2) % 16]
-    if (beat % 2 === 0 && m && (mood === 'spooky' || Math.floor(beat / 32) % 2 === 1)) pluck(m, nextTime, 0.22)
-    nextTime += mood === 'spooky' ? spb * 1.7 : spb
+    if (beat % 2 === 0 && m && Math.floor(beat / 32) % 2 === 1) pluck(m, nextTime, 0.22)
+    nextTime += spb
     beat++
-    if (mood === 'spooky' && !muted) {
-      spookyT--
-      if (spookyT <= 0) {
-        spookyT = 14 + Math.floor(Math.random() * 14)
-        const f = ['howl', 'bell', 'creak', 'hoot'][Math.floor(Math.random() * 4)]
-        SFX[f]()
-      }
-    }
   }
 }
 
