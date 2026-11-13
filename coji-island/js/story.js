@@ -666,12 +666,18 @@ const REACT = {
   help: ['Really? 😮', 'Oh! I see! 💡', 'Hmm... 🤔', 'Wow! 🤩', 'Is that true? 😮', 'Oh, okay! 👌', 'Good to know! 👍', 'Aha! 💡'],
   // after a story or chit-chat
   talk: ['Wow! 🤩', 'Ha ha! 😆', 'Cool! 😎', 'No way! 😲', 'That is funny! 😄', 'So cool! ✨', 'Hee hee! 😄', 'I like that! 👍', 'Really? 😮', 'Amazing! 🌟'],
+  // after an ordinary answer (including "no")
+  neutral: ['Oh, okay! 👌', 'I see! 🙂', 'Good to know! 👍', 'Okay! 🙂', 'That makes sense! 👍'],
+  // after someone says they are tired, scared, hungry, lost or sad
+  care: ['Oh no! Are you okay? 🥺', 'I hope you feel better! 🤗', 'That sounds hard. 😟', 'I am here with you. 🤗'],
   // after something sad
   sad: ['Oh no! 😢', 'Poor you! 🥺', 'I am sorry! 😟', 'Do not worry! 🤗', 'I will help! 💪', 'Oh, dear! 😟'],
 }
 const REPLY = {
   help: [['Yes, really!'], ['Yes! It is true!'], ['I think so!'], ['Good luck, Coji!'], ['You can do it, Coji!'], ['Go and see!'], ['Yes! You are a good helper!']],
   sad: [['Thank you, Coji.', 'You are so kind.'], ['You are a good friend, Coji.'], ['Thank you. I feel better now.'], ['A hug helps. Thank you!']],
+  neutral: [['Yes, Coji.'], ['That is right!'], ['Now you know!'], ['I am glad you asked.']],
+  care: [['Thank you, Coji.'], ['You are very kind.'], ['I will be okay. Thank you!'], ['It helps to have a friend.']],
 }
 const GENERIC_EXTRAS = [['Yes! Isn\'t it fun?'], ['Ha ha! You are funny, Coji.'], ['That is how it is on Sunny Island!'], ['Hee hee! I like you, Coji!']]
 const THANKS = {
@@ -679,6 +685,8 @@ const THANKS = {
   talk: ['Okay!', 'I see!', 'Thank you!', 'Cool!', 'Nice!', 'Oh, okay!', 'Good to know!', 'Ha ha! Okay!', 'Thanks for telling me!'],
   story: ['What a fun story!', 'I like your story!', 'Thanks for telling me!', 'That is so cool!', 'Wow! Thank you!', 'Nice story!', 'Ha ha! I like it!'],
   sad: ['I will help you!', 'Do not be sad!', 'I am here to help!', 'Okay! Be brave!', 'Do not worry!'],
+  neutral: ['Okay!', 'I see!', 'Thank you!', 'Good to know!', 'Thanks for telling me!'],
+  care: ['I hope you feel better!', 'Take care!', 'I am here to help!', 'Do not worry!'],
 }
 const STORY_QS = ['Tell me about you!', 'Tell me something fun!', 'Can you tell me a story?', 'Tell me more about you!']
 const SMALL_QS = {
@@ -792,9 +800,9 @@ export const CAST = {
       g.has('fish') &&
         g.flag('momoFed') && {
           key: 'givefish',
-          text: 'Here is another fish!',
+          text: 'Do you want another fish?',
           pri: 3,
-          go: () => N(['Purr... I am so full now.', 'Thank you, Coji!']),
+          go: () => N(['Purr... No, thank you.', 'I am still full from my yummy fish!']),
         },
     ],
     chat: { q: 'Hi, Momo!', a: ['Meow! I like the sun. It is warm.'] },
@@ -1236,7 +1244,7 @@ export const CAST = {
     topics: {
       'light.1': { q: 'Where can I find a big bulb?', a: ['Hmm... I live far from the shops.'] },
       'light.2': [{ q: 'Tina has a bulb!', a: ['Wonderful!', 'Please bring it to me.'], own: true }, {}],
-      'light.3': { q: 'I am back!', a: ['Do you have the bulb?'], own: true },
+      'light.3': { q: 'I brought the bulb!', a: ['Wonderful, Coji!', 'Let us put it in the lighthouse.'], own: true },
       'boo.0': { q: 'Do you have a pumpkin?', a: ['No, I only have a lighthouse!'] },
       'boo.1': { q: 'Do you have a candle?', a: ['My light is a big bulb now!'] },
       end: { q: 'Look at the light!', a: ['Look, Coji! The light shines on the sea!', 'Thank you! You are a lighthouse hero!'] },
@@ -1292,7 +1300,7 @@ function topicNode(g, id, tp, q) {
     clues.push(...h.clue)
   }
   if (!say.length) say.push('Hmm...')
-  const tone = tp.mood === 'sad' ? 'sad' : h || clues.length ? 'help' : 'talk'
+  const tone = tp.mood === 'sad' ? 'sad' : h || clues.length ? 'help' : reactionTone(say, 'neutral')
   const choices = []
   if (h && h.level < Math.min(2, h.base + 1)) choices.push({ text: draw('moreq:' + h.S.key, [...(h.S.more || []), ...MORE_QS]), go: () => moreNode(g, id, q, h.level + 1) })
   if (tp.more) choices.push({ text: tp.more.q, go: () => topicNode(g, id, { own: true, ...tp.more }, q) })
@@ -1318,9 +1326,25 @@ function talkNode(g, id, lines, endTone = 'talk') {
   const asks = typeof C.asks === 'function' ? C.asks(g) : C.asks
   if (asks?.length && Math.random() < 0.35) {
     const a = draw('ask:' + id, asks)
-    return N([...lines, a.q], a.opts.map(([text, reply]) => ({ text, go: () => N(reply, [reactChoice(g, id, 'talk'), thanksChoice(g, id, 'talk')]) })))
+    return N([...lines, a.q], a.opts.map(([text, reply]) => ({
+      text,
+      go: () => {
+        const tone = reactionTone(reply, 'neutral')
+        return N(reply, [reactChoice(g, id, tone), thanksChoice(g, id, tone)])
+      },
+    })))
   }
-  return N(lines, [reactChoice(g, id, 'talk'), thanksChoice(g, id, endTone)])
+  const tone = reactionTone(lines, endTone === 'story' ? 'talk' : 'neutral')
+  return N(lines, [reactChoice(g, id, tone), thanksChoice(g, id, endTone === 'story' && tone === 'talk' ? 'story' : tone)])
+}
+
+// Pick reactions from the meaning of the answer. This keeps "Ha ha!" away from sad news and keeps
+// "Oh no!" away from a simple "No, I do not sell that" answer.
+function reactionTone(lines, fallback = 'neutral') {
+  const text = [].concat(lines || []).join(' ').toLowerCase()
+  if (/\b(sad|scared|worried|hurt|lost|lonely|hungry|tired|sleepy|grumpy|cold|cry|cried|broken)\b/.test(text)) return 'care'
+  if (/ha ha|hee hee|just kidding|joke|funny|silly|purr-ple|spook-ghetti|hide and shriek/.test(text)) return 'talk'
+  return fallback
 }
 
 export function hub(g, id, line) {
@@ -1583,7 +1607,7 @@ const STORIES = {
   ],
   granny: [
     ['I have six bee boxes at home.', 'The bees make honey for me.', 'I say thank you to them every day. 🐝'],
-    ['Bees dance to talk to their friends!', 'Isn\'t that sweet, dear?'],
+    ['Bees dance to talk to their friends!', 'They dance in little circles. It is sweet, dear!'],
     ['When I was a girl, I had a pet bee.', 'Her name was Buzzy. She was very busy!'],
   ],
   penny: [
@@ -1598,7 +1622,7 @@ const STORIES = {
   ],
   leo: [
     ['I am six, like you!', 'I like to play tag and kick balls.', 'My best friend is a frog. His name is Hop!'],
-    ['Can you run fast?', 'I can run super fast! Zoom!'],
+    ['I can run super fast!', 'Zoom! I run like the wind.'],
     ['I built a sand castle on the beach.', 'Then a wave came. Splash! Ha ha!'],
   ],
   gus: [
@@ -1607,7 +1631,7 @@ const STORIES = {
     ['A seagull lives on my roof.', 'He says good morning every day. Squawk!'],
   ],
   coco: [
-    ['I make ice cream every morning.', 'My favorite is pink strawberry.', 'What is your favorite, Coji?'],
+    ['I make ice cream every morning.', 'My favorite is pink strawberry.', 'I wonder which flavor you like best!'],
     ['Ice cream melts fast in the sun!', 'Eat it quick! Ha ha!'],
     ['I made rainbow ice cream once.', 'Seven colors in one cone! 🌈'],
   ],
@@ -1629,7 +1653,7 @@ const STORIES = {
   momo: [['Meow! I sleep on the warm boxes.', 'I watch the boats all day.', 'Fish is my best friend! Meow!'], ['Meow! I have a secret spot under the boat.', 'It is cool in the shade. Purr...']],
   bun: [['Hop! I live in a hole under the farm.', 'I have ten brothers and sisters!', 'We all love carrots!'], ['Hop! Today I hopped so high.', 'I saw the whole farm! Wow!']],
   hoot: [['Who-who! I am very old and very wise.', 'I sleep in the day and fly at night.', 'I can turn my head almost all the way around!'], ['Who-who! I have lived in my tree a long time.', 'I know every animal in the forest.']],
-  bruno: [['I live in the forest by the sea.', 'I like honey, naps and big hugs.', 'Do you like hugs, Coji? 🤗'], ['My mom taught me to fish.', 'But I like honey more! Grrr... yum!']],
+  bruno: [['I live in the forest by the sea.', 'I like honey, naps and big hugs.', 'Big hugs are my favorite! 🤗'], ['My mom taught me to fish.', 'But I like honey more! Grrr... yum!']],
   boo: [['Boo! I am a little ghost.', 'I love hide and seek. I am very good at it!', 'But I do not like the dark. Shh!'], ['Hee hee! Last night I said BOO to a bat.', 'He said BOO back! We are friends now.']],
 }
 const EXTRAS = {
@@ -1658,7 +1682,7 @@ for (const [id, list] of Object.entries(EXTRAS)) CAST[id].extras = list
 
 Object.assign(CAST.momo, {
   talks: {
-    mood: [['Purr... I feel lazy today.', 'The sun is so warm!'], ['Meow! I feel playful!', 'Do you have a string?'], ['I am a little grumpy.', 'A seagull took my nap spot!'], ['Purr... I feel happy.', 'Boats, sun and you! Meow!']],
+    mood: [['Purr... I feel lazy today.', 'The sun is so warm!'], ['Meow! I feel playful!', 'I wish I had a string to chase!'], ['I am a little grumpy.', 'A seagull took my nap spot!'], ['Purr... I feel happy.', 'Boats, sun and you! Meow!']],
     facts: [['Cats sleep a lot.', 'I sleep sixteen hours a day! Purr...'], ['I can see in the dark!', 'My eyes shine at night.'], ['I land on my feet.', 'Always! Meow!'], ['My whiskers help me feel things.', 'They are like magic!']],
     jokes: [['What is my favorite color?', 'Purr-ple! Meow ha ha!'], ['I chased a fish in the water.', 'Now I am a wet cat! Meow!'], ['Why do cats like boxes?', 'We do not know! We just do! Meow!']],
   },
@@ -1705,7 +1729,7 @@ Object.assign(CAST.bruno, {
 })
 Object.assign(CAST.boo, {
   talks: (g) => ({
-    mood: g.done('boo') ? [['Hee hee! I feel so happy!', 'My lantern is so bright!'], ['Boo! I feel brave now!']] : [['Boo! I feel playful!'], ['I feel a little scared.', 'Is it getting dark?'], ['Hee hee! I feel happy you are here!']],
+    mood: g.done('boo') ? [['Hee hee! I feel so happy!', 'My lantern is so bright!'], ['Boo! I feel brave now!']] : [['Boo! I feel playful!'], ['I feel a little scared.', 'I hope it is not getting dark.'], ['Hee hee! I feel happy you are here!']],
     facts: [['Ghosts can float!', 'Look! Whee!'], ['I can go through walls!', 'But I say sorry first. Hee hee!'], ['I am not scary.', 'I am just a little white ghost with big eyes!']],
     jokes: [['What do ghosts eat for dinner?', 'Spook-ghetti! Hee hee!'], ['What is a ghost\'s favorite game?', 'Hide and shriek! Boo!'], ['I tried to scare a pumpkin.', 'It just smiled at me! Hee hee!']],
   }),
@@ -1720,7 +1744,7 @@ CAST.bones = {
   animal: true,
   greet: () => 'Rattle, rattle!',
   greetNode: (g) => {
-    const greet = draw('bones:hi', ['Rattle, rattle! Hello there!', 'Oh! A visitor! Rattle!', 'Hee hee! I am out for a walk!', 'Hello! Do not mind me. I am just bony!', 'Rattle! Did you see my other sock?'])
+    const greet = draw('bones:hi', ['Rattle, rattle! Hello there!', 'Oh! A visitor! Rattle!', 'Hee hee! I am out for a walk!', 'Hello! Do not mind me. I am just bony!', 'Rattle! I am looking for my other sock.'])
     const cfg = {
       bye: () => draw('bones:bye', ['Bye! Rattle, rattle!', 'See you! I will be here. I am always here! Ha ha!', 'Bye-bye! Rattle!']),
       options: (gg, used) => {
@@ -1734,7 +1758,7 @@ CAST.bones = {
             go: () => {
               const h = (gg.is('boo.0') || gg.is('boo.1')) && Math.random() < 0.5 ? helpLines(gg, 1, []) : null
               if (h) return miniHub(gg, cfg, h.say, used, { onShow: h.onShow })
-              return miniHub(gg, cfg, draw('bones:nohelp', [['Help? Hmm...', 'I forgot. Rattle, rattle!'], ['I can not help.', 'I am too busy looking for my other sock.'], ['Do you have milk?', 'Milk is good for bones!'], ['Help? Sure!', '...What were we talking about?']]), used)
+              return miniHub(gg, cfg, draw('bones:nohelp', [['Help? Hmm...', 'I forgot. Rattle, rattle!'], ['I can not help.', 'I am too busy looking for my other sock.'], ['Milk is good for bones!', 'Too bad I cannot drink it. Ha ha!'], ['Help? Sure!', '...What were we talking about?']]), used)
             },
           },
           { key: 'who', text: 'Who are you?', go: () => miniHub(gg, cfg, draw('bones:who', [['I am Mr. Bones!', 'I am not scary. I am just bony!'], ['My name? It is on the tip of my tongue...', 'Oh! I have no tongue! Ha ha!'], ['I am Mr. Bones. I live here.', 'Under the grass. It is cozy!']]), used) },
@@ -1900,7 +1924,7 @@ const CRITTERS = {
     name: 'Deer',
     hi: ['Hello! I am a deer. I can run very fast!', 'Oh! Hi there! You are quiet, like me.', 'Hello, Coji! Look at my big ears!', 'Hi! I was eating grass. Yum!', 'Shh... Hello! I am a shy deer.'],
     eat: [['I eat grass and leaves.', 'Crunchy and green!'], ['I love fresh leaves.', 'And apples, if I find them!'], ['Grass for breakfast, grass for lunch!', 'Grass for dinner too!']],
-    mood: [['I feel happy!', 'The sun is warm today.'], ['I am a little sleepy.', 'I ran all morning!'], ['I feel great!', 'I can jump over a log!'], ['I am hungry.', 'Where is the green grass?']],
+    mood: [['I feel happy!', 'The sun is warm today.'], ['I am a little sleepy.', 'I ran all morning!'], ['I feel great!', 'I can jump over a log!'], ['I am hungry.', 'I need to find some green grass.']],
     facts: [['Baby deer have white spots.', 'The spots help them hide!'], ['I can hear very well.', 'My big ears turn this way and that way!'], ['Daddy deer have antlers.', 'They grow new ones every year!'], ['I can jump very high!', 'Higher than you! Ha ha!']],
     jokes: [['I tried to hide behind a tree.', 'But my bottom was still out! Ha ha!'], ['I ran so fast,', 'I passed my own shadow! Ha ha!']],
     asks: [
@@ -1911,9 +1935,9 @@ const CRITTERS = {
   },
   fox: {
     name: 'Fox',
-    hi: ['Yip! I am a fox. Look at my fluffy tail!', 'Yip yip! Hello, Coji!', 'Oh, hello! I am a clever fox.', 'Hi! Do you like my orange fur?'],
+    hi: ['Yip! I am a fox. Look at my fluffy tail!', 'Yip yip! Hello, Coji!', 'Oh, hello! I am a clever fox.', 'Hi! My orange fur is soft and warm.'],
     eat: [['I eat berries and bugs.', 'Yip yip!'], ['I like berries and mice.', 'And sometimes a little fish!'], ['I eat lots of things.', 'Berries are my favorite!']],
-    mood: [['I feel playful today!', 'Do you want to play tag?'], ['I am a bit sleepy.', 'Foxes like to play at night.'], ['I am so happy!', 'I found a big red berry!']],
+    mood: [['I feel playful today!', 'I want to play tag!'], ['I am a bit sleepy.', 'Foxes like to play at night.'], ['I am so happy!', 'I found a big red berry!']],
     facts: [['I sleep in a den under the ground.', 'It is warm and cozy.'], ['My tail keeps me warm.', 'I wrap it around me like a blanket!', 'Just like your blanket, Coji!'], ['I can hear a mouse under the snow!'], ['Baby foxes are called kits.', 'They are so cute!']],
     jokes: [['I chased my tail all morning!', 'I did not catch it. Ha ha!'], ['I am a clever fox.', 'I can count to ten! One, two... um... ten!']],
     asks: [
@@ -1930,14 +1954,14 @@ const CRITTERS = {
     facts: [['Chickens can not fly very high.', 'But I can flap my wings!'], ['I talk to my eggs!', 'Cluck, cluck! The chicks hear me.'], ['I have a red comb on my head.', 'It is not for my hair! Ha ha!'], ['A rooster says cock-a-doodle-doo!', 'I just say cluck.']],
     jokes: [['Why did the chicken cross the road?', 'To say hi to you, Coji! Cluck!'], ['Which came first, the chicken or the egg?', 'Me! I came first to say hi!']],
     asks: [
-      { q: 'Do you like eggs, Coji?', opts: [['Yes! Yummy eggs!', ['Cluck! You are welcome! Ha ha!']], ['Not so much.', ['That is okay. Do you like corn?']]] },
+      { q: 'Do you like eggs, Coji?', opts: [['Yes! Yummy eggs!', ['Cluck! You are welcome! Ha ha!']], ['Not so much.', ['That is okay. Corn is tasty too!']]] },
       { q: 'Can you flap like me, Coji?', opts: [['Flap, flap!', ['Ha ha! Good flapping, Coji!']], ['I have no wings!', ['Use your arms! Flap, flap!']]] },
     ],
     bye: ['Cluck! Bye-bye!', 'Bawk! See you!', 'Cluck cluck! Bye, Coji!'],
   },
   squirrel: {
     name: 'Squirrel',
-    hi: ['Squeak! I am a squirrel. I am very busy!', 'Hi! Hi! Hi! Sorry, I am in a hurry!', 'Squeak! Hello! Do you have a nut?', 'Oh, hello! I was up in a tree!'],
+    hi: ['Squeak! I am a squirrel. I am very busy!', 'Hi! Hi! Hi! Sorry, I am in a hurry!', 'Squeak! Hello! I am looking for a nut.', 'Oh, hello! I was up in a tree!'],
     eat: [['I eat nuts!', 'I hide them for winter. Shh!'], ['Nuts, seeds and acorns!', 'Crunch, crunch!'], ['I love acorns. 🌰', 'I keep them in my cheeks!']],
     mood: [['I feel so busy!', 'I have one hundred nuts to hide!'], ['I am happy!', 'I found a big acorn!'], ['Oh no, I feel silly.', 'I forgot where I hid my nuts!']],
     facts: [['I can jump from tree to tree!', 'Whee!'], ['My big tail helps me balance.', 'I do not fall!'], ['I hide nuts in the ground.', 'Some of them grow into trees!'], ['My teeth never stop growing!', 'So I chew a lot!']],
@@ -1963,7 +1987,7 @@ const CRITTERS = {
     hi: ['Click click! I am a crab. I walk sideways!', 'Snip snap! Hello there!', 'Click! Hi, Coji! Watch my claws!', 'Hello! The sand is warm today. Click!'],
     eat: [['I eat little bits from the sea.', 'Click!'], ['Seaweed and tiny fish!', 'Snip, snap, yum!'], ['I find food in the sand.', 'Dig, dig, dig!']],
     mood: [['I feel snappy today!', 'Snip, snap!'], ['I am happy!', 'The waves tickle my legs.'], ['I am a little grumpy.', 'A seagull took my lunch!']],
-    facts: [['I have ten legs!', 'Can you count them?'], ['I carry my bones on the outside!', 'It is called a shell.'], ['I walk sideways.', 'It is faster for me!'], ['I hide in the sand when birds come.', 'Shh!']],
+    facts: [['I have ten legs!', 'That is a lot of legs to count.'], ['I carry my bones on the outside!', 'It is called a shell.'], ['I walk sideways.', 'It is faster for me!'], ['I hide in the sand when birds come.', 'Shh!']],
     jokes: [['Why do I walk sideways?', 'So I can see the beach and the sea! Ha ha!'], ['I tried to walk forward.', 'I bumped into a rock! Click!']],
     asks: [{ q: 'Can you walk sideways, Coji?', opts: [['Like this? Step, step!', ['Click click! You are a good crab!']], ['No, that is hard!', ['Try it! Step to the side!']]] }],
     bye: ['Click! Bye-bye!', 'Snip snap! See you!', 'Bye! I will walk home... sideways!'],
@@ -2064,7 +2088,7 @@ export const RESIDENTS = [
   {
     name: 'Nora',
     stories: [['I am an artist.', 'I paint the sea, the sky and the castle.', 'One day I will paint you, Coji!'], ['I had blue paint on my nose all day!', 'Nobody told me! Ha ha!'], ['Mix red and yellow.', 'What do you get? Orange! 🧡']],
-    moods: [['I feel happy!', 'The sky is so blue today.'], ['I am thinking.', 'What should I paint next?']],
+    moods: [['I feel happy!', 'The sky is so blue today.'], ['I am thinking.', 'I am choosing what to paint next.']],
     gift: ['apple', 'Here is an apple. Red, like my paint! 🍎'],
     note: 'Painting at the beach today! - Nora',
   },
@@ -2079,7 +2103,7 @@ export const RESIDENTS = [
     name: 'Lily',
     kid: true,
     stories: [['I am seven!', 'My dog is called Biscuit.', 'He likes to run after balls.'], ['I lost my tooth today!', 'Look! There is a hole! Ha ha!'], ['I can do a cartwheel!', 'Well... almost!']],
-    moods: [['I am so happy!', 'Biscuit learned a new trick!'], ['I am bored.', 'Do you want to play?']],
+    moods: [['I am so happy!', 'Biscuit learned a new trick!'], ['I am bored.', 'I wish someone would play with me.']],
     gift: ['berries', 'I picked berries! Want some? 🫐'],
     note: 'At school! - Lily',
   },

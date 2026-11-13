@@ -1485,11 +1485,9 @@ export class Owl extends Animal {
 }
 
 export class Cat extends Animal {
-  constructor() {
+  constructor({ coat = '#f0a050', dark = '#d7782d', white = '#fff4e6', eyes = '#7fc65a' } = {}) {
     super()
-    const o = '#f0a050'
-    const dark = '#d7782d'
-    const white = '#fff4e6'
+    const o = coat
     const p = new Parts(SMOOTH)
     p.add(sphere(0.3, S(18), S(14)), o, { y: 0.3, sy: 1.15, sz: 1.1, ...FUR })
     for (const s of [-1, 1]) p.add(sphere(0.13, S(10), S(8)), o, { x: s * 0.17, y: 0.14, z: -0.08, sz: 1.5, ...FUR })
@@ -1513,7 +1511,7 @@ export class Cat extends Animal {
     shadeAll(hp, (x, y, z) => 0.9 + 0.12 * sm(-0.2, 0.2, z))
     for (const s of [-1, 1]) {
       hp.add(cone(0.055, 0.11, S(6)), '#ffb3b3', { x: s * 0.14, y: 0.2, z: 0.035, rz: -s * 0.25, jitter: 0, rough: 0.8 })
-      animalEye(hp, s * 0.1, 0.03, 0.2, 0.042, { ry: s * 0.4, rx: -0.1, iris: '#7fc65a', slit: true, sy: 1.15 })
+      animalEye(hp, s * 0.1, 0.03, 0.2, 0.042, { ry: s * 0.4, rx: -0.1, iris: eyes, slit: true, sy: 1.15 })
       for (let i = 0; i < 3; i++) hp.add(cyl(0.003, 0.002, 0.18, S(3)), '#ffffff', { x: s * 0.2, y: -0.06 - i * 0.025, z: 0.2, rz: s * (Math.PI / 2 - 0.15 + i * 0.12), jitter: 0, rough: 0.5 })
       hp.add(capsule(0.012, 0.05, S(3), S(4)), dark, { x: s * 0.06, y: 0.21, z: 0.17, rz: s * 0.3, rx: -0.4, jitter: 0, rough: 0.9 })
     }
@@ -1551,7 +1549,8 @@ export class Cat extends Animal {
     this.head.rotation.y = lerp(this.head.rotation.y, this.lookYaw, Math.min(1, dt * 4))
     this.head.rotation.z = this.talk > 0 ? Math.sin(t * 8) * 0.1 : Math.sin(t * 0.6) * 0.05
     if (this.talk > 0) this.talk -= dt
-    if (this.mood === 'happy') this.root.position.y = this.baseY + Math.abs(Math.sin(t * 6)) * 0.12
+    if (this.speed > 0.05) this.root.position.y = this.baseY + Math.abs(Math.sin(t * 8 + this.seed)) * 0.055
+    else if (this.mood === 'happy') this.root.position.y = this.baseY + Math.abs(Math.sin(t * 6)) * 0.12
   }
 }
 

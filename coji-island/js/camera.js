@@ -21,6 +21,8 @@ export class FollowCam {
     this.focus = new THREE.Vector3()
     this.goal = new THREE.Vector3()
     this.pointers = new Map()
+    this.yawVelocity = 0
+    this.pitchVelocity = 0
     this.enabled = true
     this.override = null // { focus, yaw, pitch, dist } for cut-scenes
     this.bind()
@@ -30,7 +32,11 @@ export class FollowCam {
     const c = this.canvas
     c.addEventListener('pointerdown', (e) => {
       c.setPointerCapture?.(e.pointerId)
-      this.pointers.set(e.pointerId, { x: e.clientX, y: e.clientY, sx: e.clientX, sy: e.clientY, t: performance.now(), moved: false })
+      const now = performance.now()
+      this.pointers.set(e.pointerId, { x: e.clientX, y: e.clientY, sx: e.clientX, sy: e.clientY, t: now, lastT: now, moved: false })
+      // A new drag takes control immediately; inertia resumes from the new gesture.
+      this.yawVelocity = 0
+      this.pitchVelocity = 0
       if (this.pointers.size === 2) {
         const [a, b] = [...this.pointers.values()]
         this.pinch = Math.hypot(a.x - b.x, a.y - b.y)
@@ -42,6 +48,9 @@ export class FollowCam {
       if (!p) return
       const dx = e.clientX - p.x
       const dy = e.clientY - p.y
+      const now = performance.now()
+      const moveDt = Math.max(1 / 120, Math.min(0.08, (now - p.lastT) / 1000))
+      p.lastT = now
       p.x = e.clientX
       p.y = e.clientY
       if (!p.moved && Math.hypot(p.x - p.sx, p.y - p.sy) > TAP_MOVE) p.moved = true
@@ -53,9 +62,15 @@ export class FollowCam {
         this.pinch = d
       } else if (p.moved) {
         const k = 1 / Math.max(320, Math.min(window.innerWidth, window.innerHeight))
-        this.yaw -= dx * k * 3.2
+        const yawStep = -dx * k * 3.2
+        const pitchStep = dy * k * 2.2
+        this.yaw += yawStep
         // below 0.12 the camera stays low and tilts up, so you can look at the sky
-        this.pitch = Math.min(1.25, Math.max(-0.6, this.pitch + dy * k * 2.2))
+        this.pitch = Math.min(1.25, Math.max(-0.6, this.pitch + pitchStep))
+        // Keep a smoothed angular speed so the view coasts briefly after release.
+        // The clamp prevents a stray iPad pointer event from causing a wild spin.
+        this.yawVelocity = THREE.MathUtils.clamp(this.yawVelocity * 0.45 + (yawStep / moveDt) * 0.55, -4.5, 4.5)
+        this.pitchVelocity = THREE.MathUtils.clamp(this.pitchVelocity * 0.45 + (pitchStep / moveDt) * 0.55, -3.2, 3.2)
       }
     })
     const end = (e) => {
@@ -63,6 +78,18 @@ export class FollowCam {
       if (!p) return
       this.pointers.delete(e.pointerId)
       if (this.pointers.size < 2) this.pinch = null
+      // If the finger rested before release, do not reuse an old fast move as fresh momentum.
+      // A quick release keeps the intended coast; a pause settles the camera naturally.
+      const releaseIdle = (performance.now() - p.lastT) / 1000
+      if (this.pointers.size === 0 && p.moved) {
+        const keep = Math.max(0, 1 - releaseIdle / 0.14)
+        this.yawVelocity *= keep
+        this.pitchVelocity *= keep
+      }
+      if (e.type === 'pointercancel') {
+        this.yawVelocity = 0
+        this.pitchVelocity = 0
+      }
       if (e.type === 'pointerup' && !p.moved && performance.now() - p.t < TAP_TIME && this.pointers.size === 0) this.onTap(e.clientX, e.clientY)
     }
     c.addEventListener('pointerup', end)
@@ -87,6 +114,21 @@ export class FollowCam {
 
   update(dt, target) {
     const o = this.override
+    if (!o && this.enabled && this.pointers.size === 0) {
+      this.yaw += this.yawVelocity * dt
+      const nextPitch = THREE.MathUtils.clamp(this.pitch + this.pitchVelocity * dt, -0.6, 1.25)
+      // Do not keep pushing against the upper or lower camera limit.
+      if (nextPitch === -0.6 || nextPitch === 1.25) this.pitchVelocity = 0
+      this.pitch = nextPitch
+      const coast = Math.exp(-dt * 4.6)
+      this.yawVelocity *= coast
+      this.pitchVelocity *= coast
+      if (Math.abs(this.yawVelocity) < 0.005) this.yawVelocity = 0
+      if (Math.abs(this.pitchVelocity) < 0.005) this.pitchVelocity = 0
+    } else if (o || !this.enabled) {
+      this.yawVelocity = 0
+      this.pitchVelocity = 0
+    }
     const goalFocus = o ? o.focus : target
     const yaw = o ? o.yaw : this.yaw
     const pitch = o ? o.pitch : this.pitch

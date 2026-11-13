@@ -3,15 +3,50 @@
 // Only things near Coji exist; they are removed again when he walks away.
 import * as THREE from 'three'
 import * as L from './land.js'
-import { Person, Critter, randomLook, LOOKS, RESIDENT_LOOKS } from './characters.js'
+import { Person, Critter, Cat, randomLook, LOOKS, RESIDENT_LOOKS } from './characters.js'
 import { CAST, villagerCast, critterCast, alienCast, residentCast, RESIDENTS } from './story.js'
 import { sfx } from './audio.js'
+import { Parts, SMOOTH, box, cyl, sphere } from './build.js'
 
 const NAMES = ['Mia', 'Ollie', 'Ava', 'Zoe', 'Ella', 'Jack', 'Lucy', 'Ruby', 'Ivy', 'Theo', 'Hana', 'Kai', 'Mei', 'Jun', 'Rosa', 'Omar', 'Lena', 'Nico', 'Tess', 'Yuki']
 const ALIEN_NAMES = ['Zib', 'Blip', 'Norp', 'Zuzu', 'Pim']
 const NEAR = 38 // spawn within this distance
 const FAR = 58 // remove beyond this distance
 const pick = (a) => a[Math.floor(Math.random() * a.length)]
+const CAT_HELLOS = ['Meow! Hello, Coji!', 'Mew! Purr, purr...', 'Meow! Nice to see you!', 'Purr... I like gentle pets.']
+
+function catCast(name) {
+  return {
+    name,
+    animal: true,
+    voice: 1.65,
+    greet: () => pick(CAT_HELLOS),
+    chat: { q: 'Can I pet you?', a: ['Meow! Purr, purr...', 'That feels nice!'] },
+    bye: () => pick(['Meow! Bye-bye!', 'Purr... See you!', 'Mew! Come back soon!']),
+    topics: {},
+  }
+}
+
+function islandCar(color, driverColor) {
+  const root = new THREE.Group()
+  const p = new Parts(SMOOTH)
+  p.add(box(2.0, 0.52, 3.4), color, { y: 0.58, z: 0.05, jitter: 0.02, rough: 0.55 })
+  p.add(box(1.72, 0.7, 1.75), color, { y: 1.12, z: -0.25, jitter: 0.015, rough: 0.5 })
+  p.add(box(1.78, 0.1, 1.84), '#f5f0df', { y: 1.52, z: -0.25, jitter: 0.01, rough: 0.6 })
+  // Windows and a clearly visible driver make the cars feel occupied even at low polygon count.
+  p.add(box(1.25, 0.42, 0.04), '#77b9d2', { y: 1.2, z: 0.65, jitter: 0, rough: 0.18 })
+  for (const side of [-1, 1]) p.add(box(0.04, 0.4, 1.12), '#77b9d2', { x: side * 0.88, y: 1.2, z: -0.22, jitter: 0, rough: 0.18 })
+  p.add(sphere(0.25, 10, 8), driverColor, { x: -0.38, y: 1.35, z: 0.03, jitter: 0.02, rough: 0.75 })
+  p.add(sphere(0.26, 10, 7), '#513521', { x: -0.38, y: 1.49, z: 0.01, sy: 0.48, jitter: 0.03, rough: 0.9 })
+  for (const x of [-1.03, 1.03])
+    for (const z of [-1.08, 1.08]) {
+      p.add(cyl(0.34, 0.34, 0.22, 10), '#24262b', { x, y: 0.42, z, rz: Math.PI / 2, flat: false, jitter: 0, rough: 0.8 })
+      p.add(cyl(0.14, 0.14, 0.23, 8), '#b9c0c8', { x, y: 0.42, z, rz: Math.PI / 2, flat: false, jitter: 0, metal: 0.7, rough: 0.35 })
+    }
+  for (const x of [-0.62, 0.62]) p.add(sphere(0.13, 8, 6), '#fff4aa', { x, y: 0.65, z: 1.76, sz: 0.35, jitter: 0, rough: 0.2 })
+  root.add(p.build({ shadow: false }))
+  return root
+}
 
 export class Crowd {
   constructor(game) {
@@ -27,6 +62,62 @@ export class Crowd {
     this.pool = { adult: [], kid: [] }
     this.animalPool = {}
     this.makeDoors()
+    this.makeIslandCats()
+    this.makeTraffic()
+  }
+
+  makeTraffic() {
+    this.trafficCum = [0]
+    for (let i = 0; i < L.RING.length - 1; i++) {
+      const a = L.RING[i]
+      const b = L.RING[i + 1]
+      this.trafficCum.push(this.trafficCum[i] + Math.hypot(b[0] - a[0], b[1] - a[1]))
+    }
+    this.trafficTotal = this.trafficCum[this.trafficCum.length - 1]
+    const specs = [
+      ['#e94b3c', '#d8a17d', 6],
+      ['#3b7dd8', '#8d5b3e', 28],
+      ['#f2c94c', '#edc3a5', 52],
+    ]
+    this.cars = specs.map(([color, skin, wait], i) => {
+      const root = islandCar(color, skin)
+      root.visible = false
+      this.game.scene.add(root)
+      return { root, wait, life: 0, distance: 0, speed: 5.2 + i * 0.45 }
+    })
+  }
+
+  startCar(car) {
+    const hit = L.polyDist(this.game.player.x, this.game.player.z, L.RING)
+    const segLen = this.trafficCum[hit.seg + 1] - this.trafficCum[hit.seg]
+    car.distance = (this.trafficCum[hit.seg] + hit.t * segLen - 24 + this.trafficTotal) % this.trafficTotal
+    car.life = 28 + Math.random() * 12
+    car.root.visible = true
+  }
+
+  updateTraffic(dt) {
+    for (const car of this.cars) {
+      if (!car.root.visible) {
+        car.wait -= dt
+        if (car.wait <= 0) this.startCar(car)
+        continue
+      }
+      car.life -= dt
+      car.distance = (car.distance + car.speed * dt) % this.trafficTotal
+      let seg = 0
+      while (seg < this.trafficCum.length - 2 && this.trafficCum[seg + 1] < car.distance) seg++
+      const a = L.RING[seg]
+      const b = L.RING[seg + 1]
+      const k = (car.distance - this.trafficCum[seg]) / (this.trafficCum[seg + 1] - this.trafficCum[seg])
+      const x = L.lerp(a[0], b[0], k)
+      const z = L.lerp(a[1], b[1], k)
+      car.root.position.set(x, this.world.surfaceY(x, z) + 0.05, z)
+      car.root.rotation.y = Math.atan2(b[0] - a[0], b[1] - a[1])
+      if (car.life <= 0) {
+        car.root.visible = false
+        car.wait = 30 + Math.random() * 55
+      }
+    }
   }
 
   // ---------- registering talkers ----------
@@ -36,6 +127,7 @@ export class Crowd {
     CAST[id] = cast
     const y = this.world.surfaceY(x, z)
     ch.root.position.set(x, y, z)
+    ch.baseY = y
     ch.id = id
     this.game.scene.add(ch.root)
     const e = this.world.addEntity({ id, kind: 'npc', x, z, y, reach: extra.reach ?? 1.8, tapR: extra.tapR ?? 1.2, tapH: extra.tapH ?? 2.4, zone: 'crowd' })
@@ -122,6 +214,52 @@ export class Crowd {
     this.add('animal', ch, s[0], s[1], critterCast(kind), { speed: kind === 'deer' ? 2.4 : kind === 'fox' ? 2.0 : small ? 0.9 : 1.2, animal: kind, tapR: small ? 0.7 : 1.1, tapH: small ? 0.8 : 1.8, reach: small ? 1.2 : 1.8 })
   }
 
+  // Friendly cats live all around the island. Some sit in a favorite sunny spot; others roam nearby.
+  makeIslandCats() {
+    const V = L.PLACES.village
+    const F = L.PLACES.farm
+    const S = L.PLACES.school
+    const B = L.PLACES.beach
+    const cats = [
+      { name: 'Mittens', x: V.x - 8, z: V.z + 3, fixed: true, colors: { coat: '#f5f2e9', dark: '#77747a', white: '#ffffff', eyes: '#77b45a' } },
+      { name: 'Pumpkin', x: F.x + 8, z: F.z + 7, fixed: true, colors: { coat: '#e98a35', dark: '#9d4f25', white: '#fff1dc', eyes: '#79bd63' } },
+      { name: 'Luna', x: L.GAZEBO.x - 4, z: L.GAZEBO.z + 4, fixed: true, colors: { coat: '#454653', dark: '#24252d', white: '#f4f3f0', eyes: '#e7c85b' } },
+      { name: 'Shadow', x: S.x + 9, z: S.z + 5, roam: 9, colors: { coat: '#34343b', dark: '#17171c', white: '#e9e7e2', eyes: '#d7c84c' } },
+      { name: 'Sunny', x: B.x - 7, z: B.z - 5, roam: 11, colors: { coat: '#d8b487', dark: '#8e694b', white: '#fff8ea', eyes: '#6dad73' } },
+    ]
+    for (const c of cats) {
+      const spot = this.catSpot(c.x, c.z)
+      if (!spot) continue
+      const ch = new Cat(c.colors)
+      ch.root.scale.setScalar(0.95 + Math.random() * 0.12)
+      const it = this.add('cat', ch, spot[0], spot[1], catCast(c.name), {
+        speed: 1.05,
+        fixed: !!c.fixed,
+        permanent: true,
+        home: spot,
+        roamRadius: c.roam || 0,
+        tapR: 0.75,
+        tapH: 1.05,
+        reach: 1.25,
+      })
+      it.e.cat = true
+      if (c.fixed) ch.homeFace = Math.random() * Math.PI * 2
+    }
+  }
+
+  catSpot(x, z) {
+    for (let ring = 0; ring <= 8; ring++) {
+      const n = Math.max(1, ring * 8)
+      for (let i = 0; i < n; i++) {
+        const a = (i / n) * Math.PI * 2
+        const px = x + Math.cos(a) * ring
+        const pz = z + Math.sin(a) * ring
+        if (this.world.nav.okAt(px, pz) && !L.onBridge(px, pz) && !L.inStream(px, pz, 1) && !L.inPond(px, pz, 1)) return [px, pz]
+      }
+    }
+    return null
+  }
+
   spawnAlien(x, z) {
     const ch = new Person(LOOKS.alien)
     ch.root.scale.setScalar(0.85)
@@ -200,6 +338,7 @@ export class Crowd {
     const g = this.game
     const p = g.player
     if (g.mode !== 'play') return
+    this.updateTraffic(dt)
     const dCastle = Math.hypot(p.x - L.CASTLE.x, p.z - L.CASTLE.z)
     if (dCastle < 75) this.makeKnights()
     for (const k of this.knights) this.walkKnight(k, dt, t)
@@ -225,7 +364,7 @@ export class Crowd {
       const e = it.e
       const d = Math.hypot(p.x - e.x, p.z - e.z)
       it.life -= dt
-      if ((d > FAR && !it.circle) || (it.life <= 0 && !it.alien && d > 12)) {
+      if ((!it.permanent && d > FAR && !it.circle) || (it.life <= 0 && !it.alien && !it.permanent && d > 12)) {
         if (this.remove(it)) continue
       }
       if (it.alien && it.life <= 0 && !it.leaving && g.talking !== e) {
@@ -243,6 +382,13 @@ export class Crowd {
     const ch = it.ch
     if (g.talking === e) {
       ch.speed = 0
+      return
+    }
+    if (it.fixed) {
+      ch.speed = 0
+      e.y = g.world.surfaceY(e.x, e.z)
+      ch.baseY = e.y
+      ch.root.position.set(e.x, e.y, e.z)
       return
     }
     if (it.circle) {
@@ -276,6 +422,7 @@ export class Crowd {
       if (it.wait <= 0 && !it.follow) this.chooseTarget(it)
     }
     e.y = g.world.surfaceY(e.x, e.z)
+    ch.baseY = e.y
     ch.root.position.set(e.x, e.y, e.z)
     e.proxy.position.set(e.x, e.y + (e.proxy.geometry.parameters.height || 2) / 2, e.z)
     e.proxy.updateMatrixWorld()
@@ -287,7 +434,12 @@ export class Crowd {
     for (let k = 0; k < 8; k++) {
       let tx
       let tz
-      if (it.stay) {
+      if (it.roamRadius && it.home) {
+        const a = Math.random() * Math.PI * 2
+        const r = 2 + Math.random() * it.roamRadius
+        tx = it.home[0] + Math.cos(a) * r
+        tz = it.home[1] + Math.sin(a) * r
+      } else if (it.stay) {
         tx = it.home[0] + (Math.random() - 0.5) * 3
         tz = it.home[1] + (Math.random() - 0.5) * 3
       } else {

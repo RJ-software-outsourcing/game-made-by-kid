@@ -7,6 +7,7 @@ export const ITEMS = {
   juice: { name: 'Juice', icon: '🧃', water: 30, energy: 10, desc: 'Cold orange juice.', use: 'Drink it when you are thirsty.' },
   milk: { name: 'Milk', icon: '🥛', water: 20, energy: 15, desc: 'Fresh milk from the farm.', use: 'Drink it for water and energy.' },
   water: { name: 'Water Bottle', icon: '💧', water: 40, desc: 'Fresh water.', use: 'Drink it when you are thirsty. Fill it at the well.' },
+  coconut: { name: 'Coconut', icon: '🥥', water: 28, energy: 5, desc: 'A fresh coconut from a beach palm.', use: 'Drink the coconut water when you are thirsty.' },
   carrot: { name: 'Carrot', icon: '🥕', energy: 10, desc: 'A crunchy carrot.', use: 'Give it to Bun the bunny at the farm, or eat it.' },
   mushroom: { name: 'Mushroom', icon: '🍄', energy: 6, desc: 'A little forest mushroom.', use: 'Eat it for a little energy.' },
   pumpkin: { name: 'Pumpkin', icon: '🎃', energy: 20, desc: 'A round orange pumpkin.', use: 'Eat it, or bring it to Boo the ghost for a lantern.' },

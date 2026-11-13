@@ -19,7 +19,7 @@ import { makeSprite, roundRect, SEE } from './build.js'
 
 const SAVE_KEY = 'coji-island-save-v1'
 const FOOD = ['apple', 'berries', 'burger', 'fries', 'carrot', 'milk', 'juice']
-const DRINKS = ['water', 'juice', 'milk']
+const DRINKS = ['water', 'juice', 'milk', 'coconut']
 
 export function freshState() {
   return {
@@ -84,7 +84,7 @@ function clearSave() {
 }
 
 const PICKUPS = new Set(['shell', 'coin', 'glasses', 'mushroom', 'treasure'])
-const regrowOf = (kind) => ({ appletree: TUNE.treeRegrow, berrybush: TUNE.bushRegrow, carrots: TUNE.carrotRegrow, pumpkin: 80 })[kind]
+const regrowOf = (kind) => ({ appletree: TUNE.treeRegrow, berrybush: TUNE.bushRegrow, carrots: TUNE.carrotRegrow, pumpkin: 80, palm: 70 })[kind]
 
 const angleTo = (a, b) => {
   let d = (b - a) % (Math.PI * 2)
@@ -213,8 +213,13 @@ class Game {
   }
 
   resize() {
-    const w = window.innerWidth
-    const h = window.innerHeight
+    // iPad home-screen web apps can report a stale innerHeight during launch and rotation.
+    // visualViewport is the visible standalone-app area; keep the CSS viewport and WebGL buffer
+    // on the exact same measured size so no unpainted strip is left at the bottom.
+    const vv = window.visualViewport
+    const w = Math.round(vv?.width || document.documentElement.clientWidth || window.innerWidth)
+    const h = Math.round(vv?.height || document.documentElement.clientHeight || window.innerHeight)
+    document.documentElement.style.setProperty('--app-height', `${h}px`)
     this.renderer.setPixelRatio(this.pr)
     this.renderer.setSize(w, h, false)
     this.camera.aspect = w / h
@@ -673,6 +678,7 @@ class Game {
       case 'berrybush':
       case 'carrots':
       case 'pumpkin':
+      case 'palm':
         return this.harvest(e)
       case 'sign':
         return this.readSign(e)
@@ -708,7 +714,7 @@ class Game {
     const regrow = regrowOf(e.kind)
     const t = s.harvest[e.id]
     if (t !== undefined && s.play - t < regrow) {
-      const what = { appletree: 'apples', berrybush: 'berries', carrots: 'carrots', pumpkin: 'pumpkins' }[e.kind]
+      const what = { appletree: 'apples', berrybush: 'berries', carrots: 'carrots', pumpkin: 'pumpkins', palm: 'coconuts' }[e.kind]
       this.ui.tip(`No ${what} now. They will grow back soon! 🌱`, { key: 'regrow-' + e.kind, cooldown: 5, force: true })
       return
     }
@@ -717,6 +723,12 @@ class Game {
     if (e.kind === 'berrybush') this.give('berries', 3)
     if (e.kind === 'carrots') this.give('carrot', 1)
     if (e.kind === 'pumpkin') this.give('pumpkin', 1)
+    if (e.kind === 'palm') {
+      this.give('coconut', 1)
+      this.world.dropCoconut(e)
+      sfx('knock')
+      this.ui.tip('Knock, knock, knock... A coconut dropped into your bag! 🥥 Drink it for water.', { key: 'coconut', once: true, force: true })
+    }
     e.shake = 0.7
     this.coji.cheer = 0.6
     this.save()
@@ -789,7 +801,7 @@ class Game {
     document.body.classList.add('talking')
     this.ui.setHintVisible(false)
     this.ui.hideHint()
-    if (id === 'momo') sfx('meow')
+    if (id === 'momo' || e.cat) sfx('meow')
     if (id === 'hoot') sfx('hoot')
     if (id === 'bun') sfx('hop')
     if (id === 'bruno' && !this.state.done.includes('bear')) sfx('growl')
@@ -1301,6 +1313,7 @@ class Game {
       sign: 'A signpost! Tap it to read where to go. 🪧',
       grave: 'A gravestone... Tap it if you dare! 👻',
       pumpkin: 'Pumpkins! Tap one to pick it. 🎃',
+      palm: 'A coconut palm! Tap it to knock down a coconut. 🥥',
       shell: 'A shiny shell! Walk to it to pick it up. 🐚',
       coin: 'A shiny coin! Walk to it to pick it up. 🪙',
       treasure: 'Something shiny! A treasure? Walk to it to pick it up. ✨',

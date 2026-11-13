@@ -212,26 +212,50 @@ export function drawMap(canvas, opts) {
   ctx.closePath()
   ctx.fill()
   const pulse = 14 + Math.sin(t * 5) * 3
-  ctx.fillStyle = 'rgba(255, 90, 80, 0.3)'
+  ctx.fillStyle = 'rgba(255, 213, 48, 0.28)'
+  ctx.beginPath()
+  ctx.arc(cx, cy, pulse + 9, 0, Math.PI * 2)
+  ctx.fill()
+  ctx.strokeStyle = 'rgba(255, 54, 54, 0.9)'
+  ctx.lineWidth = 4
   ctx.beginPath()
   ctx.arc(cx, cy, pulse, 0, Math.PI * 2)
-  ctx.fill()
+  ctx.stroke()
+  ctx.strokeStyle = '#ffffff'
+  ctx.lineWidth = 3
+  ctx.beginPath()
+  ctx.arc(cx, cy, 18, 0, Math.PI * 2)
+  ctx.stroke()
   ctx.save()
   ctx.translate(cx, cy)
   ctx.rotate(Math.atan2(Math.cos(player.face), Math.sin(player.face)))
   ctx.fillStyle = '#ff5a4f'
-  ctx.strokeStyle = '#fff'
-  ctx.lineWidth = 3
+  ctx.strokeStyle = '#ffffff'
+  ctx.lineWidth = 6
+  ctx.shadowColor = 'rgba(60, 20, 0, 0.55)'
+  ctx.shadowBlur = 8
   ctx.beginPath()
-  ctx.moveTo(14, 0)
-  ctx.lineTo(-8, -9)
-  ctx.lineTo(-4, 0)
-  ctx.lineTo(-8, 9)
+  ctx.moveTo(20, 0)
+  ctx.lineTo(-11, -13)
+  ctx.lineTo(-5, 0)
+  ctx.lineTo(-11, 13)
   ctx.closePath()
   ctx.fill()
   ctx.stroke()
   ctx.restore()
-  label(player.x, player.z, 'Coji', false, 22)
+  // A high-contrast name plate stays readable over labels, roads and trees.
+  ctx.font = 'bold 15px Andika, sans-serif'
+  const nameW = ctx.measureText('★ COJI ★').width + 20
+  ctx.fillStyle = '#ffdc45'
+  ctx.strokeStyle = '#ffffff'
+  ctx.lineWidth = 3
+  roundRect(ctx, cx - nameW / 2, cy + 25, nameW, 24, 12)
+  ctx.fill()
+  ctx.stroke()
+  ctx.fillStyle = '#6a2c17'
+  ctx.textAlign = 'center'
+  ctx.textBaseline = 'middle'
+  ctx.fillText('★ COJI ★', cx, cy + 37)
 
   // compass
   ctx.save()

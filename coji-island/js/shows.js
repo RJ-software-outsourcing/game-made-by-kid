@@ -4,7 +4,7 @@
 import * as THREE from 'three'
 import * as L from './land.js'
 import { Parts, SMOOTH, SHINE, GLOW, box, cyl, cone, sphere, torus, textCanvas } from './build.js'
-import { sfx } from './audio.js'
+import { sfx, sayAs } from './audio.js'
 
 const pick = (a) => a[Math.floor(Math.random() * a.length)]
 const BANNERS = ['HELLO, COJI!', 'READ EVERY DAY!', 'HAVE A HAPPY DAY!', 'YOU ARE A STAR!', 'BE KIND!', 'LET\'S PLAY!']
@@ -16,6 +16,7 @@ export class Shows {
     this.world = game.world
     this.list = []
     this.timer = 20
+    this.dragonTimer = 70 + Math.random() * 80
   }
 
   // Look out to sea from where Coji is: a point straight out from the island.
@@ -28,7 +29,15 @@ export class Shows {
 
   update(dt, t) {
     const g = this.game
-    if (g.mode === 'play' && !g.dialogue.open) this.timer -= dt
+    if (g.mode === 'play' && !g.dialogue.open) {
+      this.timer -= dt
+      this.dragonTimer -= dt
+    }
+    if (this.dragonTimer <= 0 && !this.list.some((s) => !s.quiet)) {
+      this.dragonTimer = 150 + Math.random() * 120
+      this.timer = Math.max(this.timer, 15)
+      this.start('dragon')
+    }
     if (this.timer <= 0 && !this.list.some((s) => !s.quiet)) {
       this.timer = 35 + Math.random() * 35
       this.start()
@@ -37,6 +46,7 @@ export class Shows {
       s.t += dt
       s.update(dt, t)
       if (s.done) {
+        s.dispose?.()
         this.scene.remove(s.root)
         this.list.splice(this.list.indexOf(s), 1)
       }
@@ -50,14 +60,15 @@ export class Shows {
     const spooky = L.spookiness(p.x, p.z) > 0.2
     if (spooky) return
     if (!kind) {
-      const sea = ['whale', 'whale', 'ship', 'kraken', 'dolphins']
+      const sea = ['whale', 'whale', 'ship', 'pirates', 'kraken', 'dolphins']
       const sky = ['plane', 'balloon', 'ufo', 'ufo']
       kind = nearSea && Math.random() < 0.6 ? pick(sea) : pick(sky)
     }
-    const make = { whale: whale, ship: ship, kraken: kraken, dolphins: dolphins, plane: plane, balloon: balloon, ufo: ufo }[kind]
+    const make = { whale: whale, ship: ship, pirates: pirateBattle, kraken: kraken, dolphins: dolphins, plane: plane, balloon: balloon, ufo: ufo, dragon: dragon }[kind]
     const s = make(this)
     if (!s) return
     s.t = 0
+    s.kind = kind
     this.scene.add(s.root)
     this.list.push(s)
     if (s.tip) g.ui.tip(s.tip, { key: 'show-' + kind, cooldown: 30, force: true, time: 6 })
@@ -241,6 +252,111 @@ function ship(S) {
   }
 }
 
+function fightingShip(pirate) {
+  const root = new THREE.Group()
+  const p = new Parts(SMOOTH)
+  const hull = pirate ? '#3a2520' : '#244f78'
+  const trim = pirate ? '#b92b2b' : '#f2e9d2'
+  const sail = pirate ? '#29262b' : '#f4f0df'
+  p.add(box(4.1, 1.2, 10.5), hull, { y: 0.5, sz: 1, jitter: 0.05, rough: 0.78 })
+  p.add(sphere(2.15, 12, 8), hull, { y: 0.5, z: 4.7, sx: 0.95, sy: 0.55, sz: 1.55, jitter: 0.04, rough: 0.75 })
+  p.add(box(4.3, 0.16, 9.4), '#a87945', { y: 1.14, z: -0.25, jitter: 0.04, rough: 0.85 })
+  p.add(box(4.18, 0.16, 0.24), trim, { y: 0.8, z: 1.5, jitter: 0.01, rough: 0.55 })
+  for (const z of [-2.5, 1.2]) {
+    p.add(cyl(0.11, 0.15, 8.0, 8), '#6b4429', { y: 5.0, z, flat: false, jitter: 0.02, rough: 0.85 })
+    p.add(box(4.8, 3.1, 0.08), sail, { y: 5.45, z: z + 0.04, jitter: 0.025, rough: 0.9 })
+    p.add(box(5.2, 0.1, 0.1), '#6b4429', { y: 7.0, z, jitter: 0.01, rough: 0.85 })
+  }
+  for (const side of [-1, 1])
+    for (const z of [-3.0, -0.7, 1.6]) {
+      p.add(cyl(0.16, 0.19, 0.7, 8), '#24262b', { x: side * 2.25, y: 1.45, z, rz: Math.PI / 2, flat: false, jitter: 0, metal: 0.4, rough: 0.45 })
+      p.add(sphere(0.12, 7, 5), '#17181b', { x: side * 2.62, y: 1.45, z, jitter: 0, metal: 0.3, rough: 0.4 })
+    }
+  p.add(box(3.2, 0.9, 1.8), hull, { y: 1.55, z: -4.1, jitter: 0.03, rough: 0.75 })
+  p.add(box(1.8, 0.65, 0.07), pirate ? '#b92b2b' : '#295ea0', { y: 8.2, z: -2.5, x: 0.95, jitter: 0.02, rough: 0.8 })
+  root.add(p.build({ shadow: false }))
+  return root
+}
+
+// Two compact, low-poly ships exchange broadside cannon fire. Cannonballs and smoke only exist for
+// the few seconds of the show, so the normal island scene pays no ongoing particle cost.
+function pirateBattle(S) {
+  const [cx, cz, a] = S.seaPoint(58)
+  if (S.world.terrainY(cx, cz) > -2.5) return null
+  const root = new THREE.Group()
+  root.position.set(cx, 0, cz)
+  root.rotation.y = -a
+  const pirate = fightingShip(true)
+  const navy = fightingShip(false)
+  pirate.position.set(-10, 0, -2)
+  navy.position.set(10, 0, 2)
+  root.add(pirate, navy)
+  const shots = []
+  const ballGeo = new THREE.SphereGeometry(0.25, 8, 6)
+  const ballMat = new THREE.MeshBasicMaterial({ color: 0x202226 })
+  const fire = (from, to) => {
+    const ball = new THREE.Mesh(ballGeo, ballMat)
+    const smokeMat = new THREE.MeshBasicMaterial({ color: 0xd9d4ca, transparent: true, opacity: 0.72, depthWrite: false, fog: true })
+    const smoke = new THREE.Mesh(new THREE.SphereGeometry(0.45, 7, 5), smokeMat)
+    const start = from.position.clone().add(new THREE.Vector3(from === pirate ? 2.7 : -2.7, 1.6, (Math.random() - 0.5) * 3.8))
+    const end = to.position.clone().add(new THREE.Vector3(0, 1.2, (Math.random() - 0.5) * 4))
+    ball.position.copy(start)
+    smoke.position.copy(start)
+    root.add(ball, smoke)
+    shots.push({ ball, smoke, start, end, t: 0 })
+    sfx('boom')
+  }
+  return {
+    root,
+    nextShot: 1.6,
+    turn: 0,
+    tip: 'Pirates! The pirate ship and the navy are firing cannons! ☠️💥',
+    dispose() {
+      for (const q of shots) {
+        root.remove(q.ball, q.smoke)
+        q.smoke.geometry.dispose()
+        q.smoke.material.dispose()
+      }
+      shots.length = 0
+      ballGeo.dispose()
+      ballMat.dispose()
+      pirate.traverse((o) => o.geometry?.dispose())
+      navy.traverse((o) => o.geometry?.dispose())
+    },
+    update(dt, t) {
+      const T = this.t
+      const travel = (T - 9) * 0.7
+      pirate.position.z = -2 + travel
+      navy.position.z = 2 + travel
+      pirate.position.y = Math.sin(t * 1.3) * 0.15
+      navy.position.y = Math.sin(t * 1.15 + 2) * 0.14
+      pirate.rotation.z = Math.sin(t * 0.9) * 0.025
+      navy.rotation.z = Math.sin(t * 0.8 + 1.7) * 0.025
+      this.nextShot -= dt
+      if (T > 1.5 && T < 14.5 && this.nextShot <= 0) {
+        fire(this.turn++ % 2 ? navy : pirate, this.turn % 2 ? navy : pirate)
+        this.nextShot = 1.45 + Math.random() * 0.85
+      }
+      for (let i = shots.length - 1; i >= 0; i--) {
+        const q = shots[i]
+        q.t += dt
+        const k = Math.min(1, q.t / 0.72)
+        q.ball.position.lerpVectors(q.start, q.end, k)
+        q.ball.position.y += Math.sin(k * Math.PI) * 2.5
+        q.smoke.scale.setScalar(1 + q.t * 2.8)
+        q.smoke.material.opacity = Math.max(0, 0.72 - q.t * 1.2)
+        if (k >= 1) {
+          root.remove(q.ball, q.smoke)
+          q.smoke.geometry.dispose()
+          q.smoke.material.dispose()
+          shots.splice(i, 1)
+        }
+      }
+      if (T > 18) this.done = true
+    },
+  }
+}
+
 function kraken(S) {
   const [x, z] = S.seaPoint(24 + Math.random() * 10)
   if (S.world.terrainY(x, z) > -2) return null
@@ -337,6 +453,105 @@ function dolphins(S) {
         m.visible = jump > -0.3
       })
       if (T > 12) this.done = true
+    },
+  }
+}
+
+function redDragon() {
+  const root = new THREE.Group()
+  const p = new Parts(SMOOTH)
+  p.add(sphere(1.5, 16, 10), '#b51f28', { sy: 0.72, sz: 2.2, jitter: 0.035, rough: 0.68 })
+  p.add(sphere(0.85, 12, 9), '#d63632', { y: 0.35, z: 2.45, sx: 1.0, sy: 0.75, sz: 1.15, jitter: 0.03, rough: 0.65 })
+  p.add(sphere(0.58, 12, 8), '#d63632', { y: 0.43, z: 3.45, sx: 1.15, sy: 0.7, sz: 1.15, jitter: 0.025, rough: 0.65 })
+  for (const side of [-1, 1]) {
+    p.add(sphere(0.12, 8, 6), '#ffe66d', { x: side * 0.3, y: 0.62, z: 3.9, sz: 0.55, jitter: 0, rough: 0.18 })
+    p.add(cone(0.18, 0.72, 7), '#f0d6a0', { x: side * 0.34, y: 1.05, z: 3.25, rx: -0.28, rz: side * 0.25, jitter: 0.02, rough: 0.78 })
+    p.add(cone(0.22, 0.85, 7), '#8f1720', { x: side * 0.82, y: -0.78, z: 0.65, rx: Math.PI, rz: side * 0.2, jitter: 0.03, rough: 0.75 })
+  }
+  for (let i = 0; i < 6; i++) p.add(cone(0.18 + i * 0.025, 0.6, 7), '#f0d6a0', { y: 1.0 - i * 0.1, z: 1.2 - i * 0.62, rx: -0.25, jitter: 0.02, rough: 0.8 })
+  p.add(cone(0.78, 5.0, 10), '#a61d26', { y: 0.05, z: -4.0, rx: -Math.PI / 2, sz: 1.15, jitter: 0.04, rough: 0.7 })
+  root.add(p.build({ shadow: false }))
+  const wings = []
+  for (const side of [-1, 1]) {
+    const g = new THREE.BufferGeometry()
+    g.setAttribute('position', new THREE.Float32BufferAttribute([0, 0.35, 0.5, side * 6.4, 0.1, -1.0, side * 4.5, 0.1, 3.2, 0, 0.35, 0.5, side * 4.5, 0.1, 3.2, side * 2.0, 0.1, 3.6], 3))
+    g.computeVertexNormals()
+    const wing = new THREE.Mesh(g, new THREE.MeshBasicMaterial({ color: side < 0 ? 0xb51f28 : 0xa91b25, side: THREE.DoubleSide, fog: true }))
+    root.add(wing)
+    wings.push(wing)
+  }
+  root.userData.wings = wings
+  return root
+}
+
+// A rare island-wide ten-second event: the dragon circles the castle, lightning flashes, thunder
+// rolls, and the King's call is spoken at full volume no matter where Coji is exploring.
+function dragon(S) {
+  const root = new THREE.Group()
+  root.position.set(L.CASTLE.x, 0, L.CASTLE.z)
+  const beast = redDragon()
+  root.add(beast)
+  const points = new Float32Array(9 * 3)
+  const lightningGeo = new THREE.BufferGeometry()
+  lightningGeo.setAttribute('position', new THREE.BufferAttribute(points, 3))
+  const lightning = new THREE.Line(lightningGeo, new THREE.LineBasicMaterial({ color: 0xeaf7ff, transparent: true, opacity: 0.95, depthWrite: false, fog: false }))
+  lightning.visible = false
+  root.add(lightning)
+  const flash = new THREE.AmbientLight(0xcfe8ff, 0)
+  root.add(flash)
+  const strikes = [1.1, 4.0, 7.2]
+  const fired = new Set()
+  sayAs('Help! A red dragon is circling the castle!', { who: 'man', seed: 41, pitch: 0.8, rate: 0.92, volume: 1, queue: true })
+  S.game.ui.toast('👑 King Arlo shouts across the island: "Help! A red dragon!" 🐉')
+  if (S.world.king) {
+    S.world.king.cheer = 10
+    S.world.king.wave = 10
+  }
+  const redrawLightning = () => {
+    const a = lightning.geometry.attributes.position.array
+    const startX = beast.position.x
+    const startZ = beast.position.z
+    for (let i = 0; i < 9; i++) {
+      const k = i / 8
+      a[i * 3] = L.lerp(startX, 0, k) + (i && i < 8 ? (Math.random() - 0.5) * 2.6 : 0)
+      a[i * 3 + 1] = L.lerp(31, 7, k)
+      a[i * 3 + 2] = L.lerp(startZ, 0, k) + (i && i < 8 ? (Math.random() - 0.5) * 2.6 : 0)
+    }
+    lightning.geometry.attributes.position.needsUpdate = true
+  }
+  return {
+    root,
+    tip: '🐉 A red dragon is circling the castle! Thunder and lightning shake Sunny Island!',
+    dispose() {
+      lightningGeo.dispose()
+      lightning.material.dispose()
+      beast.traverse((o) => o.geometry?.dispose())
+    },
+    update(dt, t) {
+      const T = this.t
+      const a = T * 1.05
+      beast.position.set(Math.cos(a) * 13, 20 + Math.sin(t * 2.4) * 1.2, Math.sin(a) * 13)
+      beast.rotation.y = -a
+      beast.rotation.z = Math.sin(t * 1.8) * 0.08
+      beast.userData.wings[0].rotation.z = Math.sin(t * 6.5) * 0.48
+      beast.userData.wings[1].rotation.z = -Math.sin(t * 6.5) * 0.48
+      let active = -1
+      strikes.forEach((at, i) => {
+        if (T >= at && !fired.has(i)) {
+          fired.add(i)
+          redrawLightning()
+          sfx('thunder')
+        }
+        if (T >= at && T < at + 0.2) active = i
+      })
+      lightning.visible = active >= 0
+      flash.intensity = active >= 0 ? 2.8 * (1 - (T - strikes[active]) / 0.2) : 0
+      if (active >= 0 && Math.floor(T * 50) % 2 === 0) redrawLightning()
+      if (T > 5 && !this.secondCry) {
+        this.secondCry = true
+        sayAs('Knights, protect the castle!', { who: 'man', seed: 41, pitch: 0.78, rate: 0.9, volume: 1, queue: true })
+      }
+      if (T >= 10) this.done = true
     },
   }
 }

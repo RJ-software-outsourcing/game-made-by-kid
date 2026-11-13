@@ -191,6 +191,11 @@ const SFX = {
     ;[523, 659, 784].forEach((f) => tone({ type: 'sine', f, at: 1.2, dur: 1.6, gain: 0.1 }))
   },
   boom: () => noise({ dur: 0.7, gain: 0.25, type: 'lowpass', f: 900, f2: 80, q: 1 }),
+  thunder: () => {
+    noise({ dur: 1.8, gain: 0.32, type: 'lowpass', f: 700, f2: 45, q: 1 })
+    tone({ type: 'sawtooth', f: 82, f2: 38, dur: 1.5, gain: 0.09 })
+    noise({ at: 0.28, dur: 1.4, gain: 0.2, type: 'bandpass', f: 180, f2: 70, q: 2 })
+  },
   ghost: () => {
     tone({ type: 'sine', f: 320, f2: 640, dur: 0.6, gain: 0.12 })
     tone({ type: 'sine', f: 640, f2: 420, at: 0.5, dur: 0.6, gain: 0.08 })

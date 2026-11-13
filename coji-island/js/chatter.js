@@ -4,7 +4,7 @@
 // Nobody talks over Coji or over each other: if a voice is busy, it waits for the next chance.
 import * as L from './land.js'
 import { makeSprite, roundRect } from './build.js'
-import { sayAs, speechBusy, cheer } from './audio.js'
+import { sayAs, speechBusy, cheer, sfx } from './audio.js'
 
 const pick = (a) => a[Math.floor(Math.random() * a.length)]
 const GREET = {
@@ -15,6 +15,15 @@ const GREET = {
   night: ['Good evening, Coji!', 'Good night, Coji!', 'Hello! Look at the stars!'],
 }
 const KING = 'Long live the King!'
+const STORE_NEAR = 5.8
+const STORE_RESET = 9
+const STORE_SHOUTS = {
+  ben: ['Fresh burgers! Hot and yummy!', 'Burgers and fries! Come and eat!', 'Hungry, Coji? Burger time!'],
+  granny: ['Honey, carrots and milk!', 'Fresh food at the Market!', 'Apples and berries wanted here!'],
+  penny: ['Bring me your treasures!', 'Treasures in, coins out!', 'Shells, pearls and crystals wanted!'],
+  tina: ['Toys, kites and teddy bears!', 'Come and see my new toys!', 'A Super Bright Bulb is in my shop!'],
+  coco: ['Cold ice cream for a sunny day!', 'Strawberry, chocolate and mint!', 'Ice cream! Get it before it melts!'],
+}
 
 const GIRLY = new Set(['bob', 'bun', 'pigtails'])
 function kindOf(look) {
@@ -67,6 +76,9 @@ export class Chatter {
     this.said = new Map() // who said hello, and when (play time)
     this.bubbles = []
     this.kingT = 8
+    this.catT = 8
+    this.storeInside = new Set()
+    this.storeQueue = []
   }
 
   update(dt) {
@@ -92,6 +104,8 @@ export class Chatter {
     }
     this.knights(dt)
     this.cool -= dt
+    this.watchStores()
+    this.cats(dt)
     if (this.cool > 0) return
     const p = g.player
     // only while Coji walks past people
@@ -128,18 +142,90 @@ export class Chatter {
     this.said.set(e.id, g.state.play)
     this.cool = 5 + Math.random() * 4
     if (e.ch.wave !== undefined) e.ch.wave = 1.2
-    for (const b of this.bubbles) if (b.e === e) b.t = 0 // one bubble per person
+    this.showBubble(e, text, look.kid ? 2.0 : look.grey ? 2.1 : 2.55)
+  }
+
+  showBubble(e, text, h = 2.55) {
+    const g = this.game
+    for (const b of this.bubbles) if (b.e === e) b.t = 0 // one bubble per character
     const sp = bubble(text)
     g.scene.add(sp)
-    this.bubbles.push({ e, sp, t: 2.8, h: look.kid ? 2.0 : look.grey ? 2.1 : 2.55 })
+    this.bubbles.push({ e, sp, t: 2.8, h })
+  }
+
+  // Crossing a shop's doorstep triggers a product-specific call. Leaving the area arms it again,
+  // so the shopkeeper calls out on every new pass rather than only once per game.
+  watchStores() {
+    const g = this.game
+    const p = g.player
+    for (const id of Object.keys(STORE_SHOUTS)) {
+      const e = g.world.npcs[id]
+      if (!e?.ch) continue
+      const r = e.ch.root.position
+      const d = Math.hypot(r.x - p.x, r.z - p.z)
+      if (d < STORE_NEAR && !this.storeInside.has(id)) {
+        this.storeInside.add(id)
+        if (!this.storeQueue.includes(id)) this.storeQueue.push(id)
+      } else if (d > STORE_RESET) this.storeInside.delete(id)
+    }
+    if (!this.storeQueue.length || this.cool > 0 || this.busy > 0) return
+    // A queued call is cancelled if Coji walked past before the voice became available.
+    let id
+    let e
+    while (this.storeQueue.length) {
+      id = this.storeQueue.shift()
+      e = g.world.npcs[id]
+      const r = e?.ch?.root.position
+      if (r && Math.hypot(r.x - p.x, r.z - p.z) < STORE_RESET) break
+      id = null
+      e = null
+    }
+    if (!id || !e?.ch) return
+    const text = pick(STORE_SHOUTS[id])
+    const v = voiceOf(e.ch.look)
+    sayAs(text, { ...v, seed: hash(id + text), volume: 0.85 })
+    this.showBubble(e, text)
+    if (e.ch.wave !== undefined) e.ch.wave = 1.4
+    this.said.set(id, g.state.play)
+    this.cool = 5
+  }
+
+  // Momo and the island cats make real cat sounds now and then when Coji is close.
+  cats(dt) {
+    this.catT -= dt
+    if (this.catT > 0 || this.cool > 0 || this.busy > 0 || this.storeQueue.length) return
+    const p = this.game.player
+    let cat = null
+    let best = 15
+    for (const e of Object.values(this.game.world.npcs)) {
+      if (e.id !== 'momo' && !e.cat) continue
+      const r = e.ch?.root.position
+      if (!r) continue
+      const d = Math.hypot(r.x - p.x, r.z - p.z)
+      if (d < best) {
+        best = d
+        cat = e
+      }
+    }
+    if (!cat) return
+    const text = pick(['Meow!', 'Meow, meow!', 'Mew!', 'Purr... meow!'])
+    sfx('meow')
+    this.showBubble(cat, text, 1.15)
+    cat.ch.talk = 0.7
+    this.catT = 14 + Math.random() * 18
+    this.cool = 2.5
   }
 
   // The knights on the castle walls shout for the King now and then while Coji is near the castle.
   knights(dt) {
     const g = this.game
     const p = g.player
+    if (g.shows?.list.some((s) => s.kind === 'dragon')) {
+      this.kingT = Math.max(this.kingT, 5)
+      return
+    }
     const d = Math.hypot(p.x - L.CASTLE.x, p.z - L.CASTLE.z)
-    if (d > 60 || !g.crowd.knights.length) {
+    if (d > 34 || !g.crowd.knights.length) {
       // the first shout comes soon after Coji arrives
       this.kingT = Math.min(this.kingT, 6 + Math.random() * 6)
       return

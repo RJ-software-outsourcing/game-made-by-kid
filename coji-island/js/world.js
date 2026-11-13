@@ -3,7 +3,7 @@
 import * as THREE from 'three'
 import * as L from './land.js'
 import { NavGrid } from './nav.js'
-import { Parts, MAT, SMOOTH, GLOW, TERRAIN_MAT, DECK_MAT, box, cyl, ico, makeSprite } from './build.js'
+import { Parts, MAT, SMOOTH, GLOW, TERRAIN_MAT, DECK_MAT, box, cyl, ico, sphere, makeSprite } from './build.js'
 import * as P from './props.js'
 import { instanced, cloud, blob, FLOWER_COLORS, PlantPools, POOLED, WIND, TREE_MAT, CLOUD_MAT, addCrown, limb } from './nature.js'
 import { SUN_DIR, skyEnvironment } from './env.js'
@@ -33,7 +33,9 @@ const nextFrame = () =>
 
 const C = (h) => new THREE.Color(h)
 // envI: how strongly the sky lights things (the environment map); hemiI tints the fill at night.
-const DAY = { top: C('#2f86e6'), horizon: C('#b9ddf7'), sun: C('#fff1dc'), sunI: 2.6, hemiSky: C('#cfe9ff'), hemiGround: C('#b9a77f'), hemiI: 0.25, envI: 1.0, fog: C('#c3e0f5'), near: 140, far: 560 }
+// Keep the daylight horizon clearly blue. A saturated fog colour prevents distant geometry from
+// turning the sky grey at the seam while the shader still makes the horizon gently lighter.
+const DAY = { top: C('#2f86e6'), horizon: C('#63b9ee'), sun: C('#fff1dc'), sunI: 2.6, hemiSky: C('#cfe9ff'), hemiGround: C('#b9a77f'), hemiI: 0.25, envI: 1.0, fog: C('#72bbed'), near: 140, far: 560 }
 const NIGHT = { top: C('#0b1236'), horizon: C('#33407a'), sun: C('#9fb6ff'), sunI: 0.55, hemiSky: C('#6f80c8'), hemiGround: C('#2a3350'), hemiI: 0.5, envI: 0.18, fog: C('#2a3566'), near: 120, far: 420 }
 // The graveyard: dark purple all around, so the world outside nearly disappears.
 const SPOOK = { top: C('#140e26'), horizon: C('#2c2346'), sun: C('#b6a6e6'), sunI: 0.75, hemiSky: C('#8a7cbe'), hemiGround: C('#2e2838'), hemiI: 0.75, envI: 0.22, fog: C('#221b38'), near: 9, far: 58 }
@@ -53,6 +55,7 @@ export class World {
     this.spook = 0
     this.lit = false
     this.pops = []
+    this.coconutDrops = []
     this.flies = []
     this.lamps = []
   }
@@ -157,11 +160,11 @@ export class World {
       vertexShader: `varying vec3 vDir; void main(){ vDir = normalize(position); gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.); }`,
       fragmentShader: `uniform vec3 top; uniform vec3 horizon; uniform vec3 sunDir; uniform float night; varying vec3 vDir;
         void main(){ vec3 d = normalize(vDir); float h = clamp(d.y, 0., 1.);
-          // deep blue overhead, pale and hazy at the horizon, warmer on the sun's side
+          // blue overhead and at the horizon, warmer only in the small area around the sun
           vec3 c = mix(horizon, top, pow(h, 0.55));
           float s = max(dot(d, sunDir), 0.);
           float haze = pow(1. - h, 6.);
-          c = mix(c, horizon * vec3(1.06, 1.03, 0.98), haze * 0.5);
+          c = mix(c, horizon * vec3(1.02, 1.03, 1.04), haze * 0.25);
           c += vec3(1., .86, .62) * haze * pow(s, 3.) * 0.18 * (1. - night);
           c += vec3(1., .93, .78) * (pow(s, 24.) * 0.22 + pow(s, 220.) * 0.9) * (1. - night);
           c += vec3(1.) * smoothstep(0.9993, 0.9997, s) * 3. * (1. - night);
@@ -486,6 +489,64 @@ export class World {
     moat.position.set(L.CASTLE.x, L.getMoatLevel(), L.CASTLE.z)
     moat.renderOrder = 3
     this.scene.add(moat)
+    this.makeWaterfall()
+  }
+
+  // A small rocky cascade at the head of the creek. It is only two merged draw calls (water plus
+  // all rocks/foam), giving it a nicer silhouette without a costly particle simulation.
+  makeWaterfall() {
+    const [a, b] = L.STREAM
+    const dx = b[0] - a[0]
+    const dz = b[1] - a[1]
+    const len = Math.hypot(dx, dz)
+    const ux = dx / len
+    const uz = dz / len
+    const nx = -uz
+    const nz = ux
+    const point = (t) => [a[0] + dx * t, a[1] + dz * t]
+    const [tx, tz] = point(0.18)
+    const [bx, bz] = point(0.52)
+    const topY = L.streamLevelAt(tx, tz) + 0.08
+    const naturalBottom = L.streamLevelAt(bx, bz) + 0.06
+    const bottomY = Math.min(topY - 0.42, naturalBottom)
+    const verts = []
+    const strips = 4
+    for (let i = 0; i < strips; i++) {
+      const l = L.lerp(-L.STREAM_HALF * 0.82, L.STREAM_HALF * 0.82, i / strips)
+      const r = L.lerp(-L.STREAM_HALF * 0.82, L.STREAM_HALF * 0.82, (i + 1) / strips)
+      const ripple = (i % 2) * 0.06
+      const A = [tx + nx * l, topY + ripple, tz + nz * l]
+      const B = [tx + nx * r, topY - ripple, tz + nz * r]
+      const C = [bx + nx * l, bottomY, bz + nz * l]
+      const D = [bx + nx * r, bottomY + ripple, bz + nz * r]
+      verts.push(...A, ...C, ...B, ...B, ...C, ...D)
+    }
+    const geo = new THREE.BufferGeometry()
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(verts, 3))
+    geo.computeVertexNormals()
+    const mat = new THREE.MeshBasicMaterial({ color: 0x91dcf5, transparent: true, opacity: 0.76, side: THREE.DoubleSide, depthWrite: false, fog: true })
+    const water = new THREE.Mesh(geo, mat)
+    water.renderOrder = 4
+    this.scene.add(water)
+    this.cascade = water
+
+    const p = new Parts(SMOOTH)
+    for (const end of [0.15, 0.54]) {
+      const [cx, cz] = point(end)
+      const cy = end < 0.3 ? topY : bottomY
+      for (let i = 0; i < 9; i++) {
+        const side = L.lerp(-L.STREAM_HALF * 0.78, L.STREAM_HALF * 0.78, i / 8)
+        p.add(sphere(0.16 + (i % 3) * 0.035, 7, 5), '#e9fbff', { x: cx + nx * side + ux * ((i % 2) * 0.12), y: cy + 0.05, z: cz + nz * side + uz * ((i % 2) * 0.12), sx: 1.5, sy: 0.45, sz: 1.0, jitter: 0.03, rough: 0.35 })
+      }
+    }
+    for (const side of [-1, 1])
+      for (let i = 0; i < 4; i++) {
+        const k = 0.15 + i * 0.13
+        const [x, z] = point(k)
+        const y = L.lerp(topY, bottomY, (k - 0.15) / 0.39)
+        p.add(ico(0.55 + (i % 2) * 0.18, 1), i % 2 ? '#65736d' : '#7c8278', { x: x + nx * side * (L.STREAM_HALF + 0.22), y: y - 0.16, z: z + nz * side * (L.STREAM_HALF + 0.22), sx: 1.2, sy: 0.8, sz: 1.0, ry: i * 1.7, jitter: 0.08, rough: 0.95 })
+      }
+    this.scene.add(p.build({ shadow: false }))
   }
 
   makeRoads() {
@@ -985,6 +1046,13 @@ export class World {
       const zid = this.zoneOf(item.x, item.z)
       const zone = this.zones.find((zz) => zz.id === zid)
       ;(zone.items[type] ||= []).push(item)
+      // Pooled palms stay inexpensive to draw, while a lightweight invisible proxy makes every
+      // beach palm tappable. The coconut itself is a short-lived animated mesh made on demand.
+      if (type === 'palm') {
+        const id = `palm-${(this.palmSpots ||= []).length}`
+        const e = this.addEntity({ id, kind: 'palm', x: item.x, z: item.z, y: item.y, tapR: 1.7, tapH: 7 * item.s, reach: 2.2, palmScale: item.s, zone: zid })
+        this.palmSpots.push(e)
+      }
     }
     this.solids = []
     this.treeSpots = []
@@ -1083,8 +1151,10 @@ export class World {
     const fence = []
     for (let i = 0; i < 16; i++) {
       const x = F.x - 14 + i * 1.6
-      if (Math.abs(x - F.x) < 2) continue
-      fence.push({ x, y: this.terrainY(x, F.z + 19), z: F.z + 19 })
+      const z = F.z + 19
+      // Leave both the farm gate and every ring-road crossing completely open.
+      if (Math.abs(x - F.x) < 2 || L.nearRoad(x, z, 2.4)) continue
+      fence.push({ x, y: this.terrainY(x, z), z })
     }
     this.zones.find((z) => z.id === 'farm').items.fence = fence
   }
@@ -1133,6 +1203,18 @@ export class World {
       if (!gate) nav.blockCircle(x, z, 0.5)
     }
     this.nav = nav
+  }
+
+  dropCoconut(e) {
+    const p = new Parts(SMOOTH)
+    p.add(sphere(0.34, 10, 8), '#80552f', { sy: 1.18, jitter: 0.08, rough: 0.9 })
+    p.add(cyl(0.08, 0.12, 0.08, 8), '#4b7d37', { y: 0.41, flat: false, jitter: 0.02 })
+    const mesh = p.build({ shadow: false })
+    const s = e.palmScale || 1
+    const startY = e.y + 5.7 * s
+    mesh.position.set(e.x + 0.35, startY, e.z + 0.2)
+    this.scene.add(mesh)
+    this.coconutDrops.push({ mesh, t: 0, startY, groundY: this.groundY(e.x, e.z) + 0.3 })
   }
 
   // How far (0..1) from the focus toward the camera the view is free of tree tops.
@@ -1555,6 +1637,7 @@ export class World {
     }
     this.seaMat.uniforms.uTime.value = t
     this.freshMat.uniforms.uTime.value = t
+    if (this.cascade) this.cascade.material.opacity = 0.72 + Math.sin(t * 4.2) * 0.05
     const snap = 2
     const fx = Math.round(focus.x / snap) * snap
     const fz = Math.round(focus.z / snap) * snap
@@ -1567,6 +1650,20 @@ export class World {
     }
     this.boat.position.y = -0.25 + Math.sin(t * 1.2) * 0.08
     this.boat.rotation.z = Math.sin(t * 0.9) * 0.025
+    for (let i = this.coconutDrops.length - 1; i >= 0; i--) {
+      const d = this.coconutDrops[i]
+      d.t += dt
+      const fall = Math.min(d.t, 0.82)
+      d.mesh.position.y = Math.max(d.groundY, d.startY - 8.4 * fall * fall)
+      if (d.t > 0.82) d.mesh.position.y = d.groundY + Math.abs(Math.sin((d.t - 0.82) * 11)) * Math.max(0, 0.45 - (d.t - 0.82) * 0.55)
+      d.mesh.rotation.x += dt * 7
+      d.mesh.rotation.z += dt * 4
+      if (d.t > 1.65) {
+        this.scene.remove(d.mesh)
+        d.mesh.geometry?.dispose()
+        this.coconutDrops.splice(i, 1)
+      }
+    }
     for (const g of this.gulls) {
       const u = g.userData
       const a = t * u.sp + u.ph
@@ -1583,7 +1680,8 @@ export class World {
         const u = d.userData
         const a = t * 0.18 + u.ph
         d.position.set(L.POND.x + Math.cos(a) * u.r, py - 0.05 + Math.sin(t * 2 + u.ph) * 0.02, L.POND.z + Math.sin(a) * u.r)
-        d.rotation.y = -a + Math.PI
+        // makeDuck faces +Z (its bill); -a is the tangent of this counter-clockwise path.
+        d.rotation.y = -a
       }
     }
     for (const b of this.flies) {
