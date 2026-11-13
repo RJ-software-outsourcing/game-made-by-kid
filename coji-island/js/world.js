@@ -361,19 +361,18 @@ export class World {
         uTime: { value: 0 },
         uHeight: { value: null },
         uHalf: { value: L.HALF },
-        uShallow: { value: C('#4fd6cf') },
-        uDeep: { value: C('#14609f') },
+        uShallow: { value: C('#5fe3e0') },
+        uDeep: { value: C('#1f86d6') },
         uFoam: { value: C('#ffffff') },
         uSky: { value: DAY.horizon.clone() },
         uTop: { value: DAY.top.clone() },
         uSun: { value: SUN_DIR.clone() },
-        uSunCol: { value: DAY.sun.clone() },
         uNight: { value: 0 },
-        uNormals: { value: null },
       },
     ])
     uniforms.uHeight.value = tex
-    uniforms.uNormals.value = this.waterTex = waterNormals(256)
+    // ripples for the streams, the pond and the moat (the sea uses simple sine waves)
+    this.waterTex = waterNormals(128)
     this.seaMat = new THREE.ShaderMaterial({
       uniforms,
       transparent: true,
@@ -386,47 +385,29 @@ export class World {
           vW = wp.xyz; vec4 mvPosition = viewMatrix * wp; gl_Position = projectionMatrix * mvPosition;
           #include <fog_vertex>
         }`,
-      // The sea: rippled by two scrolling normal maps (plus slow swells), it reflects the sky more at
-      // grazing angles, glints in the sun, is clear turquoise over sand and deep blue further out, and
-      // has foam that laps at the shore.
-      fragmentShader: `uniform sampler2D uHeight; uniform sampler2D uNormals; uniform float uHalf; uniform float uTime;
-        uniform vec3 uShallow; uniform vec3 uDeep; uniform vec3 uFoam; uniform vec3 uSky; uniform vec3 uTop; uniform vec3 uSun; uniform vec3 uSunCol; uniform float uNight; varying vec3 vW;
+      // The sea: a simple, cheap surface (one depth lookup and a few sines per pixel): turquoise over
+      // sand, deep blue farther out, little waves that catch the sky and the sun, foam at the shore.
+      fragmentShader: `uniform sampler2D uHeight; uniform float uHalf; uniform float uTime; uniform vec3 uShallow; uniform vec3 uDeep; uniform vec3 uFoam; uniform vec3 uSky; uniform vec3 uSun; uniform float uNight; varying vec3 vW;
         #include <fog_pars_fragment>
         void main(){
           vec2 uv = (vW.xz + uHalf) / (2.*uHalf);
           float h = -7.;
           if (uv.x > 0. && uv.x < 1. && uv.y > 0. && uv.y < 1.) h = texture2D(uHeight, uv).r * 9. - 7.;
           float depth = max(0., vW.y - h);
-          vec2 p = vW.xz;
-          vec4 r1 = texture2D(uNormals, p * 0.045 + vec2(uTime * 0.013, uTime * 0.009));
-          vec4 r2 = texture2D(uNormals, p * 0.11 + vec2(-uTime * 0.019, uTime * 0.014));
-          vec4 r3 = texture2D(uNormals, p * 0.009 + vec2(uTime * 0.004, -uTime * 0.003));
-          vec2 sl = (r1.xy - 0.5) + (r2.xy - 0.5) * 0.8 + (r3.xy - 0.5) * 1.6;
-          float dist = length(cameraPosition - vW);
-          sl *= mix(1.0, 0.35, smoothstep(60., 380., dist));
-          vec3 n = normalize(vec3(sl.x, 1.0, sl.y));
+          vec3 col = mix(uShallow, uDeep, smoothstep(0.3, 6., depth));
+          // little waves tilt the surface: sky reflection and sun glints
+          vec3 n = normalize(vec3(sin(vW.x*0.9 + uTime*1.6)*0.08 + sin(vW.z*1.7 - uTime*1.2)*0.05, 1., cos(vW.z*0.8 + uTime*1.3)*0.08 + cos(vW.x*1.5 + uTime)*0.05));
           vec3 v = normalize(cameraPosition - vW);
-          float ndv = max(dot(v, n), 0.);
-          float fres = 0.02 + 0.98 * pow(1. - ndv, 5.);
-          vec3 rd = reflect(-v, n);
-          vec3 sky = mix(uSky, uTop, pow(clamp(rd.y, 0., 1.), 0.55));
-          vec3 body = mix(uShallow, uDeep, smoothstep(0.3, 7.5, depth));
-          // a soft wobbly light pattern on the sand under shallow water
-          float caust = smoothstep(0.55, 0.9, r2.a) * smoothstep(2.5, 0.4, depth) * 0.25;
-          body += vec3(caust);
-          vec3 col = mix(body, sky, clamp(fres * 1.15, 0., 0.85));
-          vec3 hv = normalize(uSun + v);
-          float nh = max(dot(n, hv), 0.);
-          col += uSunCol * (pow(nh, 500.) * 4.0 + pow(nh, 60.) * 0.18) * (1. - uNight);
-          float fn = texture2D(uNormals, p * 0.21 + vec2(uTime * 0.02, 0.)).a;
-          float shore = smoothstep(0.5, 0.02, depth + (fn - 0.5) * 0.45);
-          float band = sin(depth * 6. - uTime * 1.6 + fn * 5.) * 0.5 + 0.5;
-          float foam = shore + smoothstep(0.78, 1., band) * smoothstep(1.5, 0.2, depth) * smoothstep(0.3, 0.6, fn);
-          foam = clamp(foam, 0., 1.);
-          col = mix(col, uFoam * mix(0.95, 1.05, fn), foam * 0.9);
+          float fres = pow(1. - max(dot(v, n), 0.), 3.);
+          col = mix(col, uSky, fres * 0.55);
+          float glint = pow(max(dot(reflect(-uSun, n), v), 0.), 120.);
+          col += vec3(1.) * glint * 0.8 * (1. - uNight);
+          float band = sin(depth*7. - uTime*1.7 + sin(vW.x*0.25 + vW.z*0.2)*1.2)*0.5 + 0.5;
+          float foam = smoothstep(0.45, 0.05, depth) + smoothstep(0.8, 1., band) * smoothstep(1.6, 0.3, depth) * 0.75;
+          col = mix(col, uFoam, clamp(foam, 0., 1.) * 0.85);
           col *= mix(1., 0.4, uNight);
-          float alpha = mix(0.45, 0.96, smoothstep(0., 3.2, depth));
-          alpha = max(alpha, max(foam * 0.95, fres * 0.9));
+          float alpha = mix(0.5, 0.95, smoothstep(0., 2.6, depth));
+          alpha = max(alpha, clamp(foam, 0., 1.) * 0.95);
           gl_FragColor = vec4(col, alpha);
           #include <tonemapping_fragment>
           #include <colorspace_fragment>

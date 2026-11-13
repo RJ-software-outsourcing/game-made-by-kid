@@ -280,7 +280,7 @@ twice in a row.
   button closes it any time.
 - Something already asked moves down the list, so the other choices get a turn.
 - No read-aloud button: the child reads the lines. After the child taps an answer, Coji says it out
-  loud in a kid's voice.
+  loud in his own cute voice (see 8).
 - **Coji's answers are always different**, so the child keeps reading new words.
   - Every kind of answer comes from a pool of phrasings: questions about the quest (5 ways to ask about
     honey), follow-ups, reactions, thanks, "Tell me about you", greetings, goodbyes, yes and not now.
@@ -436,10 +436,9 @@ open the gate and involve King Arlo (to be designed).
 - **Grass**: a meadow of thousands of real grass blades in a circle around Coji, colored like the
   ground beneath. They sway in the wind and bend away from his feet.
 - **Water**:
-  - The sea has two scrolling ripple maps plus slow swells, sky reflections that grow at low angles, a
-    sharp sun glint, clear turquoise over sand, wobbly light on the sandy bottom, deep blue farther
-    out, and foam that laps at the shore.
-  - Streams, the pond and the moat are greener and calmer, with small ripples.
+  - The sea is kept simple and cheap on purpose (it covers much of the screen): turquoise over sand,
+    deep blue farther out, little sine waves that catch the sky and the sun, and foam at the shore.
+  - Streams, the pond and the moat are greener and calmer, with small ripples that reflect the sky.
 - **Plants**:
   - Round trees are built from dozens of leafy clumps on branches and a trunk with roots. The crown is
     shaded as one soft ball, darker inside and underneath.
@@ -453,6 +452,16 @@ open the gate and involve King Arlo (to be designed).
   layered hair, real clothes (collars, cuffs, buttons, pleats), shoes with soles and laces, hands with
   a thumb, and fur shaded darker on the back. Each character's detail level fits its role (Coji most).
 - Synthesized sounds and music (Web Audio, no files). 🔊 mutes everything.
+- **The island song** is a smooth, sunny 16-bar tune in C major at 92 beats a minute:
+  - soft sustained chords that fade into each other, a warm bass and a gentle broken-chord ripple
+  - a singable melody on a soft mallet (a flute every other time round) and a quiet shaker
+  - all in a soft reverb
+  Notes are planned ahead on the audio clock. If the iPad is busy for a moment, missed notes are
+  skipped instead of all playing at once.
+- **Coji's voice**: one cute, natural English voice, chosen once and kept all game. Best first: a
+  child's voice where the browser has one (Edge), else Nicky or Samantha at a gentle raised pitch;
+  robotic voices are never used. The voice list is loaded early, so his first line uses the same
+  voice as the rest.
 
 ## 9. Performance, battery and loading
 
