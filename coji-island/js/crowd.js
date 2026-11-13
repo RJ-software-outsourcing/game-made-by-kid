@@ -405,7 +405,7 @@ export class Crowd {
         g.shows?.ufoPickup(it)
       }
       if (it.lifted || it.beamWaiting) {
-        ch.speed = 0
+        it.ch.speed = 0
         continue
       }
       this.walk(it, dt)
