@@ -1120,6 +1120,37 @@ export function bench() {
   return p.build()
 }
 
+// A large stone knight beside the ring road. The low tablet at the front is the readable tap target.
+export function knightStatue() {
+  const p = new Parts()
+  const stone = '#a9a8a3'
+  const dark = '#858681'
+  const bronze = '#9b6b32'
+  p.add(box(4.8, 0.8, 3.8), '#777873', { y: 0.4, rough: 0.95, jitter: 0.06 })
+  p.add(box(3.8, 0.55, 3.0), stone, { y: 1.05, rough: 0.92, jitter: 0.05 })
+  // armored boots, legs and torso
+  for (const x of [-0.55, 0.55]) {
+    p.add(box(0.7, 0.45, 1.2), dark, { x, y: 1.55, z: 0.18, rough: 0.9, jitter: 0.04 })
+    p.add(cyl(0.34, 0.42, 2.1, 9), stone, { x, y: 2.75, rough: 0.9, jitter: 0.04 })
+  }
+  p.add(box(1.8, 2.2, 1.15), stone, { y: 4.4, rough: 0.88, jitter: 0.04 })
+  p.add(box(2.2, 0.35, 1.35), dark, { y: 5.32, rough: 0.9, jitter: 0.04 })
+  // helmet and crest
+  p.add(sphere(0.72, 14, 10), stone, { y: 6.0, sy: 1.08, rough: 0.86, jitter: 0.035 })
+  p.add(box(1.5, 0.18, 0.18), dark, { y: 5.94, z: 0.68, rough: 0.85 })
+  p.add(cone(0.34, 1.15, 5), dark, { y: 7.0, rz: Math.PI / 2, rough: 0.9 })
+  // shield with a raised sun, and a long ceremonial sword
+  p.add(cyl(0.95, 0.95, 0.18, 14), dark, { x: -1.32, y: 4.25, z: 0.35, rx: Math.PI / 2, sy: 1.25, rough: 0.9 })
+  p.add(ico(0.48, 0), bronze, { x: -1.32, y: 4.25, z: 0.47, rx: Math.PI / 2, sy: 1.25, rough: 0.72 })
+  p.add(box(0.2, 4.4, 0.2), dark, { x: 1.2, y: 3.9, z: 0.15, rz: -0.04, rough: 0.82 })
+  p.add(cone(0.3, 0.75, 4), dark, { x: 1.2, y: 6.45, z: 0.15, rough: 0.82 })
+  p.add(box(1.0, 0.16, 0.18), bronze, { x: 1.2, y: 1.75, z: 0.15, rough: 0.72 })
+  // angled history tablet in front
+  p.add(box(2.8, 1.35, 0.45), dark, { y: 1.35, z: 2.45, rx: -0.42, rough: 0.92, jitter: 0.04 })
+  p.add(box(2.35, 0.82, 0.05), bronze, { y: 1.48, z: 2.72, rx: -0.42, rough: 0.72, jitter: 0.02 })
+  return p.build()
+}
+
 export function appleTree() {
   const g = new THREE.Group()
   const p = new Parts()
@@ -1889,13 +1920,10 @@ export function graveyardFence(r, rot) {
   p.add(torus(2.35, 0.04, 4, 24, Math.PI), iron, { x: gx, y: 2.6, z: gz, ry: gateA, ...IR })
   g.add(p.build())
   const sign = shopSign('SPOOKY GRAVEYARD', 3.6, 0.6, '#4a2f6b', '#ffb347')
+  sign.material.side = THREE.DoubleSide
   sign.position.set(gx + Math.sin(gateA) * 0.05, 4.0, gz + Math.cos(gateA) * 0.05)
   sign.rotation.y = gateA
   g.add(sign)
-  const back = sign.clone()
-  back.rotation.y = gateA + Math.PI
-  back.position.set(gx - Math.sin(gateA) * 0.05, 4.0, gz - Math.cos(gateA) * 0.05)
-  g.add(back)
   return g
 }
 

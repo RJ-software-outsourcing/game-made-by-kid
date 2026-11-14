@@ -2,6 +2,17 @@
 const $ = (id) => document.getElementById(id)
 document.documentElement.classList.add(matchMedia('(pointer: coarse)').matches ? 'touch' : 'mouse')
 
+// Size the title screen before the 3D game finishes loading. This also fixes the stale viewport
+// iPadOS sometimes keeps when navigating here from the games page in split view or a Home Screen app.
+const syncAppHeight = () => {
+  const h = Math.round(window.visualViewport?.height || window.innerHeight)
+  document.documentElement.style.setProperty('--app-height', `${h}px`)
+}
+syncAppHeight()
+window.addEventListener('resize', syncAppHeight, { passive: true })
+window.addEventListener('pageshow', syncAppHeight, { passive: true })
+window.visualViewport?.addEventListener('resize', syncAppHeight, { passive: true })
+
 const title = $('title')
 const fill = $('load-fill')
 const text = $('load-text')

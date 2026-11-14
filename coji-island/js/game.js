@@ -39,6 +39,7 @@ export function freshState() {
     z: L.START.z,
     face: L.START.face,
     harvest: {},
+    palmFruit: {},
     taken: {},
     jobs: {},
     play: 0,
@@ -182,6 +183,13 @@ class Game {
         const c = CAST[id]
         const knight = /^Sir\b/.test(c?.name || '')
         return knight ? c?.voice ?? 0.9 : Math.max(c?.voice ?? 1.15, c?.animal ? 1.3 : 1.15)
+      },
+      transformText: (id, text) => {
+        if (id === 'coji' || (id !== 'momo' && !this.talking?.cat)) return text
+        return text
+          .split('\n')
+          .map((line) => (/\b(meow|mew)\b/i.test(line) ? line : `Meow! ${line}`))
+          .join('\n')
       },
       onChange: () => this.afterChange(),
       onClose: () => this.endTalk(),
@@ -688,6 +696,10 @@ class Game {
         return this.harvest(e)
       case 'sign':
         return this.readSign(e)
+      case 'library':
+        return this.ui.openLibrary()
+      case 'monument':
+        return this.ui.openPlaque()
       case 'shell':
       case 'coin':
       case 'glasses':
@@ -717,6 +729,7 @@ class Game {
 
   harvest(e) {
     const s = this.state
+    if (e.kind === 'palm') return this.harvestPalm(e)
     const regrow = regrowOf(e.kind)
     const t = s.harvest[e.id]
     if (t !== undefined && s.play - t < regrow) {
@@ -729,14 +742,42 @@ class Game {
     if (e.kind === 'berrybush') this.give('berries', 3)
     if (e.kind === 'carrots') this.give('carrot', 1)
     if (e.kind === 'pumpkin') this.give('pumpkin', 1)
-    if (e.kind === 'palm') {
-      this.give('coconut', 1)
-      this.world.dropCoconut(e)
-      sfx('knock')
-      this.ui.tip('Knock, knock, knock... A coconut dropped into your bag! 🥥 Drink it for water.', { key: 'coconut', once: true, force: true })
-    }
     e.shake = 0.7
     this.coji.cheer = 0.6
+    this.save()
+  }
+
+  palmCount(e) {
+    const s = this.state
+    s.palmFruit ||= {}
+    const picked = s.harvest[e.id]
+    if (picked !== undefined && s.play - picked >= regrowOf('palm')) {
+      delete s.harvest[e.id]
+      delete s.palmFruit[e.id]
+    }
+    if (s.harvest[e.id] !== undefined) return 0
+    return s.palmFruit[e.id] ?? 3
+  }
+
+  harvestPalm(e) {
+    const s = this.state
+    let count = this.palmCount(e)
+    if (!count) {
+      this.ui.tip('No coconuts now. Three new ones will grow back soon! 🌱', { key: 'regrow-palm', cooldown: 5, force: true })
+      return
+    }
+    count--
+    if (count) s.palmFruit[e.id] = count
+    else {
+      delete s.palmFruit[e.id]
+      s.harvest[e.id] = s.play
+    }
+    this.give('coconut', 1)
+    this.world.dropCoconut(e)
+    sfx('knock')
+    this.coji.cheer = 0.6
+    const left = count ? `${count} coconut${count === 1 ? '' : 's'} left on this tree.` : 'The tree is empty for now.'
+    this.ui.tip(`Knock! A coconut dropped into your bag. 🥥 ${left}`, { key: 'coconut-' + count, cooldown: 2, force: true })
     this.save()
   }
 
@@ -1188,14 +1229,29 @@ class Game {
       const speed = s.energy < 15 ? TUNE.tiredSpeed : TUNE.walkSpeed
       const step = Math.min(d, speed * dt)
       if (d > 0.001) {
-        p.x += (dx / d) * step
-        p.z += (dz / d) * step
         const want = Math.atan2(dx, dz)
         p.face += angleTo(p.face, want) * Math.min(1, dt * 12)
+        const nx = p.x + (dx / d) * step
+        const nz = p.z + (dz / d) * step
+        if (!this.crowd.carBlocks(nx, nz)) {
+          p.x = nx
+          p.z = nz
+          moved = step
+          this.carBlockedFor = 0
+        } else {
+          // A moving car is not part of the static nav grid. Stop this route after a short pause so
+          // Coji never keeps walking into it forever; the player can tap a clear path around it.
+          this.carBlockedFor = (this.carBlockedFor || 0) + dt
+          if (this.carBlockedFor > 0.45) {
+            p.path = []
+            p.target = null
+            this.carBlockedFor = 0
+            this.ui.tip('A car is in the way. Tap around it! 🚗', { key: 'car-block', cooldown: 4, force: true, time: 3.5 })
+          }
+        }
       }
-      moved = step
-      p.speed = speed
-      if (d - step < 0.05) p.path.shift()
+      p.speed = moved ? speed : 0
+      if (moved && d - step < 0.05) p.path.shift()
       if (!p.path.length && p.target) {
         const e = p.target
         p.target = null
@@ -1205,6 +1261,7 @@ class Game {
       }
     } else {
       p.speed = 0
+      this.carBlockedFor = 0
     }
     // stats
     if (moved > 0) {
@@ -1258,6 +1315,9 @@ class Game {
         if (e.kind === 'glasses' && (s.flags.hootHappy || s.bag.glasses)) has = false
         e.mesh.visible = has
         if (e.sparkle) e.sparkle.visible = has
+      } else if (e.kind === 'palm' && e.coconutMeshes) {
+        const count = this.palmCount(e)
+        e.coconutMeshes.forEach((m, i) => (m.visible = i < count))
       } else if (e.fruit && e.fruitMesh) {
         const regrow = regrowOf(e.kind)
         const t = s.harvest[e.id]

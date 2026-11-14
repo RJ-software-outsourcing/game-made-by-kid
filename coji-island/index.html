@@ -116,6 +116,31 @@
       </div>
     </div>
 
+    <div id="library" class="panel hidden" role="dialog" aria-label="Royal Library">
+      <div class="sheet library-sheet">
+        <div class="sheet-head"><h2>📚 Royal Library</h2><button class="close" aria-label="Close">✕</button></div>
+        <p class="library-intro">Choose a picture book from the kingdom's history shelf.</p>
+        <div class="book-list"></div>
+      </div>
+    </div>
+
+    <div id="reader" class="panel hidden" role="dialog" aria-label="Picture book reader">
+      <div class="sheet reader-sheet">
+        <div class="sheet-head"><h2 class="reader-title"></h2><button class="close" aria-label="Close">✕</button></div>
+        <div class="reader-layout">
+          <div class="book-art" role="img"></div>
+          <div class="book-copy">
+            <div class="book-page-number"></div>
+            <p class="book-text"></p>
+          </div>
+        </div>
+        <div class="reader-nav">
+          <button data-act="prev" class="big-btn soft">← Back</button>
+          <button data-act="next" class="big-btn">Next →</button>
+        </div>
+      </div>
+    </div>
+
     <div id="menu" class="panel hidden" role="dialog" aria-label="Menu">
       <div class="sheet small">
         <div class="sheet-head"><h2>☰ Menu</h2><button class="close" aria-label="Close">✕</button></div>

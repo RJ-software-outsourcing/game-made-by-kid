@@ -58,6 +58,8 @@ export class Crowd {
     this.spawnT = 2
     this.homes = L.BUILDINGS.map((b, i) => ({ b, i })).filter((h) => h.b.kind === 'house').map((h, k) => ({ ...h, k }))
     this.knights = []
+    this.patrol = null
+    this.patrolT = 35 + Math.random() * 45
     this.outsideChecked = false
     // villagers and animals who walked away are kept and reused (building a new one takes a moment)
     this.pool = { adult: [], kid: [] }
@@ -151,6 +153,65 @@ export class Crowd {
         car.wait = 30 + Math.random() * 55
       }
     }
+  }
+
+  carBlocks(x, z) {
+    for (const car of this.cars) {
+      if (!car.root.visible) continue
+      const dx = x - car.root.position.x
+      const dz = z - car.root.position.z
+      const c = Math.cos(car.root.rotation.y)
+      const s = Math.sin(car.root.rotation.y)
+      const side = dx * c - dz * s
+      const along = dx * s + dz * c
+      // Include Coji's body radius as well as the car body, so he cannot clip through a corner.
+      if (Math.abs(side) < 1.6 && Math.abs(along) < 2.35) return true
+    }
+    return false
+  }
+
+  startPatrol() {
+    const hit = L.polyDist(this.game.player.x, this.game.player.z, L.RING)
+    const segLen = this.trafficCum[hit.seg + 1] - this.trafficCum[hit.seg]
+    const distance = (this.trafficCum[hit.seg] + hit.t * segLen - 18 + this.trafficTotal) % this.trafficTotal
+    const formation = [
+      [0, 0, LOOKS.percy],
+      [-2.3, -1.05, LOOKS.guard],
+      [-2.3, 1.05, LOOKS.guard],
+      [-4.6, -1.05, LOOKS.guard],
+      [-4.6, 1.05, LOOKS.guard],
+    ]
+    const members = formation.map(([back, side, look]) => {
+      const ch = new Person(look)
+      this.game.scene.add(ch.root)
+      return { ch, back, side }
+    })
+    this.patrol = { distance, members, life: 48 + Math.random() * 18, speed: 1.65 }
+  }
+
+  updatePatrol(dt, t) {
+    const p = this.game.player
+    if (!this.patrol) {
+      this.patrolT -= dt
+      if (this.patrolT <= 0 && L.polyDist(p.x, p.z, L.RING).d < 18) this.startPatrol()
+      return
+    }
+    const patrol = this.patrol
+    patrol.life -= dt
+    patrol.distance = (patrol.distance + patrol.speed * dt) % this.trafficTotal
+    for (const m of patrol.members) {
+      const pose = this.trafficPose((patrol.distance + m.back + this.trafficTotal) % this.trafficTotal)
+      const x = pose.x + pose.fz * m.side
+      const z = pose.z - pose.fx * m.side
+      m.ch.root.position.set(x, this.world.surfaceY(x, z), z)
+      m.ch.root.rotation.y = Math.atan2(pose.fx, pose.fz)
+      m.ch.speed = patrol.speed
+      m.ch.update(dt, t)
+    }
+    if (patrol.life > 0) return
+    for (const m of patrol.members) this.game.scene.remove(m.ch.root)
+    this.patrol = null
+    this.patrolT = 90 + Math.random() * 100
   }
 
   // ---------- registering talkers ----------
@@ -372,6 +433,7 @@ export class Crowd {
     const p = g.player
     if (g.mode !== 'play') return
     this.updateTraffic(dt)
+    this.updatePatrol(dt, t)
     const dCastle = Math.hypot(p.x - L.CASTLE.x, p.z - L.CASTLE.z)
     if (dCastle < 75) this.makeKnights()
     for (const k of this.knights) this.walkKnight(k, dt, t)

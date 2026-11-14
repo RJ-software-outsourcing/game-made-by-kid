@@ -273,6 +273,18 @@ function fightingShip(pirate) {
     p.add(box(4.8, 3.1, 0.08), sail, { y: 5.45, z: z + 0.04, jitter: 0.025, rough: 0.9 })
     p.add(box(5.2, 0.1, 0.1), '#6b4429', { y: 7.0, z, jitter: 0.01, rough: 0.85 })
   }
+  if (pirate) {
+    // A huge stone-white skeleton emblem faces the island on the forward sail.
+    const z = 1.27
+    p.add(sphere(0.72, 14, 10), '#f4efe3', { y: 5.75, z, sx: 0.9, sy: 1.05, sz: 0.18, jitter: 0.02, rough: 0.82 })
+    for (const x of [-0.25, 0.25]) p.add(sphere(0.14, 8, 6), '#242126', { x, y: 5.86, z: z + 0.12, sz: 0.25, jitter: 0 })
+    p.add(box(0.42, 0.12, 0.05), '#242126', { y: 5.47, z: z + 0.13, jitter: 0 })
+    for (const s of [-1, 1]) {
+      p.add(cyl(0.13, 0.13, 2.9, 8), '#f4efe3', { y: 4.8, z, rz: s * 0.82, jitter: 0.02, rough: 0.82 })
+      p.add(sphere(0.18, 8, 6), '#f4efe3', { x: s * 1.05, y: 5.78, z, jitter: 0.02, rough: 0.82 })
+      p.add(sphere(0.18, 8, 6), '#f4efe3', { x: -s * 1.05, y: 3.82, z, jitter: 0.02, rough: 0.82 })
+    }
+  }
   for (const side of [-1, 1])
     for (const z of [-3.0, -0.7, 1.6]) {
       p.add(cyl(0.16, 0.19, 0.7, 8), '#24262b', { x: side * 2.25, y: 1.45, z, rz: Math.PI / 2, flat: false, jitter: 0, metal: 0.4, rough: 0.45 })
@@ -291,7 +303,8 @@ function pirateBattle(S) {
   if (S.world.terrainY(cx, cz) > -2.5) return null
   const root = new THREE.Group()
   root.position.set(cx, 0, cz)
-  root.rotation.y = -a
+  // Local +Z is the bow and the front of the sails. Aim it at the island so the skeleton is readable.
+  root.rotation.y = -a - Math.PI / 2
   const pirate = fightingShip(true)
   const navy = fightingShip(false)
   pirate.position.set(-10, 0, -2)
@@ -470,28 +483,32 @@ function dragon(S) {
   root.position.set(L.CASTLE.x, 0, L.CASTLE.z)
   const beast = makeDragon()
   root.add(beast)
-  const points = new Float32Array(11 * 3)
-  const lightningGeo = new THREE.BufferGeometry()
-  lightningGeo.setAttribute('position', new THREE.BufferAttribute(points, 3))
-  const lightning = new THREE.Line(lightningGeo, new THREE.LineBasicMaterial({ color: 0xeaf7ff, transparent: true, opacity: 0.95, depthWrite: false, fog: false }))
-  lightning.visible = false
-  root.add(lightning)
+  const lightning = Array.from({ length: 5 }, () => {
+    const geo = new THREE.BufferGeometry()
+    geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(11 * 3), 3))
+    const line = new THREE.Line(geo, new THREE.LineBasicMaterial({ color: 0xeaf7ff, transparent: true, opacity: 0.95, depthWrite: false, fog: false }))
+    line.visible = false
+    root.add(line)
+    return line
+  })
   const flash = new THREE.AmbientLight(0xcfe8ff, 0)
   root.add(flash)
-  const strikes = [1.4, 3.8, 6.4, 9.1, 12.2, 15.4, 18.2]
+  const strikes = [0.9, 2.1, 3.4, 4.7, 6.0, 7.2, 8.4, 9.7, 11.0, 12.3, 13.6, 15.0, 16.4, 17.8, 19.0]
   const fired = new Set()
   S.game.stormTarget = 1
+  sfx('dragonStorm')
   sfx('dragonRoar')
   if (S.world.king) {
     S.world.king.cheer = 20
     S.world.king.wave = 20
   }
-  const redrawLightning = () => {
-    const a = lightning.geometry.attributes.position.array
-    // Put most bolts close enough for Coji to see. Coordinates are local to the castle-rooted show.
-    const nearCoji = fired.size % 3 !== 0 || Math.hypot(S.game.player.x - L.CASTLE.x, S.game.player.z - L.CASTLE.z) > 30
-    const tx = (nearCoji ? S.game.player.x : L.CASTLE.x) - L.CASTLE.x + (Math.random() - 0.5) * 15
-    const tz = (nearCoji ? S.game.player.z : L.CASTLE.z) - L.CASTLE.z + (Math.random() - 0.5) * 15
+  const redrawLightning = (line, index) => {
+    const a = line.geometry.attributes.position.array
+    // A storm ring surrounds the castle. Five simultaneous bolts make it readable from across the island.
+    const angle = Math.random() * Math.PI * 2 + index * 1.2
+    const radius = 9 + Math.random() * 22
+    const tx = Math.cos(angle) * radius
+    const tz = Math.sin(angle) * radius
     const worldX = tx + L.CASTLE.x
     const worldZ = tz + L.CASTLE.z
     const ground = S.world.surfaceY(worldX, worldZ) + 0.5
@@ -503,7 +520,7 @@ function dragon(S) {
       a[i * 3 + 1] = L.lerp(38, ground, k)
       a[i * 3 + 2] = L.lerp(sz, tz, k) + (i && i < 10 ? (Math.random() - 0.5) * 3.2 : 0)
     }
-    lightning.geometry.attributes.position.needsUpdate = true
+    line.geometry.attributes.position.needsUpdate = true
   }
   return {
     root,
@@ -511,8 +528,10 @@ function dragon(S) {
     dispose() {
       S.game.stormTarget = 0
       S.game.ui.hideEventBanner()
-      lightningGeo.dispose()
-      lightning.material.dispose()
+      for (const line of lightning) {
+        line.geometry.dispose()
+        line.material.dispose()
+      }
       disposeDragon(beast)
     },
     update(dt, t) {
@@ -521,7 +540,19 @@ function dragon(S) {
       beast.position.set(Math.cos(a) * 14.5, 20.5 + Math.sin(t * 2.1) * 1.25, Math.sin(a) * 14.5)
       beast.rotation.y = -a
       beast.rotation.z = Math.sin(t * 1.8) * 0.08
-      beast.userData.animate(t, { roar: T < 2.2 })
+      beast.userData.animate(t, { roar: T < 2.2 || (T > 7.2 && T < 9.0) || (T > 13.8 && T < 15.6) })
+      if (T > 7.2 && !this.secondRoar) {
+        this.secondRoar = true
+        sfx('dragonRoar')
+      }
+      if (T > 13.8 && !this.thirdRoar) {
+        this.thirdRoar = true
+        sfx('dragonRoar')
+      }
+      if (T > 9.5 && !this.secondStorm) {
+        this.secondStorm = true
+        sfx('dragonStorm')
+      }
       if (T > 1.9 && !this.firstCry) {
         this.firstCry = true
         S.game.ui.eventBanner('King Arlo is panicking!', '“Ember is back! The sacred sword is gone!”', 5.4)
@@ -531,14 +562,14 @@ function dragon(S) {
       strikes.forEach((at, i) => {
         if (T >= at && !fired.has(i)) {
           fired.add(i)
-          redrawLightning()
+          lightning.forEach(redrawLightning)
           sfx('thunder')
         }
         if (T >= at && T < at + 0.2) active = i
       })
-      lightning.visible = active >= 0
+      lightning.forEach((line) => (line.visible = active >= 0))
       flash.intensity = active >= 0 ? 3.4 * (1 - (T - strikes[active]) / 0.2) : 0
-      if (active >= 0 && Math.floor(T * 50) % 2 === 0) redrawLightning()
+      if (active >= 0 && Math.floor(T * 50) % 2 === 0) lightning.forEach(redrawLightning)
       if (T > 7 && !this.secondCry) {
         this.secondCry = true
         S.game.ui.eventBanner('The King calls for help!', '“Knights! Protect the Mystic Jewel!”', 4.8)
@@ -546,8 +577,8 @@ function dragon(S) {
       }
       if (T > 14 && !this.thirdCry) {
         this.thirdCry = true
-        S.game.ui.eventBanner('King Arlo needs a hero!', '“Coji! We need the Sword of Dawn!”', 4.5)
-        sayAs('Coji! We need the Sword of Dawn!', { who: 'man', seed: 41, pitch: 0.8, rate: 1.02, volume: 1, queue: true })
+        S.game.ui.eventBanner('King Arlo cries out!', '“Someone, protect the kingdom!”', 4.5)
+        sayAs('Someone! Protect the kingdom! Do not let the dragon reach the tower!', { who: 'man', seed: 41, pitch: 0.8, rate: 1.02, volume: 1, queue: true })
       }
       if (T >= 20) this.done = true
     },

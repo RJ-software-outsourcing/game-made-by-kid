@@ -195,6 +195,7 @@ const [postX, postZ] = at(STOP.post, -12)
 const [schoolX, schoolZ] = at(STOP.school, -10)
 const [iceX, iceZ] = at(STOP.beach, 9)
 const [farmX, farmZ] = at(STOP.farm, -14)
+const [monumentX, monumentZ] = at(300, -8)
 const [lightX, lightZ] = [ISLET.x + 3.5, ISLET.z - 3.5]
 
 export const PLACES = {
@@ -209,7 +210,8 @@ export const PLACES = {
   beach: { name: 'Sunny Beach', icon: '🏖️', x: iceX + 2, z: iceZ + 8 },
   icecream: { name: 'Ice Cream', icon: '🍦', x: iceX, z: iceZ },
   post: { name: 'Post Office', icon: '📮', x: postX, z: postZ },
-  school: { name: 'School', icon: '🏫', x: schoolX, z: schoolZ },
+  school: { name: 'Royal Library', icon: '📚', x: schoolX, z: schoolZ },
+  monument: { name: "Knight's Monument", icon: '🗿', x: monumentX, z: monumentZ },
   graveyard: { name: 'Spooky Graveyard', icon: '👻', x: GRAVEYARD.x, z: GRAVEYARD.z },
   forest: { name: 'Forest', icon: '🌲', x: 24, z: -34 },
   pond: { name: 'Pond', icon: '🦆', x: POND.x, z: POND.z },
@@ -259,7 +261,9 @@ const HOUSES = [
 ]
 
 export const PADS = [
-  { x: CASTLE.x, z: CASTLE.z, r: 16, blend: 8 }, // castle
+  // A broad raised castle hill keeps the castle visible from the beaches while preserving a gentle,
+  // walkable approach around the moat and castle loop road.
+  { x: CASTLE.x, z: CASTLE.z, r: 22, blend: 14, h: 4.2 }, // castle
   { x: PLAZA.x, z: PLAZA.z, r: 15, blend: 8 }, // village plaza
   { x: HARBOR.x, z: HARBOR.z, r: 11, blend: 7, h: 1.05 }, // harbor quay
   { x: burgerX, z: burgerZ, r: 8, blend: 5 },
@@ -474,6 +478,7 @@ export const OBJECTS = [
   { id: 'sign-east', kind: 'sign', x: ringPos(0, -5)[0], z: ringPos(0, -5)[1] + 4, boards: ['lighthouse', 'beach', 'post'] },
   { id: 'sign-ne', kind: 'sign', x: ringPos(315, -5)[0] + 3, z: ringPos(315, -5)[1] + 2, boards: ['lighthouse', 'school', 'village'] },
   { id: 'sign-grave', kind: 'sign', x: ringPos(225, 5)[0] + 4, z: ringPos(225, 5)[1] - 2, boards: ['graveyard', 'school', 'farm'] },
+  { id: 'knight-monument', kind: 'monument', x: monumentX, z: monumentZ, rot: faceIn(300) },
 ]
 export const SIGN_TARGETS = Object.fromEntries(Object.entries(PLACES).map(([k, p]) => [k, [p.x, p.z]]))
 

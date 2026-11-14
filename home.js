@@ -4,6 +4,17 @@
 const list = document.getElementById('games')
 const status = document.getElementById('status')
 
+// iPad split view and Home Screen apps can keep an old CSS viewport until the window is resized.
+// Measure the actually visible area immediately and whenever iPadOS changes it.
+function syncAppHeight() {
+  const h = Math.round(window.visualViewport?.height || window.innerHeight)
+  document.documentElement.style.setProperty('--app-height', `${h}px`)
+}
+syncAppHeight()
+window.addEventListener('resize', syncAppHeight, { passive: true })
+window.addEventListener('pageshow', syncAppHeight, { passive: true })
+window.visualViewport?.addEventListener('resize', syncAppHeight, { passive: true })
+
 function card(game) {
   const li = document.createElement('li')
   const a = document.createElement('a')

@@ -62,6 +62,8 @@ export class World {
     this.coconutDrops = []
     this.flies = []
     this.lamps = []
+    this.buildingGroups = []
+    this.coreObjectGroups = []
   }
 
   // ---------- heights ----------
@@ -617,7 +619,7 @@ export class World {
       bank: ['BANK', 2.4, 0.55, '#e6e1d8', '#3b4a5e', [0, 4.2, 4.12]],
       toyshop: ['TOY SHOP', 3.2, 0.55, '#ff8fb1', '#ffffff', [-1.5, 2.88, 3.1]],
       post: ['POST OFFICE', 3.8, 0.6, '#e94b3c', '#ffffff', [0, 3.35, 3.12]],
-      school: ['SCHOOL', 3.2, 0.7, '#3b7dd8', '#ffffff', [0, 4.25, 3.36]],
+      school: ['ROYAL LIBRARY', 4.4, 0.7, '#3b7dd8', '#ffffff', [0, 4.25, 3.36]],
       icecream: ['ICE CREAM', 3.4, 0.6, '#ff8fb1', '#ffffff', [0, 3.3, 1.95]],
     }
     for (const b of L.BUILDINGS) {
@@ -662,6 +664,7 @@ export class World {
         }
       })
       this.scene.add(g)
+      this.buildingGroups.push({ group: g, x: b.x, z: b.z, keep: b.kind === 'castle' })
     }
   }
 
@@ -780,6 +783,11 @@ export class World {
           Object.assign(e, { tapR: 1.3, tapH: 3.4, reach: 2.2, boards: o.boards, solid: 0.5 })
           break
         }
+        case 'monument':
+          mesh = P.knightStatue()
+          mesh.rotation.y = o.rot
+          Object.assign(e, { tapR: 2.5, tapH: 6.8, reach: 3.2, rot: o.rot, solid: 2.6 })
+          break
         case 'appletree':
           Object.assign(e, { tapR: 2.2, tapH: 4.5, reach: 2.4, solid: 0.8, fruit: true })
           break
@@ -800,9 +808,14 @@ export class World {
         })
         this.scene.add(mesh)
         e.mesh = mesh
+        this.coreObjectGroups.push({ group: mesh, x: o.x, z: o.z })
       }
       this.addEntity(e)
     }
+    // The building itself opens the history shelves. Kim remains outside for normal conversation.
+    const library = L.BUILDINGS.find((b) => b.kind === 'school')
+    const [libraryX, libraryZ] = L.ahead(library.x, library.z, library.rot, library.d / 2 + 0.9)
+    this.addEntity({ id: 'library-door', kind: 'library', x: libraryX, z: libraryZ, tapR: 1.8, tapH: 2.8, reach: 1.5, zone: 'school' })
     // characters (models come with their zone)
     for (const [id, n] of Object.entries(L.NPCS)) {
       const e = { id, kind: 'npc', x: n.x, z: n.z, zone: n.zone, reach: 2.2, tapR: 1.3, tapH: 2.6 }
@@ -1209,6 +1222,28 @@ export class World {
     this.nav = nav
   }
 
+  palmFruit(e) {
+    const group = new THREE.Group()
+    const s = e.palmScale || 1
+    group.position.set(e.x, e.y + 5.55 * s, e.z)
+    const spots = [
+      [0.34, 0.02, 0.2],
+      [-0.28, -0.08, 0.28],
+      [0.02, -0.18, -0.34],
+    ]
+    e.coconutMeshes = spots.map(([x, y, z], i) => {
+      const p = new Parts(SMOOTH)
+      p.add(sphere(0.31 * s, 9, 7), '#80552f', { sy: 1.18, jitter: 0.07, rough: 0.92 })
+      p.add(cyl(0.07 * s, 0.1 * s, 0.08 * s, 7), '#4b7d37', { y: 0.38 * s, flat: false, jitter: 0.02 })
+      const coconut = p.build({ shadow: false })
+      coconut.position.set(x * s, y * s, z * s)
+      coconut.rotation.y = i * 2.1 + e.x
+      group.add(coconut)
+      return coconut
+    })
+    return group
+  }
+
   dropCoconut(e) {
     const p = new Parts(SMOOTH)
     p.add(sphere(0.34, 10, 8), '#80552f', { sy: 1.18, jitter: 0.08, rough: 0.9 })
@@ -1315,6 +1350,11 @@ export class World {
     }
     for (const e of this.entities) {
       if (e.zone !== zone.id) continue
+      if (e.kind === 'palm') {
+        const fruit = this.palmFruit(e)
+        e.mesh = fruit
+        group.add(fruit)
+      }
       if (e.kind === 'appletree' || e.kind === 'berrybush' || e.kind === 'carrots') {
         const m = e.kind === 'appletree' ? P.appleTree() : e.kind === 'berrybush' ? P.berryBush() : P.carrotPatch()
         m.position.set(e.x, e.y - 0.05, e.z)
@@ -1405,6 +1445,7 @@ export class World {
       void T
     }
     if (zone.id === 'graveyard') this.buildGraveyard(group)
+    zone.group = group
     ;(this.zoneGroups ||= []).push(group)
     if (['farm', 'village', 'lighthouse', 'school', 'post', 'flower'].includes(zone.id)) {
       const cols = ['#ff9fd1', '#ffe066', '#9fd8ff', '#c9a7ff']
@@ -1619,10 +1660,18 @@ export class World {
     this.plants.update(this.camera ? this.camera.position : focus)
     this.grass.update(focus, t)
     this.smallT = (this.smallT ?? 0) - dt
-    if (this.smalls && this.smallT <= 0) {
+    if (this.smallT <= 0) {
       this.smallT = 0.5
       const c = this.camera ? this.camera.position : focus
-      for (const s of this.smalls) s.holder.visible = Math.abs(s.x - c.x) + Math.abs(s.z - c.z) < 64
+      // Skip distant buildings in both the color and shadow passes. The raised central castle stays
+      // visible everywhere, including during the dragon event.
+      for (const b of this.buildingGroups) b.group.visible = b.keep || Math.hypot(b.x - focus.x, b.z - focus.z) < 105
+      // Wells, fountains, benches, signs and the monument are kept only near the player. Their tap
+      // targets stay registered, so they work immediately when their models become visible again.
+      for (const o of this.coreObjectGroups) o.group.visible = Math.hypot(o.x - focus.x, o.z - focus.z) < 92
+      // Dense zone details use a shorter range. Dragon and lightning effects live outside these groups.
+      for (const z of this.zones) if (z.group) z.group.visible = z.id === 'castle' || Math.hypot(z.x - focus.x, z.z - focus.z) < z.r + 72
+      for (const s of this.smalls || []) s.holder.visible = Math.abs(s.x - c.x) + Math.abs(s.z - c.z) < 64
       // small props (benches, crates, fences, people standing still) far away: a few pixels, skip them
       for (const zg of this.zoneGroups || [])
         for (const o of zg.children) {

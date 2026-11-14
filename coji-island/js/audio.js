@@ -121,6 +121,9 @@ function noise({ at = 0, dur = 0.2, gain = 0.2, type = 'lowpass', f = 800, f2 = 
   const t0 = c.currentTime + at
   const s = c.createBufferSource()
   s.buffer = noiseBuffer(c)
+  // The shared noise buffer is one second long. Loop it for thunder and storm beds that are longer
+  // than that; otherwise Safari silently ends the source after the first second.
+  s.loop = dur > 0.95
   const fl = c.createBiquadFilter()
   fl.type = type
   fl.Q.value = q
@@ -195,6 +198,13 @@ const SFX = {
     noise({ dur: 1.8, gain: 0.32, type: 'lowpass', f: 700, f2: 45, q: 1 })
     tone({ type: 'sawtooth', f: 82, f2: 38, dur: 1.5, gain: 0.09 })
     noise({ at: 0.28, dur: 1.4, gain: 0.2, type: 'bandpass', f: 180, f2: 70, q: 2 })
+  },
+  dragonStorm: () => {
+    // A long, cinematic bed beneath the individual thunder cracks and roars.
+    noise({ dur: 9.5, gain: 0.15, type: 'lowpass', f: 520, f2: 70, q: 0.8 })
+    noise({ at: 0.2, dur: 9.0, gain: 0.09, type: 'bandpass', f: 1100, f2: 180, q: 1.2 })
+    tone({ type: 'sawtooth', f: 62, f2: 41, dur: 8.8, gain: 0.045 })
+    tone({ type: 'sine', f: 43, f2: 55, at: 0.5, dur: 8.5, gain: 0.07 })
   },
   dragonRoar: () => {
     // A long animal-like roar: breath and rasp on top of a falling chest resonance. It is made in

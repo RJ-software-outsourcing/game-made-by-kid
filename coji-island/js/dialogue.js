@@ -8,7 +8,7 @@ import { sfx, voice, speak } from './audio.js'
 const CHARS_PER_SEC = 60
 
 export class Dialogue {
-  constructor({ portrait, nameOf, voiceOf, onChange, onClose, onTalk }) {
+  constructor({ portrait, nameOf, voiceOf, transformText, onChange, onClose, onTalk }) {
     this.el = document.getElementById('dlg')
     this.img = this.el.querySelector('.dlg-portrait img')
     this.nameEl = this.el.querySelector('.dlg-name')
@@ -17,6 +17,7 @@ export class Dialogue {
     this.portrait = portrait
     this.nameOf = nameOf
     this.voiceOf = voiceOf
+    this.transformText = transformText
     this.onChange = onChange
     this.onClose = onClose
     this.onTalk = onTalk
@@ -61,6 +62,7 @@ export class Dialogue {
 
   // Type out the text; when done, show the answers.
   speakAll(who, text) {
+    text = this.transformText?.(who, text) ?? text
     this.who = who
     this.fullText = text
     this.el.classList.toggle('coji', who === 'coji')

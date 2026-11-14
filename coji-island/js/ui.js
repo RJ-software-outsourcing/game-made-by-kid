@@ -5,6 +5,56 @@ import { sfx, isMuted, setMuted, unlock } from './audio.js'
 
 const $ = (s, el = document) => el.querySelector(s)
 
+const BOOKS = [
+  {
+    title: 'Mara and the Five Bridges',
+    subtitle: 'A knight who learned to listen',
+    row: 0,
+    pages: [
+      'Long ago, young Mara trained with a wooden sword. She was quick, but her teacher said, “A knight listens before a knight acts.”',
+      'One rainy morning, the river rose over five bridges. Farmers, bakers and children could not get home.',
+      'Mara called four knights. One knew ropes, one knew horses, one knew rivers, and one knew how to calm frightened people.',
+      'Together they made a safe path across every bridge. Mara kept her sword sheathed and used her ears, hands and heart.',
+      'The kingdom remembered Mara. From then on, knights promised that a sword was carried to protect people—not to frighten them.'
+    ]
+  },
+  {
+    title: 'King Rowan and the Empty Crown',
+    subtitle: 'A king who served his people',
+    row: 1,
+    pages: [
+      'King Rowan owned a bright gold crown, but he worried that the tall castle walls kept him from seeing his people clearly.',
+      'He left the crown on its cushion and walked through the town in a plain green cloak. He found an empty grain store.',
+      'Rowan carried sacks, repaired the storehouse roof and listened to every family. Soon warm bread filled the square.',
+      'When the people discovered who he was, Rowan said, “A crown does not make a king. Serving the kingdom does.”',
+      'The old knights raised their swords in salute. Every new ruler was taught Rowan’s lesson: strength must stand beside kindness.'
+    ]
+  },
+  {
+    title: 'Nila and the Lantern Caravan',
+    subtitle: 'A clever merchant saves the road',
+    row: 2,
+    pages: [
+      'Nila was a clever merchant who crossed the kingdom with cloth, spices and tiny lanterns. She studied every road and hill.',
+      'One night, travelers warned that raiders waited beyond the pass. Nila did not fight; she opened her boxes and made a plan.',
+      'She hung mirrors and lanterns among the rocks. Their reflections looked like a hundred knights marching through the mist.',
+      'The raiders fled, and Nila guided every family safely home. The captain thanked her for winning with courage and wisdom.',
+      'Nila gave a silver ceremonial sword to the town hall. It reminded everyone that defending a kingdom takes many kinds of heroes.'
+    ]
+  }
+]
+
+const KNIGHT_PLAQUE = {
+  title: 'The Knights of the Dawn Watch',
+  subtitle: 'Words carved into the old stone',
+  row: 0,
+  pages: [
+    'This statue honors the old Dawn Watch. Its knights guarded the island roads before the castle towers were built.',
+    'They taught every knight three duties: help the lost, shield the weak and keep watch when others sleep.',
+    'The stone sword points toward the castle. It remembers a long tradition: the kingdom’s blades belong to its people.'
+  ]
+}
+
 export const BLANKIE_SVG = `<svg viewBox="0 0 64 64" width="100%" height="100%" aria-hidden="true">
   <circle cx="14" cy="15" r="10" fill="#a6bdd8"/><circle cx="50" cy="15" r="10" fill="#a6bdd8"/>
   <circle cx="14" cy="15" r="5" fill="#c4d4e8"/><circle cx="50" cy="15" r="5" fill="#c4d4e8"/>
@@ -48,7 +98,7 @@ export class UI {
       snd.textContent = isMuted() ? '🔇' : '🔊'
       unlock()
     })
-    for (const id of ['bag', 'shop', 'map', 'menu']) {
+    for (const id of ['bag', 'shop', 'map', 'menu', 'library', 'reader']) {
       const p = $('#' + id)
       $('.close', p)?.addEventListener('click', () => this.closePanel(id))
       p.addEventListener('click', (e) => {
@@ -71,6 +121,11 @@ export class UI {
       }
       if (a === 'again') game.restart()
     })
+    $('#reader').addEventListener('click', (e) => {
+      const act = e.target.closest('[data-act]')?.dataset.act
+      if (act === 'prev') this.turnBookPage(-1)
+      if (act === 'next') this.turnBookPage(1)
+    })
     this.hintEl.addEventListener('click', () => this.hideHint())
   }
 
@@ -82,7 +137,7 @@ export class UI {
   }
 
   anyPanel() {
-    return ['bag', 'shop', 'map', 'menu', 'confirm', 'job'].some((id) => !$('#' + id).classList.contains('hidden'))
+    return ['bag', 'shop', 'map', 'menu', 'confirm', 'job', 'library', 'reader'].some((id) => !$('#' + id).classList.contains('hidden'))
   }
   openPanel(id) {
     unlock()
@@ -232,6 +287,58 @@ export class UI {
   hideEventBanner() {
     clearTimeout(this.eventT)
     this.eventEl.classList.add('hidden')
+  }
+
+  // ---------- Royal Library and the monument history plaque ----------
+  setBookArt(el, row, page) {
+    el.style.backgroundPosition = `${page * 25}% ${row * 50}%`
+  }
+  openLibrary() {
+    const list = $('#library .book-list')
+    list.innerHTML = ''
+    for (const book of BOOKS) {
+      const button = document.createElement('button')
+      button.className = 'book-card'
+      button.innerHTML = '<span class="book-thumb"></span><strong></strong><small></small>'
+      $('strong', button).textContent = book.title
+      $('small', button).textContent = book.subtitle
+      this.setBookArt($('.book-thumb', button), book.row, 0)
+      button.addEventListener('click', () => this.openBook(book))
+      list.append(button)
+    }
+    this.openPanel('library')
+  }
+  openPlaque() {
+    this.openBook(KNIGHT_PLAQUE)
+  }
+  openBook(book) {
+    this.readerBook = book
+    this.readerPage = 0
+    this.renderBookPage()
+    this.openPanel('reader')
+  }
+  turnBookPage(delta) {
+    const next = this.readerPage + delta
+    if (next >= this.readerBook.pages.length) {
+      this.closePanel('reader')
+      return
+    }
+    this.readerPage = Math.max(0, next)
+    sfx('tap')
+    this.renderBookPage()
+  }
+  renderBookPage() {
+    const book = this.readerBook
+    const page = this.readerPage
+    const panel = $('#reader')
+    $('.reader-title', panel).textContent = book.title
+    $('.book-page-number', panel).textContent = `Page ${page + 1} of ${book.pages.length}`
+    $('.book-text', panel).textContent = book.pages[page]
+    const art = $('.book-art', panel)
+    art.setAttribute('aria-label', `${book.title}, page ${page + 1} illustration`)
+    this.setBookArt(art, book.row, Math.min(4, page))
+    $('[data-act="prev"]', panel).disabled = page === 0
+    $('[data-act="next"]', panel).textContent = page === book.pages.length - 1 ? 'Done ✓' : 'Next →'
   }
 
   // ---------- bag ----------

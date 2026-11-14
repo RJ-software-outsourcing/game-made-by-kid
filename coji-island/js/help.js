@@ -19,7 +19,7 @@ const N = (say, choices = null, extra = {}) => ({ say: [].concat(say), choices, 
 const NAMES = ['Lily', 'Sam', 'Nora', 'Leo', 'Maya', 'Ben', 'Iris', 'Tom', 'Rin', 'Ali', 'Gina', 'Max', 'Pia', 'Ken', 'Sara', 'Dan']
 const listWords = (w) => (w.length === 1 ? w[0] : w.length === 2 ? `${w[0]} and ${w[1]}` : `${w.slice(0, -1).join(', ')} and ${w[w.length - 1]}`)
 
-// ---------- the little reading games ----------
+// ---------- the little reading and math games ----------
 
 const PETS = [
   ['dog', '🐶'], ['cat', '🐱'], ['rabbit', '🐰'], ['duck', '🦆'], ['pig', '🐷'], ['cow', '🐮'],
@@ -29,8 +29,14 @@ function petRound(i, used) {
   const pets = shuffle(PETS.filter((p) => !used.includes(p[0]))).slice(0, i < 1 ? 3 : 4)
   const want = pets[0]
   used.push(want[0])
-  const text = pick([`Where is my ${want[0]}? Tap the ${want[0]}!`, `Can you find my ${want[0]}?`, `My ${want[0]} is hiding. Where is it?`])
-  return { kind: 'choice', who: '🙋', text, options: shuffle(pets).map(([w, icon]) => ({ id: w, word: '', icon })), answer: [want[0]] }
+  const clues = {
+    dog: 'It wags its tail and barks.', cat: 'It has whiskers and likes to purr.', rabbit: 'It has long ears and hops.', duck: 'It swims and says quack.',
+    pig: 'It has a curly tail and likes mud.', cow: 'It eats grass and gives milk.', hen: 'It has feathers and lays eggs.', frog: 'It jumps and says ribbit.',
+    fish: 'It has fins and lives in water.', bird: 'It has feathers and can fly.', horse: 'It has hooves and can gallop.', sheep: 'It has thick wool.',
+    turtle: 'It carries a hard shell.', mouse: 'It is tiny and likes cheese.',
+  }
+  const text = `${clues[want[0]]} Which animal am I looking for?`
+  return { kind: 'choice', who: '🙋', text, options: shuffle(pets).map(([w, icon]) => ({ id: w, word: w, icon })), answer: [want[0]] }
 }
 
 const FOODS = [
@@ -38,14 +44,15 @@ const FOODS = [
   ['carrots', '🥕'], ['rice', '🍚'], ['cake', '🍰'], ['corn', '🌽'], ['grapes', '🍇'], ['pears', '🍐'],
 ]
 function shopRound(i) {
-  const n = i === 0 ? 1 : 2
+  const n = i === 0 ? 2 : 3
   const opts = shuffle(FOODS).slice(0, 6)
   const want = opts.slice(0, n).map((f) => f[0])
-  const text = pick(n === 1 ? [`Please get the ${want[0]}.`, `I need ${want[0]}, please!`] : [`I need ${listWords(want)}.`, `Please get ${listWords(want)} for me.`, `Can you find ${listWords(want)}?`])
+  const skip = opts[n][0]
+  const text = pick([`Please get ${listWords(want)}, but do not take the ${skip}.`, `My list says ${listWords(want)}. Leave the ${skip} on the shelf.`])
   return { kind: 'build', who: '🧺', text, options: shuffle(opts).map(([w, icon]) => ({ id: w, word: '', icon })), answer: want, serve: 'Done! 🛒' }
 }
 
-const PLACES = ['park', 'beach', 'farm', 'zoo', 'school', 'shop', 'lake', 'castle']
+const PLACES = ['park', 'beach', 'farm', 'zoo', 'library', 'shop', 'lake', 'castle']
 const THINGS = ['kite', 'ball', 'hat', 'cake', 'dog', 'boat', 'book', 'bike']
 const COLORS = ['red', 'blue', 'green', 'yellow', 'pink', 'purple', 'orange', 'brown']
 const FROM = ['Mia', 'Dad', 'Mom', 'Grandma', 'Ken', 'Ava', 'Uncle Bo', 'Lulu']
@@ -64,31 +71,34 @@ function letterRound() {
 }
 
 const GAPS = [
-  ['cat', '🐱', 1], ['dog', '🐶', 1], ['sun', '☀️', 1], ['hat', '🎩', 1], ['pig', '🐷', 1], ['bus', '🚌', 1], ['cup', '☕', 1],
-  ['bed', '🛏️', 1], ['fox', '🦊', 1], ['box', '📦', 1], ['pen', '🖊️', 1], ['bag', '👜', 1], ['fish', '🐟', 2], ['frog', '🐸', 2],
-  ['star', '⭐', 2], ['moon', '🌙', 1], ['cake', '🎂', 1], ['tree', '🌳', 2], ['ship', '🚢', 2], ['duck', '🦆', 1],
+  ['ship', '🚢', 'sh', 0], ['chair', '🪑', 'ch', 0], ['three', '3️⃣', 'th', 0], ['frog', '🐸', 'fr', 0], ['star', '⭐', 'st', 0],
+  ['train', '🚂', 'tr', 0], ['clock', '🕐', 'cl', 0], ['green', '🟢', 'gr', 0], ['brush', '🖌️', 'br', 0], ['snake', '🐍', 'sn', 0],
+  ['beach', '🏖️', 'ch', 3], ['whale', '🐋', 'wh', 0], ['queen', '👑', 'qu', 0], ['flower', '🌼', 'fl', 0], ['cloud', '☁️', 'cl', 0],
 ]
-const VOWELS = ['a', 'e', 'i', 'o', 'u']
+const BLENDS = ['sh', 'ch', 'th', 'wh', 'ph', 'tr', 'fr', 'st', 'cl', 'gr', 'br', 'sn', 'qu', 'fl']
 function signRound(i, used) {
   let g = pick(GAPS)
   for (let k = 0; k < 8 && used.includes(g[0]); k++) g = pick(GAPS)
   used.push(g[0])
-  const [word, icon, at] = g
-  const letter = word[at]
-  const shown = word.slice(0, at) + '_' + word.slice(at + 1)
-  const pool = VOWELS.includes(letter) ? VOWELS : ['r', 'l', 'i', 'o', 'a', 'h', 'e']
-  const opts = shuffle([letter, ...shuffle(pool.filter((x) => x !== letter)).slice(0, 2)])
-  return { kind: 'choice', picture: icon, text: `The sign says <b class="gap">${shown}</b>. Which letter is missing?`, options: opts.map((l) => ({ id: l, word: l })), answer: [letter] }
+  const [word, icon, letters, at] = g
+  const shown = word.slice(0, at) + '__' + word.slice(at + letters.length)
+  const opts = shuffle([letters, ...shuffle(BLENDS.filter((x) => x !== letters)).slice(0, 2)])
+  return { kind: 'choice', picture: icon, text: `Complete <b class="gap">${shown}</b>. Which two letters are missing?`, options: opts.map((l) => ({ id: l, word: l })), answer: [letters] }
 }
 
-const NUMS = ['one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight']
-const COUNTABLE = [['apples', '🍎'], ['stars', '⭐'], ['ducks', '🦆'], ['shells', '🐚'], ['balls', '⚽'], ['flowers', '🌼'], ['fish', '🐟'], ['cars', '🚗']]
-function countRound(i) {
-  const n = 2 + Math.floor(Math.random() * (i === 0 ? 3 : 6))
-  const [w, icon] = pick(COUNTABLE)
-  const right = NUMS[n - 1]
-  const near = shuffle([NUMS[n - 2], NUMS[n], NUMS[n - 3]].filter(Boolean)).slice(0, 2)
-  return { kind: 'choice', picture: `<span class="many">${icon.repeat(n)}</span>`, text: `How many ${w}? Tap the word.`, options: shuffle([right, ...near]).map((x) => ({ id: x, word: x })), answer: [right] }
+function mathRound() {
+  const two = 10 + Math.floor(Math.random() * 80)
+  const one = 1 + Math.floor(Math.random() * 9)
+  const add = Math.random() < 0.5
+  const answer = add ? two + one : two - one
+  const nearby = shuffle([...new Set([answer - 1, answer + 1, add ? answer - 2 : answer + 2, answer + one].filter((n) => n >= 0 && n !== answer))]).slice(0, 2)
+  return {
+    kind: 'choice',
+    who: '🧮',
+    text: `What is <b>${two} ${add ? '+' : '−'} ${one}</b>?`,
+    options: shuffle([answer, ...nearby]).map((n) => ({ id: String(n), word: String(n) })),
+    answer: [String(answer)],
+  }
 }
 
 const RHYMES = [
@@ -104,8 +114,8 @@ function rhymeRound(i, used) {
 }
 
 const OPPOSITES = [
-  ['big', 'small'], ['hot', 'cold'], ['up', 'down'], ['happy', 'sad'], ['fast', 'slow'], ['wet', 'dry'], ['day', 'night'],
-  ['open', 'closed'], ['tall', 'short'], ['old', 'new'], ['in', 'out'], ['full', 'empty'], ['loud', 'quiet'], ['yes', 'no'],
+  ['ancient', 'modern'], ['arrive', 'leave'], ['brave', 'afraid'], ['careful', 'careless'], ['empty', 'full'], ['narrow', 'wide'],
+  ['noisy', 'quiet'], ['smooth', 'rough'], ['borrow', 'lend'], ['remember', 'forget'], ['early', 'late'], ['victory', 'defeat'],
 ]
 function oppRound(i, used) {
   let o = pick(OPPOSITES)
@@ -133,7 +143,7 @@ export const REQUESTS = [
   { id: 'shop', kid: false, title: '🛒 The Shopping List', gen: shopRound, done: 'things found', call: ['Excuse me, Coji!', 'Oh dear, Coji!'], problem: ['I lost my glasses. I cannot read my list!', 'Can you help me get the food?'], gifts: ['cupcake', 'pie', 'sandwich'] },
   { id: 'letter', kid: false, title: '✉️ Read My Letters', gen: letterRound, done: 'letters read', call: ['Hello, Coji! Can you read?', 'Coji, wait!'], problem: ['I got some letters. My eyes are so tired.', 'Can you read them for me?'], gifts: ['book', 'medal', 'crayons'] },
   { id: 'sign', kid: false, title: '🔤 Fix the Signs', gen: signRound, done: 'signs fixed', call: ['Coji! Over here!', 'Hey, Coji!'], problem: ['The wind blew letters off my signs!', 'Can you help me fix them?'], gifts: ['toycar', 'kite', 'medal'] },
-  { id: 'count', kid: true, title: '🔢 Count with Me', gen: countRound, done: 'counted right', call: ['Hi, Coji! Are you good at counting?', 'Coji! Coji!'], problem: ['I have to count things for school.', 'Can you help me?'], gifts: ['crayons', 'ball', 'lollipop'] },
+  { id: 'count', kid: true, title: '🧮 Number Challenge', gen: mathRound, done: 'answers solved', call: ['Hi, Coji! Can you solve a number challenge?', 'Coji! I have a math puzzle!'], problem: ['It mixes a two-digit number with a one-digit number.', 'Can you add and subtract with me?'], gifts: ['crayons', 'ball', 'lollipop'] },
   { id: 'rhyme', kid: true, title: '🎵 Rhyme Time', gen: rhymeRound, done: 'rhymes found', call: ['La la la! Hi, Coji!', 'Coji! I need you!'], problem: ['I am making a song. It needs words that rhyme.', 'Can you help me?'], gifts: ['yoyo', 'kite', 'cupcake'] },
   { id: 'opp', kid: false, title: '↔️ Opposites', gen: oppRound, done: 'words right', call: ['Hello, Coji!', 'Coji, do you have a minute?'], problem: ['My little boy is playing a word game.', 'He needs help with opposites. Can you help him?'], gifts: ['book', 'toycar', 'pie'] },
   { id: 'kites', kid: true, title: '🎨 Which Color?', gen: colorRound, done: 'colors right', call: ['Coji! My things are all mixed up!', 'Help, help!'], problem: ['My friends and I have lots of toys.', 'Can you help me find mine?'], gifts: ['kite', 'crayons', 'lollipop'] },

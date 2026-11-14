@@ -618,7 +618,7 @@ const EXPLORE_TIPS = [
   'Let us find the castle! It is in the middle of the island. 🏰',
   'Walk to the beach! Maybe you can find a starfish. ⭐',
 ]
-const END_TIPS = ['Explore the island, and do jobs to earn coins! 💼', 'Find treasures 💎 and swap them at the bank!', 'Sir Lance says the King will need a hero one day! 👑']
+const END_TIPS = ['Explore the island, and do jobs to earn coins! 💼', 'Find treasures 💎 and swap them at the bank!', 'Ask island friends about the old kingdom stories! 📖']
 
 // What Blankie Bear says when nothing has happened for a while.
 export function stepTip(g) {
@@ -700,33 +700,32 @@ const COJI_BYE = ['Bye!', 'See you later!', 'Bye-bye!', 'I have to go. Bye!', 'S
 const NPC_BYE = ['Bye, Coji!', 'See you, Coji!', 'Have fun, Coji!', 'Come back soon!', 'Good luck, Coji!', 'See you later!', 'Bye-bye! Have a nice day!']
 const MORE_INTROS = ['Hmm, let me think...', 'Oh! I remember now!', 'Wait! I know more!', 'My friend told me this:', 'Hmm! I think...', 'Oh, yes!']
 
-// ---------- the stolen sacred sword: island history for the future final quest ----------
+// ---------- the stolen sacred sword: island history ----------
 // Nobody tells the whole tale. Named friends each know one piece; walkers, animals and visitors have
-// smaller rumor pools. The flags are deliberately saved now so a later King quest can build on what
-// Coji already learned without changing today's quest order.
+// smaller rumor pools. These are background stories only; they do not start or prescribe a final mission.
 const DRAGON_QS = ['Why does the dragon come here?', 'What do you know about the Mystic Jewel?', 'What happened to the sacred sword?', 'Why is King Arlo scared?']
 const DRAGON_HISTORY = {
   pip: ['The night the sacred sword vanished, I saw a black boat leave the island.', 'Its sail had no flag.', 'Someone wanted to escape without being seen.'],
   finn: ['When Ember roars, it looks straight at the castle tower.', 'The Mystic Jewel is kept in that tower.', 'That is what the dragon wants.'],
   momo: ['Meow... I saw muddy footprints in a secret castle passage.', 'They went from the sword room to the sea.', 'They did not belong to a knight.'],
-  ben: ['The Sword of Dawn was made by a village smith long ago.', 'A sacred sword is difficult to make—but not impossible.', 'If its old recipe still exists, a new one could be forged.'],
+  ben: ['The Sword of Dawn was made by a village smith long ago.', 'The smith kept the craft secret.', 'The recipe disappeared many generations ago.'],
   granny: ['My grandmother told me about the Mystic Jewel.', 'It was already here before the first King.', 'No one knows where it came from.'],
   penny: ['The royal account book lists a missing treasure:', '“Sword of Dawn—guardian of the Mystic Jewel.”', 'The next page says, “Stolen.”'],
   tina: ['I make toy dragons, but Ember is not a friendly one.', 'It has tried to reach the Mystic Jewel for hundreds of years.', 'The sacred sword always drove it away.'],
-  leo: ['We learned an old rhyme at school:', '“Star-iron bright, waterfall clear, morning light keeps dragons from here.”', 'Teacher Kim says it describes the sacred sword.'],
+  leo: ['We read an old rhyme at the library:', '“Star-iron bright, waterfall clear, morning light keeps dragons from here.”', 'Librarian Kim says it describes the sacred sword.'],
   bun: ['Hop! I found a shiny metal chip near the old forge.', 'It sparkles like a tiny star.', 'Mr. Oak called it star-iron.'],
   hoot: ['Who-who. Long ago, Ember tried to enter the kingdom.', 'The Sword of Dawn filled the sky with golden light.', 'The dragon could not cross it.'],
   bruno: ['I smelled a stranger near the castle on the night of the theft.', 'Oil, wet rope and smoke...', 'It was the smell of a spy.'],
-  gus: ['The old lighthouse lens helped awaken the first Sword of Dawn.', 'It focused the first morning light onto the blade.', 'The lens could do it again.'],
+  gus: ['The old lighthouse lens shone on the first Sword of Dawn.', 'It focused the first morning light onto the blade.', 'That ceremony became a story sailors still tell.'],
   coco: ['The first sacred sword was cooled in water from the castle waterfall.', 'That water still runs today.', 'Grandma said it made the blade shine.'],
-  max: ['I found part of an old sword plan in a castle book.', 'It shows star-iron, waterfall water and a sunbeam.', 'The bottom half of the plan is missing.'],
+  max: ['I found part of an old sword drawing in a castle book.', 'It shows stars, a waterfall and a sunbeam.', 'The writing is too faded to read.'],
   kim: ['The Mystic Jewel has been guarded by the island kingdom since ancient times.', 'Old books say its power is enormous.', 'That is why Ember has always wanted it.'],
   lance: ['I must tell the truth: the Sword of Dawn is gone.', 'A spy stole it while the guards were changing shifts.', 'Without it, our magical shield cannot protect the kingdom.'],
   boo: ['I saw a shadow sneak through the castle wall.', 'It carried a long bundle shaped like a sword.', 'Then it disappeared into the old sea tunnel.'],
   sam: ['Arr! Long ago, my ship carried star-iron to the island.', 'It came from a stone that fell out of the sky.', 'The royal smith used it for the sacred sword.'],
   pam: ['The golden flowers around the castle used to glow near the sacred sword.', 'They stopped glowing the night it vanished.', 'Now they close whenever Ember comes.'],
   percy: ['The Sword of Dawn never had to hurt the dragon.', 'Its light made a shield around the whole kingdom.', 'Without that light, Ember can fly right over our walls.'],
-  bones: ['Rattle! I guarded the old forge a very long time ago.', 'The first Sword of Dawn was made there.', 'I think the forge could still work!'],
+  bones: ['Rattle! I guarded the old forge a very long time ago.', 'The first Sword of Dawn was made there.', 'The forge was sealed when the last royal smith retired.'],
   'resident:0': ['My grandmother saw the Sword of Dawn once.', 'She said it shone like sunrise and made the dragon turn away.'],
   'resident:1': ['The castle cooks heard metal ring on the night of the theft.', 'Then a hooded stranger ran past the kitchen door.'],
   'resident:2': ['I repaired an old mural under the castle.', 'It shows the Mystic Jewel, a golden sword and a dragon outside a wall of light.'],
@@ -753,8 +752,8 @@ const DRAGON_RUMORS = {
   ],
   alien: [
     ['Beep! My scanner found enormous energy inside the Mystic Jewel.', 'The dragon is flying toward that signal!'],
-    ['My scanner found pieces of star-iron near the old forge.', 'Earth people could use them to build something powerful.'],
-    ['The old sacred sword made a light barrier around the island.', 'My computer says that barrier can be made again.'],
+    ['My scanner found pieces of unusual metal near the old forge.', 'They came from a stone that fell from space long ago.'],
+    ['The old sacred sword made a light barrier around the island.', 'My computer can still detect a faint trace of that ancient light.'],
   ],
 }
 
@@ -1539,11 +1538,11 @@ Object.assign(CAST, {
     },
   },
   kim: {
-    name: 'Teacher Kim',
+    name: 'Librarian Kim',
     voice: 1.1,
-    greet: (g) => (g.met('kim') ? draw('greet:kim', ['Hello, Coji! Ready to read?', 'Hi, Coji! Did you read today?', 'Good day, Coji! 📚']) : 'Hello! I am Teacher Kim. Welcome to my school! 🏫'),
-    specials: (g) => [job('school', draw('q:kimjob', ['Can I help you? 💼', 'Can I check words? 💼', 'Do you need a helper? 💼']), ['Yes! Help me check words.', 'Look at the picture. Tap the right word!', 'One coin for each right word.'])(g)],
-    chat: { q: 'What do you teach?', a: ['Reading, writing and math!', 'And I read lots of stories.'] },
+    greet: (g) => (g.met('kim') ? draw('greet:kim', ['Hello, Coji! Ready to read?', 'Hi, Coji! Did you find a good book?', 'Good day, Coji! 📚']) : 'Hello! I am Librarian Kim. Welcome to the Royal Library! 📚'),
+    specials: (g) => [job('school', draw('q:kimjob', ['Can I help you? 💼', 'Can I check words at the reading desk? 💼', 'Do you need a library helper? 💼']), ['Yes! Help me check words.', 'Look at the picture. Tap the right word!', 'One coin for each right word.'])(g)],
+    chat: { q: 'What books are here?', a: ['Picture books, old maps and kingdom stories!', 'Tap the library door to read a history book.'] },
     topics: {
       'bear.0': { q: 'What do bears eat?', a: ['Bears eat fish and berries.'] },
       'bear.1': { q: 'Where can I get honey?', a: ['H-O-N-E-Y, honey!'], more: { q: 'I need coins.', a: ['Help me here! I pay one coin for each right word.'] } },
@@ -1565,7 +1564,7 @@ Object.assign(CAST, {
       if (g.met('lance')) return null
       const meet = () =>
         N(['Hello, Coji. I am Sir Lance, the King\'s knight.', 'I guard the castle. ⚔️'], [
-          { text: 'Can I see the King?', go: () => N(['Not today, Coji.', 'The King is very busy.', 'Maybe one day he will need your help!']) },
+          { text: 'Can I see the King?', go: () => N(['Not today, Coji.', 'The King is very busy.', 'Sir Lance can tell you old castle stories.']) },
           { text: 'Wow! A real knight!', go: () => N(['Yes! I keep the castle safe.', 'Look up! The King waves from his balcony.']) },
         ])
       return N(['Halt! Who goes there? 🛡️'], [
@@ -1574,19 +1573,19 @@ Object.assign(CAST, {
       ])
     },
     greet: () => draw('greet:lance', ['Hello, Coji! Stand tall! 🛡️', 'Good day, brave Coji! ⚔️', 'Halt! Oh, it is you, Coji. Hello!']),
-    chat: { q: 'Can I see the King?', a: ['Not today, Coji. The King is very busy.', 'Maybe one day he will need your help!'] },
+    chat: { q: 'Can I see the King?', a: ['Not today, Coji. The King is very busy.', 'The castle has many old stories to learn.'] },
     topics: {
       'bear.0': { q: 'What do bears eat?', a: ['I am not scared of bears!'] },
       'bear.1': { q: 'Where can I get honey?', a: ['Honey? Knights eat bread.'] },
       'bear.2': { q: 'Where is Bear Bridge?', a: ['A brave knight knows the way!'] },
       'light.0': { q: 'Where is the lighthouse?', a: ['I can see it from the castle wall.'] },
       'light.1': { q: 'Where can I find a big bulb?', a: ['A knight does not need bulbs!'] },
-      'light.2': [{}, { q: 'How can I get coins?', a: ['Work hard, like a knight!', 'Jobs pay coins: burgers, ice cream, mail, and school.'], own: true }],
+      'light.2': [{}, { q: 'How can I get coins?', a: ['Work hard, like a knight!', 'Jobs pay coins: burgers, ice cream, mail, and the library.'], own: true }],
       'light.3': { q: 'I have the bulb!', a: ['Brave work, Coji!'] },
       'boo.0': { q: 'Are you scared of ghosts?', a: ['A knight is never scared!', '...Well, a little.'] },
       'boo.1': { q: 'Where can I find a candle?', a: ['The castle has many candles, but I must guard the gate.'] },
       'boo.2': { q: 'I have a pumpkin and a candle!', a: ['Take them to Boo, brave Coji!'], own: true },
-      end: { q: 'Can I see the King now?', a: ['Not yet. Soon, Coji. Soon!', 'The King has a big job for a hero.'] },
+      end: { q: 'Can I see the King now?', a: ['Not today. The King is meeting with his knights.', 'You can still explore the castle grounds.'] },
     },
   },
   boo: {
@@ -1733,7 +1732,7 @@ const STORIES = {
     ['I once got a letter from the moon!', '...Ha ha! No. It was from Mars. Just kidding!'],
   ],
   kim: [
-    ['I teach the kids at the school.', 'We read books and sing songs.', 'My favorite book is about a little bear!'],
+    ['I care for the books in the Royal Library.', 'We read stories and study old maps.', 'My favorite book is about a little bear!'],
     ['Reading is like a door.', 'You open a book, and go on a trip!'],
     ['Today a frog came into my class.', 'He sat on a chair. He wanted to read too! 🐸'],
   ],
@@ -1949,7 +1948,7 @@ const VILLAGER_STORIES = [
   ['I want to be a knight one day.', 'I practice with a stick! Ha ha!'],
   ['I am writing a book.', 'It is about a boy and a bear!'],
   ['I am going to the farm.', 'I want to see the baby chicks!'],
-  ['I am going to the school.', 'I forgot my lunch box!'],
+  ['I am going to the library.', 'I forgot my book bag!'],
   ['I am going to Burger Hut.', 'I am so hungry! 🍔'],
   ['I am going to the ice cream stand.', 'Pink ice cream is the best!'],
   ['I am going home.', 'It is time for my nap. Yawn!'],
@@ -2201,7 +2200,7 @@ export const RESIDENTS = [
     stories: [['I am seven!', 'My dog is called Biscuit.', 'He likes to run after balls.'], ['I lost my tooth today!', 'Look! There is a hole! Ha ha!'], ['I can do a cartwheel!', 'Well... almost!']],
     moods: [['I am so happy!', 'Biscuit learned a new trick!'], ['I am bored.', 'I wish someone would play with me.']],
     gift: ['berries', 'I picked berries! Want some? 🫐'],
-    note: 'At school! - Lily',
+    note: 'Reading at the library! - Lily',
   },
   {
     name: 'Dr. Sam',

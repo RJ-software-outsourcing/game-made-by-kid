@@ -161,7 +161,7 @@ export function drawMap(canvas, opts) {
     ctx.fillText(text, lx, top + h / 2 + 1)
   }
   const small = new Set(['market', 'bank', 'toyshop', 'icecream'])
-  const offsets = { turtle: -18, flower: 18, village: 40, castle: 0, harbor: -16, burger: -18, post: -18, school: 18, graveyard: -24, lighthouse: -26, bridge: 12, pond: -16, mountain: 0, forest: 0, farm: -20, beach: 22 }
+  const offsets = { turtle: -18, flower: 18, village: 40, castle: 0, harbor: -16, burger: -18, post: -18, school: 18, monument: -18, graveyard: -24, lighthouse: -26, bridge: 12, pond: -16, mountain: 0, forest: 0, farm: -20, beach: 22 }
   for (const [k, p] of Object.entries(L.PLACES)) {
     if (small.has(k)) continue
     label(p.x, p.z, `${p.icon} ${p.name}`, true, offsets[k] ?? 0)
@@ -169,6 +169,22 @@ export function drawMap(canvas, opts) {
   for (const k of small) {
     const p = L.PLACES[k]
     label(p.x, p.z, `${p.icon} ${p.name}`, false, { icecream: -16, market: -10, bank: -8, toyshop: 10 }[k] ?? 0)
+  }
+  // Every place where Coji can refill water is marked directly on the map.
+  ctx.font = 'bold 13px Andika, sans-serif'
+  ctx.textAlign = 'center'
+  ctx.textBaseline = 'middle'
+  for (const o of L.OBJECTS.filter((o) => ['well', 'spring', 'fountain'].includes(o.kind))) {
+    const [wx, wy] = P(o.x, o.z)
+    ctx.fillStyle = 'rgba(255,255,255,0.94)'
+    ctx.strokeStyle = '#2389cf'
+    ctx.lineWidth = 2
+    ctx.beginPath()
+    ctx.arc(wx, wy, 12, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.stroke()
+    ctx.fillStyle = '#1674b7'
+    ctx.fillText('💧', wx, wy + 1)
   }
   if (bearOnBridge) {
     const [bx, by] = P(L.BRIDGE_MID[0], L.BRIDGE_MID[1])

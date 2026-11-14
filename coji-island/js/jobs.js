@@ -161,7 +161,7 @@ export const JOBS = {
   burger: { title: '🍔 Burger Kitchen', who: 'ben', gen: burgerRound, done: 'burgers' },
   icecream: { title: '🍦 Ice Cream Stand', who: 'coco', gen: iceRound, done: 'orders' },
   post: { title: '📮 Sort the Mail', who: 'max', gen: postRound, done: 'letters' },
-  school: { title: '🏫 Word Check', who: 'kim', gen: schoolRound, done: 'words' },
+  school: { title: '📚 Library Word Desk', who: 'kim', gen: schoolRound, done: 'words' },
 }
 
 // ---------- the job panel ----------

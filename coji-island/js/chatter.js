@@ -15,8 +15,9 @@ const GREET = {
   night: ['Good evening, Coji!', 'Good night, Coji!', 'Hello! Look at the stars!'],
 }
 const KING = 'Long live the King!'
-const STORE_NEAR = 5.8
-const STORE_RESET = 9
+// Shopkeepers should carry across the ring road, not wait until Coji is already at the counter.
+const STORE_NEAR = 18
+const STORE_RESET = 25
 const STORE_SHOUTS = {
   ben: ['Fresh burgers! Hot and yummy!', 'Burgers and fries! Come and eat!', 'Hungry, Coji? Burger time!'],
   granny: ['Honey, carrots and milk!', 'Fresh food at the Market!', 'Apples and berries wanted here!'],
