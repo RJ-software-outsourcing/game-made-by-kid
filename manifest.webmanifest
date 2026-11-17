@@ -1,0 +1,9 @@
+{
+  "name": "Games Made by Kid",
+  "short_name": "Games by Kid",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#070d2b",
+  "theme_color": "#070d2b"
+}
