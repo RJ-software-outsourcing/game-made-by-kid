@@ -20,12 +20,12 @@
     },
     {
       "id": "castle-below",
-      "title": "Castle Below – 2.5D Demo",
-      "description": "Test Coji's isometric castle movement, magic orb attacks, and Bebear shield.",
+      "title": "Castle Below",
+      "description": "Explore the castle, cast magic orbs, and open treasure chests in a fullscreen touch-friendly demo.",
       "path": "castle-below/",
       "icon": "🧙‍♂️🧸🏰",
       "colors": ["#172044", "#4b2d72"],
-      "controls": "Tap / click and hold"
+      "controls": "Tap to move · Hold Coji to shield"
     }
   ]
 }
