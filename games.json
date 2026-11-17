@@ -17,6 +17,15 @@
       "icon": "🐳🧽🧸🦐",
       "colors": ["#0b1f5c", "#3b2a8f"],
       "controls": "Arrow keys"
+    },
+    {
+      "id": "castle-below",
+      "title": "Castle Below – 2.5D Demo",
+      "description": "Test Coji's isometric castle movement, magic orb attacks, and Bebear shield.",
+      "path": "castle-below/",
+      "icon": "🧙‍♂️🧸🏰",
+      "colors": ["#172044", "#4b2d72"],
+      "controls": "Tap / click and hold"
     }
   ]
 }
