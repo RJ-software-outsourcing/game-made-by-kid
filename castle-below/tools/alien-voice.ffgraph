@@ -1,0 +1,8 @@
+[0:a]aresample=48000,aformat=channel_layouts=mono,highpass=f=95,asplit=3[lead][chirp][undertone];
+[lead]asetrate=60960,aresample=48000,atempo=0.80,equalizer=f=2450:t=q:w=1.25:g=2.8,acompressor=threshold=0.10:ratio=2.6[words];
+[chirp]asetrate=72000,aresample=48000,atempo=0.68,highpass=f=680,flanger=delay=1.7:depth=1.4:speed=2.2:regen=22:width=65,tremolo=f=31:d=0.32[trill];
+[undertone]asetrate=42000,aresample=48000,atempo=1.14,lowpass=f=1150,afreqshift=shift=-19[rasp];
+[words][trill][rasp]amix=inputs=3:weights='1 0.62 0.27':normalize=0,asplit[dry][wet];
+[wet]highpass=f=1100,chorus=0.7:0.55:33:0.28:3.2:1.8,pan=stereo|c0=c0|c1=c0,adelay=15|36[echo];
+[dry]pan=stereo|c0=c0|c1=c0[center];
+[center][echo]amix=inputs=2:weights='1 0.35':normalize=0,lowpass=f=8900,loudnorm=I=-15:TP=-2:LRA=6,aresample=44100[out]
