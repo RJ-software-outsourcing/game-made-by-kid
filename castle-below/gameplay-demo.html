@@ -255,6 +255,7 @@
       transition: width .2s;
     }
 
+    .instruction:empty { display: none; }
     .instruction {
       position: absolute;
       left: 50%;
@@ -691,7 +692,22 @@
         "cojiCast": "coji-cast.webp",
         "cojiCastUpper": "coji-cast-upper.webp",
         "cojiGuard": "coji-guard.webp",
-        "dragon": "thunderfire-dragon.webp",
+        "dragonPoses": "thunderfire-poses.webp",
+        "stormThrone": "storm-throne-foreground.webp",
+        "stormBolt": "storm-discharge.webp",
+        "dragonBreath": "dragon-breath.webp",
+        "dragonFall": "thunderfire-collapse.webp",
+        "dragonFallEmbers": "thunderfire-collapse-embers.webp",
+        "dragonSweep": "thunderfire-sweep.webp",
+        "dragonCorona": "thunderfire-corona.webp",
+        "moltenSweep": "molten-sweep.webp",
+        "moltenGlow": "molten-sweep-glow.webp",
+        "dragonSummon": "thunderfire-summon.webp",
+        "livingFlames": "living-flames.webp",
+        "thunderImpact": "thunder-impact.webp",
+        "stormMountains": "storm-mountains.webp",
+        "stormWind": "storm-wind-loop.webp",
+        "stormWebs": "storm-arc-webs.webp",
         "scrollLectern": "scroll-lectern.webp",
         "trialGate": "trial-gate.webp",
         "furnaceWall": "furnace-cellar-wall.webp",
@@ -776,27 +792,10 @@
 
       function createTrialArt(game) {
         "use strict";
-        const { ctx, canvas, worldToScreen: project } = game;
+        const { ctx, worldToScreen: project } = game;
         const sprite = imageFor;
-        const dragonImage = sprite("dragon");
         const lectern = sprite("scrollLectern");
         const arch = sprite("trialGate");
-
-        function shape(points, fill, stroke) {
-          ctx.beginPath();
-          points.forEach(([x, y], index) => index ? ctx.lineTo(x, y) : ctx.moveTo(x, y));
-          ctx.closePath();
-          ctx.fillStyle = fill;
-          ctx.fill();
-          if (stroke) { ctx.strokeStyle = stroke; ctx.lineWidth = 1.5; ctx.stroke(); }
-        }
-
-        function oval(x, y, w, h, color) {
-          ctx.fillStyle = color;
-          ctx.beginPath();
-          ctx.ellipse(x, y, w, h, 0, 0, Math.PI * 2);
-          ctx.fill();
-        }
 
         function glow(x, y, radius, color) {
           const gradient = ctx.createRadialGradient(x, y, 0, x, y, radius);
@@ -832,62 +831,10 @@
           text(label, 0, -197, 15, "#ffe9be");
         }
 
-        function floorPatch(x0, y0, x1, y1, fill, stroke) {
-          shape([[x0,y0], [x1,y0], [x1,y1], [x0,y1]].map(([x,y]) => {
-            const p = project(x,y,1); return [p.x,p.y];
-          }), fill, stroke);
-        }
-
-        function dragonSize() { return Math.min(385, canvas._w * .62, canvas._h * .57); }
-        function drawDragon(s) {
-          const width = dragonSize();
-          const height = width * .51;
-          const bob = Math.sin(game.time() * 2) * (s.phase === "rest" ? 3 : 1);
-          if (s.phase === "warning" && s.attack === "fire") glow(12,-height*.47,width*.37,"#ff57198c");
-          if (dragonImage.complete && dragonImage.naturalWidth) {
-            if (s.dragon.hurt > .16) ctx.filter = "brightness(1.55)";
-            const bodyH=height+bob;
-            drawFootContact(ctx,dragonImage,-width/2,-bodyH*.94,width,bodyH);
-            ctx.drawImage(dragonImage,-width/2,-bodyH*.94,width,bodyH);
-            ctx.filter = "none";
-          } else text("🐉",0,-5,Math.round(height*.8),"#f7a665");
-          if (s.phase === "warning" && s.attack === "fire") {
-            glow(width*.1,-height*.45+bob,28+Math.sin(game.time()*9)*5,"#ffcf608f");
-          }
-        }
-
-        function attack(s) {
-          if (s.phase === "rest" || s.won) return;
-          const hit = s.phase === "strike";
-          const pulse = .5 + .5 * Math.sin(game.time() * 12);
-          ctx.save();
-          if (s.attack === "claw") {
-            for (const dx of [-3,0,3]) {
-              const x = s.mark.x + dx;
-              floorPatch(Math.max(0,x-.48),0,Math.min(15,x+.48),15,hit ? "#ffa447ca" : "#d75d4766","#ffc586");
-            }
-          } else if (s.attack === "lightning") {
-            const p = project(s.mark.x,s.mark.y,1);
-            // iso basis (44,22), (-44,22) transforms the world-space circle into this ellipse.
-            oval(p.x,p.y,93,47,hit ? "#dcd9ffdf" : "#9174dc66");
-            ctx.strokeStyle = "#d4caff"; ctx.lineWidth = 2 + pulse * 3; ctx.stroke();
-            if (hit) shape([[p.x+9,p.y-185],[p.x-17,p.y-78],[p.x-2,p.y-78],[p.x-8,p.y],[p.x+21,p.y-100],[p.x+6,p.y-98]],"#fcf7ff");
-          } else if (hit) {
-            floorPatch(0,0,15,15,"#f673286b");
-            const p = project(s.dragon.x,s.dragon.y,68);
-            for (let i=0;i<7;i++) {
-              const end = project(2+i*2,14,0);
-              shape([[p.x,p.y],[end.x-16,end.y],[end.x+26,end.y+5]],"#ff963e87");
-            }
-          }
-          ctx.restore();
-        }
-
-        function object(item, session, cleared) {
+        function object(item, cleared) {
           const p = project(item.x,item.y,0);
           ctx.save(); ctx.translate(p.x,p.y);
           if (item.type === "gate") gate(item,cleared);
-          else if (item.type === "dragon") drawDragon(session);
           ctx.restore();
         }
 
@@ -897,18 +844,14 @@
             const wallY = dy + dx * .5;
             return Math.abs(dx) < 65 && ((wallY >= -194 && wallY <= 8) || (dy >= -218 && dy <= -188));
           }
-          if (item.type === "dragon") {
-            const w = dragonSize();
-            return Math.hypot(dx/(w*.47),(dy+w*.25)/(w*.28)) < 1;
-          }
           return false;
         }
-        return { object, hit, attack, sprite, arch, lectern };
+        return { object, hit, sprite, arch, lectern };
       }
 
       function createCastleTrials(game) {
         "use strict";
-        const { rooms, player, enterRoom, showMessage, worldToScreen, roomHint } = game;
+        const { rooms, player, enterRoom, showMessage, roomHint } = game;
         const levels = [
           { id: "lava", name: "岩漿長廊", title: "The Ember Gallery", glyph: "♨", color: "#ec9c59" },
           { id: "procession", name: "幽靈引路", title: "The Ghost's Path", glyph: "♙", color: "#93d3dc" },
@@ -944,6 +887,17 @@
         };
         const finishRow = 54;
         let front;
+        let battleAudio;
+        function unlockBattleAudio() {
+          const Context = window.AudioContext || window.webkitAudioContext;
+          if (!Context) return;
+          battleAudio ??= new Context();
+          if (battleAudio.state !== "running") battleAudio.resume().catch(() => {});
+        }
+        // Touch input grants audio playback on release on mobile browsers.
+        game.canvas.addEventListener("pointerup", () => {
+          if (session?.arena || approach?.level.id === "dragon") unlockBattleAudio();
+        });
         let hotVoice;
         let warningVoice;
         function primeLavaVoices() {
@@ -1032,14 +986,17 @@
           if (hotVoice) hotVoice.pause();
           if (warningVoice) warningVoice.pause();
           session?.journey?.quiet();
+          session?.arena?.quiet();
           approach = door = session = null;
         }
 
         function returnHall(atStart) {
+          if (session?.arena && player.hp <= 0) player.hp = game.maxHp;
           const arrival = !atStart && door ? { x: 9.5, y: Math.floor(door.y) + .5, facing: 3 } : undefined;
           if (hotVoice) hotVoice.pause();
           if (warningVoice) warningVoice.pause();
           session?.journey?.quiet();
+          session?.arena?.quiet();
           approach = door = session = null;
           enterRoom("corridor", arrival);
         }
@@ -1047,6 +1004,7 @@
         function approachDoor(gate) {
           if (!gate || game.view() !== rooms.corridor) return;
           game.stop();
+          if (gate.level.id === "dragon") unlockBattleAudio();
           approach = gate;
           player.path = game.findPath(player.x, player.y, 8.5, gate.y);
         }
@@ -1056,7 +1014,7 @@
           const id = gate.level.id;
           return changeScene(async () => {
             const config = await loadScene(id);
-            if (id === "dragon") await loadImages(config.assets);
+            if (id === "dragon") await Promise.all([loadImages(config.assets), loadScene("dragon-weather"), loadScene("dragon-magma"), loadScene("dragon-fall")]);
             else {
               const [view] = await Promise.all([
                 loadScene("trial-view"),
@@ -1069,7 +1027,10 @@
             definition = config;
             const key = id === "dragon" ? "dragonTrial" : id === "lava" ? "lavaTrial" : "puzzleTrial";
             if (id !== "procession" && !rooms[key]) {
-              if (id === "dragon") addRoom(key,15,15,9.5,9.5,"cryptOssuary");
+              if (id === "dragon") {
+                addRoom(key,8,9,.5,4.5);
+                rooms[key].frontView = true;
+              }
               else {
                 if (id === "lava") {
                   const entry = config.entrance;
@@ -1157,7 +1118,7 @@
         function walkable(x, y) {
           const room = game.view();
           if (session?.journey) return session.journey.walkable(x);
-          if (room === rooms.dragonTrial) return Math.hypot(x + .5 - session.dragon.x, y + .5 - session.dragon.y) > 1.2;
+          if (room === rooms.dragonTrial) return x < 2;
           return true;
         }
 
@@ -1294,46 +1255,13 @@
         }
 
         function startBoss() {
-          const dragon = { type: "dragon", x: 6.5, y: 6.5, hp: 42, maxHp: 42, alive: true, hurt: 0 };
-          session = { id: "dragon", dragon, phase: "rest", timer: 2.6, attack: "", turn: 0, mark: null, won: false };
+          session?.arena?.quiet();
+          const arena = definition.create(game, art.sprite, () => battleAudio, win, startBoss);
+          session = {id:"dragon", arena, dragon:arena.dragon, won:false};
           rooms.dragonTrial.name = "王座裂谷";
           rooms.dragonTrial.hint = definition.hint;
           player.hp = game.maxHp;
           enterRoom("dragonTrial");
-        }
-
-        function beginAttack(s) {
-          const ratio = s.dragon.hp / s.dragon.maxHp;
-          const moves = ratio > .7 ? ["lightning", "fire"] : ratio > .35 ?
-            ["lightning", "claw", "fire"] : ["claw", "fire", "lightning"];
-          s.attack = moves[s.turn++ % moves.length];
-          s.mark = { x: player.x, y: player.y };
-          s.phase = "warning";
-          s.timer = s.attack === "fire" ? 1.8 : 1.2;
-          const hints = { lightning: "Step out of the ring!", fire: "Hold Coji to block the fire!", claw: "Watch out for the cracks!" };
-          roomHint.textContent = hints[s.attack];
-        }
-
-        function updateBoss(dt) {
-          const s = session;
-          s.dragon.hurt = Math.max(0, s.dragon.hurt - dt);
-          s.timer -= dt;
-          if (s.timer > 0) return;
-          if (s.phase === "rest") return beginAttack(s);
-          if (s.phase === "warning") {
-            s.phase = "strike";
-            s.timer = .55;
-            const dx = player.x - s.mark.x;
-            if (s.attack === "fire" ||
-                (s.attack === "lightning" && Math.hypot(dx, player.y - s.mark.y) <= 1.5) ||
-                (s.attack === "claw" && [-3, 0, 3].some(lane => Math.abs(dx - lane) <= .48))) {
-              game.damagePlayer();
-            }
-          } else {
-            s.phase = "rest";
-            s.timer = s.dragon.hp / s.dragon.maxHp > .35 ? 3.1 : 2.2;
-            roomHint.textContent = "The dragon is tired. Now’s your chance!";
-          }
         }
 
         function update(dt) {
@@ -1342,25 +1270,45 @@
             approach = null;
           }
           if (!session || session.won || session.waiting) return;
-          if (game.view().frontView) session.light = Math.min(1, session.light + dt * 1.5);
+          if (game.view().frontView && !session.arena) session.light = Math.min(1, session.light + dt * 1.5);
           if (session.id === "lava") updateLava(dt);
           else if (session.journey) session.journey.update(dt);
           else if (session.id === "eye") updateEye(dt);
-          else if (session.id === "dragon") updateBoss(dt);
+          else if (session.arena) session.arena.update(dt);
         }
 
         function objects() {
           const room = game.view();
           if (room === rooms.corridor) return doors;
-          if (room === rooms.dragonTrial && session.dragon.alive) return [session.dragon];
           return [];
         }
 
         function movementLocked() {
-          return session?.journey?.locked || session?.id === "lava" && (session.flight || session.phase === "hot" || session.phase === "cooling");
+          return session?.arena?.terminal() || session?.journey?.locked || session?.id === "lava" && (session.flight || session.phase === "hot" || session.phase === "cooling");
         }
 
-        function click(pos, shoot) {
+        function click(pos, shoot, event) {
+          if (session?.arena) {
+            const {arena, dragon} = session;
+            if (session.won || arena.terminal() || dialog.open || pointerGuard !== false) return true;
+            unlockBattleAudio();
+            const offset = arena.cameraOffset();
+            pos = {x:pos.x-offset.x, y:pos.y-offset.y};
+            if (arena.hitHero(pos)) {
+              castState = null;
+              player.facing = 4;
+              beginGuard(event,pos);
+            } else if (!castState && arena.hitDragon(pos)) {
+              shoot(dragon,pos);
+            } else if (!castState) {
+              const point = arena.ground(pos);
+              if (point) {
+                player.path = [point];
+                targetMarker = {...point, life:1};
+              }
+            }
+            return true;
+          }
           if (game.view().frontView) {
             if (session.won || dialog.open) return true;
             const lava = session.id === "lava";
@@ -1396,22 +1344,26 @@
           const item = hits.sort((a, b) => b.x + b.y - a.x - a.y)[0];
           if (!item) return false;
           if (item.type === "gate") approachDoor(item);
-          else if (item.type === "dragon") {
-            // Preserve a press on Coji even when the two silhouettes overlap.
-            const coji = worldToScreen(player.x, player.y, 55);
-            if (Math.hypot(pos.x - coji.x, pos.y - coji.y) < 45) return false;
-            shoot(item, pos);
-          }
           return true;
-        }
-
-        function drawGround() {
-          if (!session) return;
-          if (session.id === "dragon") art.attack(session);
         }
 
         function renderFront() {
           if (!game.view().frontView) return false;
+          if (session.arena) {
+            ctx.save();
+            const offset = session.arena.cameraOffset();
+            ctx.translate(offset.x,offset.y);
+            session.arena.draw();
+            drawTargetMarker();
+            drawRealisticCoji();
+            projectiles.forEach(drawProjectile);
+            if (showFx) drawParticles(game.view());
+            session.arena.shadeForeground();
+            session.arena.drawImpactDebris();
+            drawWorldMessages();
+            ctx.restore();
+            return true;
+          }
           const head=front.draw(session,tileAt,finishRow,session.id==="lava" ? [] : tokens());
           clock.hidden = session.id!=="lava" || session.waiting || session.rule.banners || session.onLanding || !!session.flight;
           if (!clock.hidden) {
@@ -1424,12 +1376,12 @@
           return true;
         }
 
-        return { objects, click, update, walkable, syncControls, reset, drawGround, renderFront, win,
-          drawObject: item => art.object(item, session, cleared),
+        return { objects, click, update, walkable, syncControls, reset, renderFront,
+          drawObject: item => art.object(item, cleared),
           movementLocked,
           paused: () => dialog.open, cancelApproach: () => { approach = null; },
-          boss: () => session?.dragon, orbDamage: target => target === session?.dragon && session.phase === "rest" ? 2 : 1,
-          retryBoss() { if (!session?.dragon) return false; startBoss(); showMessage("Try again!"); return true; }
+          arena: () => session?.arena, boss: () => session?.dragon,
+          orbDamage: target => target === session?.dragon && session.arena.vulnerable() ? 2 : 1
         };
       }
 
@@ -2151,7 +2103,7 @@
 
       function rebuildSpriteCaches() {
         if (!canvas._h) return;
-        const cojiHeight = Math.max(109, Math.min(143, canvas._h * .2025));
+        const cojiHeight = trials?.arena()?.heroSize() ?? Math.max(109, Math.min(143, canvas._h * .2025));
         const impHeight = Math.max(95, Math.min(128, canvas._h * .1725));
         const metrics = CastleScenes["sprite-frames"];
         // Crop from the decoded atlas at draw time. The same frame can serve every camera size.
@@ -2300,6 +2252,8 @@
       }
 
       function worldToScreen(x, y, z) {
+        const arena = trials?.arena();
+        if (arena) return arena.project(x,y,z);
         var p = rawIso(x, y, z);
         return { x: p.x + camera.x, y: p.y + camera.y };
       }
@@ -2488,7 +2442,7 @@
       }
 
       function faceToward(entity, target, casting) {
-        entity.facing = facingForVector(target.x - entity.x, target.y - entity.y, casting);
+        entity.facing = room.frontView ? 4 : facingForVector(target.x - entity.x, target.y - entity.y, casting);
         entity.dir = entity.facing === 1 || entity.facing === 2 || entity.facing === 3 ? -1 : 1;
       }
 
@@ -2646,8 +2600,8 @@
         });
       }
 
-      function damagePlayer() {
-        if (player.guard) {
+      function damagePlayer(blockable = true) {
+        if (blockable && player.guard) {
           addParticle(player.x, player.y, "block", 14);
           showWorldMessage(player, "Blocked!");
           return;
@@ -2658,7 +2612,12 @@
         addParticle(player.x, player.y, "hurt", 12);
         updateHud();
         if (player.hp <= 0) {
-          if (trials.retryBoss()) return;
+          if (trials.arena()) {
+            castState = null;
+            projectiles.length = 0;
+            trials.arena().endBattle(false);
+            return;
+          }
           showWorldMessage(player, "Back to safety!");
           var spawn = floor === upperFloor ? rooms.gallery.spawn : rooms.cellar.spawn;
           player.x = spawn.x;
@@ -2748,7 +2707,7 @@
             if (monster.hp <= 0) {
               monster.alive = false;
               addParticle(monster.x, monster.y, "death", 24);
-              if (monster === trials.boss()) trials.win();
+              if (monster === trials.boss()) trials.arena().endBattle(true);
               else showWorldMessage(monster, "Defeated!");
             }
             updateHud();
@@ -4321,7 +4280,6 @@
           var scenery = assets.roomScenery.get(area);
           scenery.back.forEach(layer => drawSceneryLayer(layer, w, h));
           if (showGrid) drawRoomGrid(area.bounds);
-          if (area === room) trials.drawGround();
           if (targetMarker && inside(area.bounds, targetMarker.x, targetMarker.y)) drawTargetMarker();
 
           var occupants = renderables.filter(function (entry) {
@@ -4515,10 +4473,10 @@
 
       function onPointerDown(event) {
         event.preventDefault();
-        if (window.castleLoader.loading || castState || passage || roomFade > .65) return;
+        if (window.castleLoader.loading || (castState && !trials.arena()) || passage || roomFade > .65) return;
         var pos = pointerPosition(event);
         trials.cancelApproach();
-        if (trials.click(pos, fireOrb)) return;
+        if (trials.click(pos, fireOrb, event)) return;
         var imp = (floor.imps || []).filter(imp => imp.alive &&
           Math.hypot(pos.x - imp.screen.x, pos.y - imp.screen.y) < 68)
           .sort((a, b) => Math.hypot(pos.x - a.screen.x, pos.y - a.screen.y) -
@@ -4542,14 +4500,7 @@
           if (!assets.cojiGuard) {
             loadImage("cojiGuard").then(rebuildSpriteCaches).catch(() => showMessage("Shield art could not be loaded."));
           }
-          pointerGuard = true;
-          player.guard = true;
-          exitQueued = false;
-          treasureAction = null;
-          player.path = [];
-          player.moving = false;
-          canvas.setPointerCapture(event.pointerId);
-          showWorldMessage(player, "Magic shield", pos);
+          beginGuard(event,pos);
           return;
         }
 
@@ -4564,8 +4515,16 @@
         targetMarker = { x: goal.x + .5, y: goal.y + .5, life: 1 };
       }
 
+      function beginGuard(event, pos) {
+        stopActions();
+        pointerGuard = event.pointerId;
+        player.guard = true;
+        canvas.setPointerCapture(event.pointerId);
+        showWorldMessage(player, "Magic shield", pos);
+      }
+
       function endGuard(event) {
-        if (!pointerGuard) return;
+        if (pointerGuard === false || (event && event.pointerId !== pointerGuard)) return;
         pointerGuard = false;
         player.guard = false;
         if (event && canvas.hasPointerCapture(event.pointerId)) canvas.releasePointerCapture(event.pointerId);
@@ -4609,8 +4568,10 @@
       canvas.addEventListener("pointerdown", onPointerDown);
       canvas.addEventListener("pointerup", endGuard);
       canvas.addEventListener("pointercancel", endGuard);
+      canvas.addEventListener("lostpointercapture", endGuard);
+      window.addEventListener("blur", () => endGuard());
       canvas.addEventListener("pointerleave", function (event) {
-        if (pointerGuard && event.pointerType === "mouse") endGuard(event);
+        if (pointerGuard !== false && event.pointerType === "mouse") endGuard(event);
       });
 
       fxButton.addEventListener("click", function () {
