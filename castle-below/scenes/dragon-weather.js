@@ -117,6 +117,8 @@ CastleScenes["dragon-weather"] = function (game, sprite, bloom) {
     ctx.save();
     ctx.globalCompositeOperation = "screen";
     bloom(x, y - h * 0.32, w * 1.25, h * 0.87, "#ff9e38a6", "#ff52184d");
+    ctx.globalAlpha *= 0.45 + pulse * 2;
+    bloom(x, y + h * 0.09, w * 0.82, h * 0.13, "#f9a748a8", "#b961293a");
     ctx.restore();
     drawFlame(x, y, w * (1 - pulse), h * (1 + pulse), index * 2.71);
   }

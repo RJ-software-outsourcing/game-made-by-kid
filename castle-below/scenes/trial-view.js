@@ -13,11 +13,13 @@ CastleScenes["trial-view"] = function (game, art, helpers) {
   let lanes = 5;
   const lecternBase = .915, gateSetback=.35;
   let hits = [];
-  let lastBoard, entryView;
+  const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)");
+  let lastBoard, entryView, watchingEye=false;
   function camera() {
     const w = canvas._w, h = canvas._h;
     const c = {w, h, horizon:h*.08, feet:h*.63, unit:Math.min(w*.15,h*.185), focal:6.2,
       center:lanes/2 + (player.y - lanes/2)*.4};
+    if(watchingEye){c.feet=h*.89;c.horizon=h*.51;}
     if (entryView?.rule.banners) {
       // A longer lens on narrow screens keeps the two distant signals legible.
       c.unit=Math.min(c.unit,w*.138);
@@ -496,6 +498,14 @@ CastleScenes["trial-view"] = function (game, art, helpers) {
     const pulse=.5+.5*Math.sin(t*8+phase)*Math.cos(t*5-phase);
     const w=u*.79,hBody=w*sconce.height/sconce.width;
     const h=u*(.38+pulse*.09+heat*.18+furnace**4*(.97+pulse*.27));
+    if (game.effects()) {
+      const flicker = reducedMotion.matches ? 0.5 : pulse;
+      ctx.save();
+      ctx.translate(wall.x + side * u * 0.37, wall.y);
+      ctx.scale(1, 0.23);
+      halo(0, 0, u * (0.85 + 0.12 * flicker), "rgba(246,144,67," + (0.13 + 0.11 * heat) + ")");
+      ctx.restore();
+    }
     // The forged plate touches the wall. Mirror the entire assembly around its mounting point.
     ctx.save();ctx.translate(wall.x,wall.y-u*1.57);ctx.scale(side,1);
     const left=-w*.13, bowlX=left+w*.661, bowlY=hBody*.229, bowlRadius=w*.28;
@@ -766,7 +776,51 @@ CastleScenes["trial-view"] = function (game, art, helpers) {
     ctx.drawImage(ironBars,0,-308*open);ctx.restore();
     ctx.drawImage(grateFrame,0,0);ctx.restore();
   }
+  function eyePlate(c) {
+    const img=art.sprite("eyeRoom");
+    const scale=Math.max(c.w/img.width,c.h/img.height)*(1+.31*Math.min(1,(player.x-.5)/9));
+    const w=img.width*scale,h=img.height*scale;
+    return {img,w,h,left:(c.w-w)*.5+(2.5-player.y)*c.unit*.08,top:(c.h-h)*.42};
+  }
+  function watchHall(c,s) {
+    const p=eyePlate(c),t=game.effects() && !reducedMotion.matches ? game.time() : 0;
+    ctx.drawImage(p.img,p.left,p.top,p.w,p.h);
+    halo(p.left+p.w*.5,p.top+p.h*.13,p.h*(.15+.012*Math.sin(t*1.35)),"#9fdabb63");
+    const flame=art.sprite("livingFlames");
+    for(const u of [.333,.677]) {
+      const index=Math.floor(t*12+u*31)%8,sw=flame.width/4,sh=flame.height/2;
+      const x=p.left+u*p.w,y=p.top+p.h*.60,size=p.h*.085;
+      ctx.drawImage(flame,index%4*sw,Math.floor(index/4)*sh,sw,sh,x-size*.45,y-size,size*.9,size);
+      halo(x,y,p.h*.061,"#eeb26762");
+    }
+    if(game.effects() && !reducedMotion.matches && !s.waiting){
+      const awake=CastleScenes.eye.lids(s.timer,s.eyePeriod);
+      const x=p.left+p.w*.5, y=p.top+p.h*.724;
+      ctx.save();ctx.translate(x,y);ctx.scale(1,.19);
+      halo(0,0,p.h*(.20+.16*awake),awake>.5?"#ecaa5260":"#8ac9c33a");ctx.restore();
+      for(let i=0;i<12;i++){
+        const f=(i*.31+t*.09)%1;
+        const u=.35+(i*.618%1)*.26+.026*Math.sin(7*f+i);
+        halo(p.left+p.w*u,p.top+p.h*(.61-f*.12),Math.max(1,p.h*.0027),awake>.5?"#edc88194":"#9be8e47a");
+      }
+    }
+    // Safe landings keep their position as Coji walks; the latest one glows.
+    for(let i=1;i<=3;i++){
+      const pt=project(c,.5+i*3,2.5);if(pt.k<=0||pt.y>c.h)continue;
+      ctx.save();ctx.translate(pt.x,pt.y);ctx.scale(1,.25);
+      halo(0,0,c.unit*pt.k*.57,i<=s.section?"#a1eea97d":"#dfc4834f");ctx.restore();
+    }
+  }
+  function watchEye(c,item) {
+    const p=eyePlate(c),size=p.h*.252,x=p.left+p.w*.5,y=p.top+p.h*.431;
+    const img=art.sprite("eyeBlink"),cell=img.width/3,index=Math.round(item.lid*5);
+    ctx.drawImage(img,index%3*cell,Math.floor(index/3)*cell,cell,cell,x-size/2,y-size/2,size,size);
+    const t=game.effects()?game.time():0;
+    if(item.lid>.1)halo(x,y,size*(.32+.035*Math.sin(t*3)),"#e4af533b");
+    hits.push({item,x:x-size/2,y:y-size/2,w:size,h:size});
+  }
   function fixture(c,item) {
+    if(item.type==="eye"){watchEye(c,item);return;}
     const p = project(c,item.x,item.y);
     if (p.k <= 0 || item.x < player.x-1) return;
     const u = Math.min(c.h*.34,c.w*.42)*p.k;
@@ -786,7 +840,6 @@ CastleScenes["trial-view"] = function (game, art, helpers) {
         image=art.sprite(offeringArt[item.type]);
         w=Math.min(u*.52,c.unit*p.k*(item.type==="key" ? .95 : .57));
         h=image.width ? w*image.height/image.width : w;break;
-      case "eye": image=shrine; h=u*1.65; w=h*1.15; break;
       default: return;
     }
     const base={scroll:lecternBase,keeper:.95,give:.95,statue:.993,exit:gateBase,passage:gateBase}[item.type] ?? 1;
@@ -794,7 +847,14 @@ CastleScenes["trial-view"] = function (game, art, helpers) {
     if (["ghost","give","statue"].includes(item.type)) {
       const t=game.effects() ? game.time() : 0;
       const pulse=.5+.5*Math.sin(t*2.7+item.index*2);
-      if (item.type==="ghost") y-=h*.04*(1+pulse);
+      if (item.type==="ghost") {
+        if (game.effects()) {
+          ctx.save();ctx.translate(p.x,p.y);ctx.scale(1,.20);
+          halo(0,0,h*(.35+.04*pulse),["#ea977538","#8ebafd48","#ffd9883e"][item.index]);
+          ctx.restore();
+        }
+        y-=h*.04*(1+pulse);
+      }
       actorLight(p.x,y,h,item.index,pulse,item.type==="ghost");
     }
     if (item.type==="grate") drawGrate(p.x,p.y,w,h,item.open);
@@ -822,13 +882,6 @@ CastleScenes["trial-view"] = function (game, art, helpers) {
       const tx=Math.max(margin,Math.min(c.w-margin,p.x)),ty=Math.max(font+3,y-h-6);
       ctx.lineWidth=3;ctx.strokeStyle="#15121e";ctx.strokeText(item.speech,tx,ty);
       ctx.fillStyle="#fbf4df";ctx.fillText(item.speech,tx,ty);ctx.restore();
-    }
-    if (item.type === "eye") {
-      const ex=p.x, ey=y-h*.44;
-      halo(ex,ey,w*.37,item.closed?"#7378c186":"#e7a545cc");
-      ctx.beginPath(); ctx.ellipse(ex,ey,w*.3,Math.max(2,h*(item.closed ? .018 : .1)),0,0,Math.PI*2);
-      ctx.fillStyle=item.closed?"#aeb6d0":"#ffd98a"; ctx.fill();
-      if (!item.closed) {ctx.beginPath();ctx.ellipse(ex,ey,w*.045,h*.094,0,0,Math.PI*2);ctx.fillStyle="#211721";ctx.fill();}
     }
     if (item.label) {
       const fs=Math.max(9,Math.min(16,h*.16));
@@ -874,6 +927,7 @@ CastleScenes["trial-view"] = function (game, art, helpers) {
     ctx.fillStyle=shade;ctx.fillRect(-512,top,1024,bottom-top);ctx.restore();
   }
   function draw(s,tileAt,finish,puzzle) {
+    watchingEye=s.id==="eye";
     lanes=s.width || 5;
     entryView=s.entrance ? s : null;
     const c = camera();
@@ -887,13 +941,16 @@ CastleScenes["trial-view"] = function (game, art, helpers) {
     ambient.addColorStop(1,"#100f14"); ctx.fillStyle=ambient; ctx.fillRect(0,0,c.w,c.h);
     const gateDepth=end+1-gateSetback;
     const back = project(c,end+1,0), width = 5*c.unit*back.k;
-    if (lava) { furnaceSky(c,s); drawCellarWall(c,gateDepth,s); }
-    else if (s.journey) drawJourneyWall(c,gateDepth);
-    else if (shrine.naturalWidth) ctx.drawImage(shrine,back.x,back.y-width*.46,width,width*.46);
-    drawFloor(c,s,tileAt,finish,end);
-    if (lava && s.furnace>0) drawCinders(c,s,finish);
-    drawArcade(c,end,s);
-    if (lava) floorLightOnWalls(c,s,finish);
+    if (s.id==="eye") watchHall(c,s);
+    else {
+      if (lava) { furnaceSky(c,s); drawCellarWall(c,gateDepth,s); }
+      else if (s.journey) drawJourneyWall(c,gateDepth);
+      else if (shrine.naturalWidth) ctx.drawImage(shrine,back.x,back.y-width*.46,width,width*.46);
+      drawFloor(c,s,tileAt,finish,end);
+      if (lava && s.furnace>0) drawCinders(c,s,finish);
+      drawArcade(c,end,s);
+      if (lava) floorLightOnWalls(c,s,finish);
+    }
     const goal = player.path.at(-1);
     if (goal) {
       const p = project(c,goal.x,goal.y);

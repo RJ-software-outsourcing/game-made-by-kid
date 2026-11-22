@@ -22,7 +22,7 @@ CastleScenes.dragon = {
     "cojiCastUpper",
     "cojiGuard",
   ],
-  create(game, sprite, sound, finish, retry) {
+  create(game, sprite, sound, finish, retry, rule) {
     const { canvas, ctx, player } = game;
     const poses = sprite("dragonPoses"),
       sweep = sprite("dragonSweep"),
@@ -70,7 +70,7 @@ CastleScenes.dragon = {
     const dragon = { type: "dragon", x: 7.5, y: 4.5, alive: true, hp: 1, maxHp: 1, hurt: 0 };
     const seen = new Set();
     let phase = "rest",
-      attack = "",
+      attack = rule?.first === "fire" ? "lightning" : "",
       age = 0,
       duration = 2.6;
     let mark,
@@ -80,7 +80,7 @@ CastleScenes.dragon = {
     let outcomeStart = 0,
       initialDarkness = 0;
     let impactEvent = null;
-    let sweepFromLeft = false;
+    let sweepFromLeft = rule?.first === "fire";
     let summonStart = -Infinity,
       summonWarning = 0;
     const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");

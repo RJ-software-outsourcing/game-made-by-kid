@@ -113,6 +113,9 @@
       -webkit-tap-highlight-color: transparent;
     }
 
+    #roomAtmosphere { position:absolute; inset:0; pointer-events:none; background-position:center; background-size:cover; }
+    #roomAtmosphere[hidden] { display:none; }
+    #gameCanvas { position:relative; }
     .hud {
       position: absolute;
       inset: 0;
@@ -380,6 +383,20 @@
       left: max(12px, var(--safe-left));
       transform: none;
     }
+    .hud:has(.annex-controls) {
+      display: grid;
+      grid-template-columns: max-content;
+      align-content: start;
+      justify-content: start;
+      row-gap: 6px;
+      padding: max(10px, var(--safe-top)) max(10px, var(--safe-right)) 0 max(10px, var(--safe-left));
+    }
+    .hud:has(.annex-controls) .health-panel, #trialControls.annex-controls {
+      position: static;
+      justify-self: start;
+    }
+    .hud:has(.annex-controls) .health-panel { grid-row: 1; }
+    #trialControls.annex-controls { grid-row: 2; }
     #trialControls[hidden], #trialControls [hidden] { display: none; }
     #doorSelect {
       max-width: 80vw;
@@ -430,11 +447,22 @@
     @media (max-width: 680px) {
       .forward-trial .event-message { top: calc(max(10px, var(--safe-top)) + 88px); }
     }
+    @media (max-width: 370px) {
+      .portrait { display: none; }
+      .hud:has(.annex-controls) .room-label {
+        left: auto; right: max(10px, var(--safe-right)); transform: none;
+      }
+    }
+    @media (min-width: 530px) and (max-height: 475px) {
+      .hud:has(.annex-controls) :is(.room-label, .monster-panel) { top: max(13px, var(--safe-top)); }
+      .hud:has(.annex-controls) .instruction { bottom: max(4px, var(--safe-bottom)); padding-block: 5px; }
+    }
     .boss-fight .room-label { display: none; }
   </style>
 </head>
 <body>
   <main class="game-shell" id="gameShell" aria-label="Coji and the Castle Below">
+    <canvas id="roomAtmosphere" aria-hidden="true" hidden></canvas>
     <canvas id="gameCanvas" aria-label="Coji 2.5D 移動與戰鬥遊戲示範"></canvas>
     <div class="hud">
       <nav class="game-actions" aria-label="遊戲操作">
@@ -633,6 +661,21 @@
       var showGrid = false;
       var messageTimer = 0;
       var lastTime = performance.now();
+      var battleDensity = 2, frameSamples = 0, frameTotal = 0;
+      function paceBattle(elapsed) {
+        if(!trials.boss() || window.castleLoader.loading || trials.paused() || elapsed>250) {
+          frameSamples=frameTotal=0;
+          return;
+        }
+        frameTotal+=elapsed;
+        if(++frameSamples<16)return;
+        const mean=frameTotal/frameSamples;
+        frameSamples=frameTotal=0;
+        if(mean>28 && canvas._dpr>1.05){
+          battleDensity=Math.max(1,Math.floor(canvas._dpr*Math.sqrt(20/mean)*4)/4);
+          resize();
+        }
+      }
       var gameTime = 0;
       var attackCooldown = 0;
       var castState = null;
@@ -705,6 +748,32 @@
         "dragonSummon": "thunderfire-summon.webp",
         "livingFlames": "living-flames.webp",
         "thunderImpact": "thunder-impact.webp",
+        "bellsRoom": "annex-bells.webp",
+        "sluiceRoom": "annex-sluice.webp",
+        "mirrorsRoom": "meridian-hall.webp",
+        "iceRoom": "annex-ice.webp",
+        "forgeRoom": "annex-forge.webp",
+        "kingRoom": "annex-king.webp",
+        "witchRoom": "annex-witch.webp",
+        "colossusRoom": "annex-colossus.webp",
+        "kingActor": "annex-king-actor.webp",
+        "witchActor": "annex-witch-actor.webp",
+        "colossusActor": "annex-colossus-actor.webp",
+        "annexInstruments": "annex-instruments.webp",
+        "sluiceGauge": "annex-gauge.webp",
+        "forgeBlanks": "annex-forging.webp",
+        "annexEffects": "annex-fx.webp",
+        "kingMoves": "annex-king-moves.webp",
+        "witchMoves": "annex-witch-moves.webp",
+        "colossusMoves": "annex-colossus-moves.webp",
+        "ossuaryLight": "annex-ossuary-light.webp",
+        "coldFoundry": "annex-cold-foundry.webp",
+        "coldShell": "annex-cold-shell.webp",
+        "ventCloud": "annex-vent-steam.webp",
+        "royalAir": "annex-air.webp",
+        "royalFixtures": "annex-fixtures.webp",
+        "royalImpacts": "annex-impacts.webp",
+        "boneBreach": "annex-breach.webp",
         "stormMountains": "storm-mountains.webp",
         "stormWind": "storm-wind-loop.webp",
         "stormWebs": "storm-arc-webs.webp",
@@ -723,8 +792,16 @@
         "offeringCrystal": "offering-crystal.webp",
         "trialFigures": "trial-figures.webp",
         "trialShrine": "trial-shrine.webp",
+        "frostBeyond":"frost-beyond.webp", "hallPortals": "hall-portals.webp", "eyeBlink": "watchful-lids.webp", "eyeRoom": "watchful-hall.webp",
+        "meridianTower":"meridian-tower.webp", "wheelPipe":"water-manifold.webp",
         "walkCycle": "coji-walk-cycle.webp"
       };
+      const performances = { king:["bones","soul","charge"], witch:["pool","doubles","curse","flock"], colossus:["hammer","steam"] };
+      function performanceAssets(id) {
+        return ["life",...performances[id],"victory"].map(clip => "performance-"+id+"-"+clip);
+      }
+      for(const id of Object.keys(performances))
+        for(const key of performanceAssets(id)) assetFiles[key] = key+".webp";
       const contactMasks = new WeakMap();
       const imageRequests = new Map();
       const sceneImages = new Map();
@@ -738,7 +815,15 @@
         if (!imageRequests.has(name)) {
           const image = imageFor(name);
           const request = new Promise((resolve, reject) => {
-            image.onload = () => { assets[name] = image; resolve(image); };
+            image.onload = async () => {
+              try {
+                if (name.startsWith("performance-") && image.decode) await image.decode();
+                assets[name] = image;
+                resolve(image);
+              } catch (error) {
+                reject(error);
+              }
+            };
             image.onerror = () => reject(new Error(assetFiles[name]));
             image.src = "assets/" + assetFiles[name];
           }).finally(() => { imageRequests.delete(name); image.onload = image.onerror = null; });
@@ -768,7 +853,7 @@
           if (other.art.leftWallAsset) names.push(other.art.leftWallAsset);
           if (other.treasure) names.push("closedChest", "openChest");
         }
-        if (nearby.includes(rooms.corridor)) names.push("trialGate");
+        if (nearby.includes(rooms.corridor)) names.push("trialGate", "hallPortals");
         if (level === upperFloor) names.push("cojiCast", "cojiCastUpper", "cojiGuard", "imp", "impWalkB");
         return loadImages(names);
       }
@@ -777,6 +862,7 @@
         rooms, player, canvas, ctx, roomHint, enterRoom, worldToScreen, showMessage, findPath,
         drawWallOpening, addParticle, damagePlayer, updateHud, stop: stopActions,
         view: () => room, time: () => gameTime, effects: () => showFx, maxHp: MAX_HP,
+        shieldBounds: () => shieldBounds(cojiDisplayFrame().frame.height),
         art: rooms.archive.art
       });
 
@@ -814,19 +900,21 @@
 
         function gate(item, cleared) {
           const level = item.level;
-          if (!arch.naturalWidth) game.drawWallOpening(ctx, { x: 0, y: 0 }, false, false, "x", 103);
+          const portal = sprite("hallPortals");
           ctx.save();
           ctx.transform(1, -.5, 0, 1, 0, 0);
-          if (arch.naturalWidth) ctx.drawImage(arch, -64, -194, 128, 194);
-          glow(0, -74, 48, level.color + "55");
-          text(level.glyph, 0, -66, 23, level.color);
+          if (portal.naturalWidth) {
+            const cell = portal.width / 6;
+            ctx.drawImage(portal, item.index % 6 * cell, Math.floor(item.index / 6) * cell, cell, cell,
+              -99,-194,198,198);
+          }
           ctx.restore();
           const label = (cleared.has(level.id) ? "✓ " : "") + level.name;
           ctx.font = "600 15px system-ui";
           const width = ctx.measureText(label).width + 22;
           ctx.fillStyle = "#211c1af5";
           ctx.fillRect(-width / 2, -216, width, 27);
-          ctx.strokeStyle = level.color;
+          ctx.strokeStyle = level.color || "#ad926b";
           ctx.strokeRect(-width / 2, -216, width, 27);
           text(label, 0, -197, 15, "#ffe9be");
         }
@@ -858,9 +946,36 @@
           { id: "eye", name: "魔眼走廊", title: "The Watchful Eye", glyph: "◉", color: "#b8d49b" },
           { id: "dragon", name: "雷焰惡龍", title: "The Thunderfire Dragon", glyph: "♛", color: "#ff845e" }
         ];
-        const doors = levels.map((level, index) => ({
-          type: "gate", level, x: 7.15, y: 30.5 + index * 9.6
-        }));
+        const annexLevels = [
+          { id: "bells", name: "迴聲鐘樓", title: "The Echo Belfry" },
+          { id: "sluice", name: "潮汐水閘", title: "The Tidal Locks", assets: ["sluiceGauge","wheelPipe"] },
+          { id: "mirrors", name: "星鏡觀測室", title: "The Star Mirrors", assets: ["meridianTower"] },
+          { id: "ice", name: "霜裂渡橋", title: "The Frost Crossing", assets: ["livingFlames","frostBeyond"] },
+          { id: "forge", name: "擺錘鑄坊", title: "The Pendulum Forge", assets: ["forgeBlanks", "livingFlames"] },
+          { id: "king", name: "骸骨國王", title: "The Ossuary King", boss: true, assets: ["ossuaryLight", "boneBreach", "livingFlames"] },
+          { id: "witch", name: "沼影女巫", title: "The Mire Witch", boss: true },
+          { id: "colossus", name: "熔爐巨像", title: "The Furnace Colossus", boss: true, assets: ["livingFlames", "coldFoundry", "coldShell", "ventCloud"] }
+        ].map(level => ({ annex: true, boss: false, assets: [], ...level }));
+        const destinations = [...levels, ...annexLevels];
+        const doors = destinations.map((level, index) => {
+          const east = index >= 6;
+          return { type: "gate", level, index, x: east ? 18.65 : 7.15,
+            y: 30 + (index % 6) * 6, entryX: east ? 17.15 : 8.65 };
+        });
+        const scrollNames = {bells:"The Bells",sluice:"The Water Wheels",mirrors:"The Star Room",
+          ice:"The Ice Bridge",forge:"The Hammer Room",king:"The Bone King",witch:"The Green Witch",
+          colossus:"The Iron Giant",dragon:"The Dragon"};
+        function label(level) {
+          return (level.boss || level.id === "dragon" ? "魔王 · " : "") + level.name;
+        }
+        function encounterRule(id) {
+          const choices = CastleScenes["chamber-rules"].variants[id];
+          const last = visits.get(id);
+          const i = last === undefined ? Math.floor(Math.random()*choices.length) :
+            (last + 1 + Math.floor(Math.random()*(choices.length-1))) % choices.length;
+          visits.set(id,i);
+          return choices[i];
+        }
         const control = document.getElementById("trialControls");
         const select = document.getElementById("doorSelect");
         const read = document.getElementById("readRule");
@@ -908,7 +1023,11 @@
               .catch(() => { clip.muted=false; });
           }
         }
-        dialog.addEventListener("submit", () => { primeLavaVoices(); if (session?.waiting) session.journey?.prime(); });
+        dialog.addEventListener("submit", () => {
+          if (session?.annex) unlockBattleAudio();
+          primeLavaVoices();
+          if (session?.waiting) session.journey?.prime();
+        });
 
         function playLavaVoice(clip, words, owner) {
           clip.muted = false;
@@ -929,9 +1048,14 @@
           area.trialFloor = { rooms: [area], links: [], bounds };
           rooms[key] = area;
         }
-        doors.forEach(gate => select.add(new Option(
-          (gate.level.id === "dragon" ? "最終魔王 · " : "") + gate.level.name, gate.level.id)));
-        select.onchange = () => { approachDoor(doors[select.selectedIndex - 1]); select.selectedIndex = 0; };
+        destinations.forEach(level=>select.add(new Option(label(level),level.id)));
+        select.onchange = () => {
+          const level=destinations.find(item=>item.id===select.value);
+          select.selectedIndex=0;
+          if (!level) return;
+          if (level.annex) { game.stop(); unlockBattleAudio(); enterDoor(doors.find(gate => gate.level === level)); }
+          else approachDoor(doors.find(gate=>gate.level===level));
+        };
         document.getElementById("trialShortcut").onclick = () => {
           document.getElementById("gameSettings").open = false;
           returnHall(true);
@@ -939,6 +1063,7 @@
         leave.onclick = () => returnHall(false);
         read.onclick = openRule;
         dialog.addEventListener("close", () => {
+          if (dialog.open) return;
           const action = dialogAction;
           dialogAction = null;
           if (dialog.returnValue === "confirm" && action) action();
@@ -957,7 +1082,8 @@
           document.getElementById("trialConfirm").textContent = button;
           rulePicker.hidden = true;
           dialog.returnValue = "";
-          dialogAction = action;
+          const owner = session;
+          dialogAction = () => { if (session === owner) action?.(); };
           dialog.showModal();
           dialog.querySelector(".scroll-content").scrollTop = 0;
           player.guard = false;
@@ -969,12 +1095,12 @@
           const stage = !!game.view().trialFloor;
           control.hidden = !hall && !stage;
           control.classList.toggle("in-trial", stage);
+          control.classList.toggle("annex-controls", stage && !!session?.annex);
           select.hidden = !hall;
-          read.hidden = !stage || game.view() === rooms.dragonTrial;
+          read.hidden = !stage;
           leave.hidden = !stage;
-          if (hall) doors.forEach((gate, i) => {
-            select.options[i + 1].text = (cleared.has(gate.level.id) ? "✓ " : "") +
-              (gate.level.id === "dragon" ? "最終魔王 · " : "") + gate.level.name;
+          if (hall) destinations.forEach((level,i)=>{
+            select.options[i+1].text=(cleared.has(level.id) ? "✓ " : "")+label(level);
           });
         }
 
@@ -991,8 +1117,10 @@
         }
 
         function returnHall(atStart) {
+          dialogAction = null;
+          if (dialog.open) dialog.close();
           if (session?.arena && player.hp <= 0) player.hp = game.maxHp;
-          const arrival = !atStart && door ? { x: 9.5, y: Math.floor(door.y) + .5, facing: 3 } : undefined;
+          const arrival = !atStart && door ? { x: Math.floor(door.entryX) + .5, y: Math.floor(door.y) + .5, facing: 3 } : undefined;
           if (hotVoice) hotVoice.pause();
           if (warningVoice) warningVoice.pause();
           session?.journey?.quiet();
@@ -1004,17 +1132,43 @@
         function approachDoor(gate) {
           if (!gate || game.view() !== rooms.corridor) return;
           game.stop();
-          if (gate.level.id === "dragon") unlockBattleAudio();
+          if (gate.level.id === "dragon" || gate.level.annex) unlockBattleAudio();
           approach = gate;
-          player.path = game.findPath(player.x, player.y, 8.5, gate.y);
+          player.path = game.findPath(player.x, player.y, gate.entryX, gate.y);
         }
 
         function enterDoor(gate) {
           approach = null;
           const id = gate.level.id;
+          if (gate.level.annex) {
+            const level = gate.level;
+            if(level.boss) {
+              for(const other of Object.keys(performances)){
+                if(other===id) continue;
+                for(const key of performanceAssets(other)){delete assets[key];sceneImages.delete(key);}
+              }
+            }
+            const actorAssets = level.boss
+              ? [...performanceAssets(id), "royalAir", "royalFixtures", "royalImpacts", "annexEffects", "cojiCast", "cojiCastUpper", "cojiGuard"]
+              : id === "mirrors" ? [] : ["annexInstruments"];
+            return changeScene(async () => {
+              const [pack] = await Promise.all([
+                loadScene(level.boss ? "annex-bosses" : "annex-trials"),
+                loadScene("annex-stage"), loadScene("chamber-rules"),
+                ...(id==="mirrors" ? ["star-optics", "meridian-room", "meridian-models", "meridian-probe", "meridian-renderer"].map(loadScene) : []),
+                ...(level.boss ? [loadScene("annex-rites"), loadScene("annex-atmosphere"),loadScene("performance-frames")] : []),
+                loadImages([id + "Room", ...actorAssets, ...level.assets])
+              ]);
+              return pack[id];
+            }, config => {
+              definition = config;
+              door = gate;
+              startAnnex(encounterRule(level.id));
+            });
+          }
           return changeScene(async () => {
             const config = await loadScene(id);
-            if (id === "dragon") await Promise.all([loadImages(config.assets), loadScene("dragon-weather"), loadScene("dragon-magma"), loadScene("dragon-fall")]);
+            if (id === "dragon") await Promise.all([loadScene("chamber-rules"),loadImages(config.assets), loadScene("dragon-weather"), loadScene("dragon-magma"), loadScene("dragon-fall")]);
             else {
               const [view] = await Promise.all([
                 loadScene("trial-view"),
@@ -1048,12 +1202,13 @@
         function startDoor(gate) {
           door = gate;
           const id = door.level.id;
-          if (id === "dragon") return startBoss();
+          if (id === "dragon") return startBoss(encounterRule(id));
           const visit = visits.get(id) || 0;
           visits.set(id, visit + 1);
           const rule = definition.rules[visit % definition.rules.length];
           session = { id, rule, waiting:true, light:0, section:0, timer:0, phase:"quiet", won:false,
             orderOffset:Math.floor(Math.random()*3) };
+          if(id==="eye")session.eyePeriod=4.9+Math.random()*.85;
           if (id === "lava") {
             Object.assign(session, {entrance:definition.entrance, board:definition.createBoard(finishRow,rule), heat:0, melt:0, furnace:0,
               flight:0, timeLeft:definition.fixedSeconds, bannerTile:null, bannerDrop:0, landingEnd:finishRow+definition.landingLength, gateOpen:0, warned:false});
@@ -1092,6 +1247,13 @@
         }
 
         function openRule() {
+          if (session?.arena) {
+            if (dialog.open || session.won || session.arena.terminal()) return;
+            showCard(scrollNames[door.level.id],session.arena.scroll?.() || session.rule.text,session.waiting?"Begin":"Continue",()=>{
+              if (session.waiting) { session.waiting=false; session.arena.begin?.(); }
+            });
+            return;
+          }
           if (!session?.rule || dialog.open || session.won || session.journey?.locked) return;
           if (session.waiting) {
             ruleSelect.replaceChildren(...definition.rules.map(rule => new Option(
@@ -1111,13 +1273,14 @@
           game.stop();
           cleared.add(door.level.id);
           game.updateHud();
-          showCard(door.level.title, session.id === "dragon" ? "You beat the dragon!" : "You did it!",
+          showCard(scrollNames[door.level.id] || door.level.title, session.id === "dragon" ? "You beat the dragon!" : session.annex ? definition.result : "You did it!",
             "Back to the hall", () => returnHall(false));
         }
 
         function walkable(x, y) {
           const room = game.view();
           if (session?.journey) return session.journey.walkable(x);
+          if (session?.annex) return inside(room.bounds,x,y);
           if (room === rooms.dragonTrial) return x < 2;
           return true;
         }
@@ -1238,35 +1401,56 @@
 
         function tokens() {
           const s = session;
-          if (s.id === "eye") return [{ type: "eye", x: 11.5, y: 2.5, closed: eyeClosed() }];
+          if (s.id === "eye") return [{ type: "eye", x: 11.5, y: 2.5, lid: definition.lids(s.timer,s.eyePeriod), section:s.section }];
           return s.journey?.objects() || [];
         }
 
-        function eyeClosed() { return session.timer % 5 < 3.1; }
         function updateEye(dt) {
           const s = session;
           s.timer += dt;
-          if (player.moving && eyeClosed() !== s.rule.closed) {
+          const lid=definition.lids(s.timer,s.eyePeriod);
+          if (player.moving && (s.rule.closed ? lid>=.99 : lid<=.01)) {
             returnTo({ x: .5 + s.section * 3, y: 2.5 });
-            showMessage("Watch the eye!");
+            showMessage(s.rule.closed ? "Wait for the eye to shut." : "Wait for the eye to open.");
           } else if (player.x >= .5 + (s.section + 1) * 3) {
             if (++s.section === 3) win();
+            else showMessage("Safe spot "+s.section+"!");
           }
         }
 
-        function startBoss() {
+        function startAnnex(rule) {
           session?.arena?.quiet();
-          const arena = definition.create(game, art.sprite, () => battleAudio, win, startBoss);
-          session = {id:"dragon", arena, dragon:arena.dragon, won:false};
+          const level = door.level;
+          const key = "annex-" + level.id;
+          if (!rooms[key]) {
+            addRoom(key, 15, 9, .5, 4.5);
+            rooms[key].frontView = true;
+          }
+          const stage = CastleScenes["annex-stage"](game, art.sprite, () => battleAudio, level);
+          stage.rule = rule;
+          const arena = definition.create(stage, win, () => startAnnex(rule));
+          session = { id: level.id, annex: true, rule, arena, dragon: arena.boss || null, won: false, waiting: true };
+          rooms[key].name = level.name;
+          rooms[key].hint = definition.hint;
+          player.hp = game.maxHp;
+          enterRoom(key);
+          if (session.waiting) openRule();
+        }
+
+        function startBoss(rule) {
+          session?.arena?.quiet();
+          const arena = definition.create(game, art.sprite, () => battleAudio, win, () => startBoss(rule), rule);
+          session = {id:"dragon", rule, arena, dragon:arena.dragon, waiting:true, won:false};
           rooms.dragonTrial.name = "王座裂谷";
           rooms.dragonTrial.hint = definition.hint;
           player.hp = game.maxHp;
           enterRoom("dragonTrial");
+          openRule();
         }
 
         function update(dt) {
           if (approach && !player.path.length) {
-            if (game.view() === rooms.corridor && Math.hypot(player.x - 8.5, player.y - approach.y) < 1.1) enterDoor(approach);
+            if (game.view() === rooms.corridor && Math.hypot(player.x - approach.entryX, player.y - approach.y) < 1.1) enterDoor(approach);
             approach = null;
           }
           if (!session || session.won || session.waiting) return;
@@ -1294,11 +1478,12 @@
             unlockBattleAudio();
             const offset = arena.cameraOffset();
             pos = {x:pos.x-offset.x, y:pos.y-offset.y};
-            if (arena.hitHero(pos)) {
+            if (arena.interact?.(pos, shoot)) return true;
+            if (dragon && arena.hitHero(pos)) {
               castState = null;
               player.facing = 4;
               beginGuard(event,pos);
-            } else if (!castState && arena.hitDragon(pos)) {
+            } else if (dragon && !castState && arena.hitDragon(pos)) {
               shoot(dragon,pos);
             } else if (!castState) {
               const point = arena.ground(pos);
@@ -1358,8 +1543,8 @@
             drawRealisticCoji();
             projectiles.forEach(drawProjectile);
             if (showFx) drawParticles(game.view());
-            session.arena.shadeForeground();
-            session.arena.drawImpactDebris();
+            session.arena.shadeForeground?.();
+            session.arena.drawImpactDebris?.();
             drawWorldMessages();
             ctx.restore();
             return true;
@@ -1381,7 +1566,7 @@
           movementLocked,
           paused: () => dialog.open, cancelApproach: () => { approach = null; },
           arena: () => session?.arena, boss: () => session?.dragon,
-          orbDamage: target => target === session?.dragon && session.arena.vulnerable() ? 2 : 1
+          orbDamage: target => target && target === session?.dragon ? (session.arena.orbDamage?.() ?? (session.arena.vulnerable() ? 2 : 1)) : 1
         };
       }
 
@@ -2206,7 +2391,7 @@
         canvas._safeBottom = parseFloat(style.getPropertyValue("--safe-bottom")) || 0;
         canvas._safeLeft = parseFloat(style.getPropertyValue("--safe-left")) || 0;
         var rect = shell.getBoundingClientRect();
-        var dpr = Math.min(window.devicePixelRatio || 1, 1.5);
+        var dpr = Math.min(window.devicePixelRatio || 1, battleDensity, Math.max(1, Math.sqrt(5500000 / Math.max(1, rect.width * rect.height))));
         if (rect.width === canvas._w && rect.height === canvas._h && dpr === canvas._dpr) return;
         canvas.width = Math.floor(rect.width * dpr);
         canvas.height = Math.floor(rect.height * dpr);
@@ -2700,8 +2885,15 @@
           orb.z = (orb.baseZ || 82) + Math.sin((1.5 - orb.life) * 8) * 4;
 
           if (dist <= step) {
-            monster.hp = Math.max(0, monster.hp - trials.orbDamage(monster));
-            monster.hurt = .28;
+            if (monster.onOrbImpact) {
+              monster.onOrbImpact();
+              addParticle(monster.x, monster.y, "magic", 8);
+              projectiles.splice(i, 1);
+              continue;
+            }
+            const damage = trials.orbDamage(monster);
+            monster.hp = Math.max(0, monster.hp - damage);
+            if (damage > 0) monster.hurt = .28;
             addParticle(monster.x, monster.y, "magic", 12);
             projectiles.splice(i, 1);
             if (monster.hp <= 0) {
@@ -2758,7 +2950,9 @@
       function activateRoom(name, arrival) {
         messageTimer = 0;
         eventMessage.classList.remove("show");
+        if(!rooms[name].frontView && battleDensity<2){battleDensity=2;resize();}
         room = rooms[name];
+        document.getElementById("roomAtmosphere").hidden = !performances[name.replace(/^annex-/, "")];
         shell.classList.toggle("forward-trial", !!room.frontView);
         floor = room.trialFloor || (lowerFloor.rooms.includes(room) ? lowerFloor : upperFloor);
         projectiles.length = 0;
@@ -3299,6 +3493,29 @@
         return cojiFrameForFacing(currentCojiFrames(), poseFacing);
       }
 
+      function shieldBounds(height) {
+        return { lift: height * .47, radius: height * .68 * (1 + Math.sin(gameTime * 7) * .055) };
+      }
+
+      // Filtering a moving sprite on the main canvas makes some software
+      // rasterizers allocate a screen-sized filter surface on every frame.
+      const cojiGrades = new WeakMap();
+      function litCoji(frame,flash) {
+        let poses=cojiGrades.get(frame);
+        if(!poses){poses=[];cojiGrades.set(frame,poses);}
+        const key=Number(flash);
+        if(!poses[key]){
+          const scale=Math.min(1,2*frame.height/frame.h);
+          const c=document.createElement("canvas");c.width=Math.ceil(frame.w*scale);c.height=Math.ceil(frame.h*scale);
+          const g=c.getContext("2d");
+          g.filter=flash ? "brightness(1.08) contrast(1.12) saturate(.62) sepia(.08)" :
+            "brightness(.68) contrast(1.12) saturate(.72) sepia(.08)";
+          g.drawImage(frame.image,frame.x,frame.y,frame.w,frame.h,0,0,c.width,c.height);
+          poses[key]=c;
+        }
+        return poses[key];
+      }
+
       function drawRealisticCoji() {
         var p = worldToScreen(player.x, player.y, player.z);
         var displayFrame = cojiDisplayFrame();
@@ -3326,6 +3543,7 @@
 
         ctx.save();
         ctx.translate(p.x, p.y);
+        ctx.beginPath();ctx.rect(-height*1.9,-height*2.45,height*3.8,height*4);ctx.clip();
 
         if (showFx) {
           var auraPulse = (1 + Math.sin(gameTime * 2.8) * .055 + castMotion * .15) * cojiAura.scale;
@@ -3369,12 +3587,7 @@
         ctx.scale(displayFrame.mirror ? -1 : 1, 1);
         drawFootContact(ctx,cached.image,-width*.5,-height+footInset,width,height,cached);
         // Match the pre-rendered daylight sprite to the cool, dim castle room.
-        ctx.filter = flash
-          ? "brightness(1.08) contrast(1.12) saturate(.62) sepia(.08)"
-          : "brightness(.68) contrast(1.12) saturate(.72) sepia(.08)";
-        ctx.imageSmoothingEnabled = true;
-        ctx.imageSmoothingQuality = "high";
-        drawFrame(cached, -width * .5, -height + footInset, width, height);
+        ctx.drawImage(litCoji(cached,flash),-width*.5,-height+footInset,width,height);
         ctx.restore();
 
         // A thin foreground veil makes the magic illuminate Coji, not only the
@@ -3397,11 +3610,11 @@
         }
 
         if (player.guard) {
-          var pulse = 1 + Math.sin(gameTime * 7) * .055;
+          var shield = shieldBounds(height);
           ctx.save();
           ctx.globalCompositeOperation = "screen";
-          var shieldY = -height * .47;
-          var shieldR = height * .68 * pulse;
+          var shieldY = -shield.lift;
+          var shieldR = shield.radius;
           var glow = ctx.createRadialGradient(0, shieldY, shieldR * .12, 0, shieldY, shieldR);
           glow.addColorStop(0, "rgba(246,255,255,.42)");
           glow.addColorStop(.38, "rgba(75,255,219,.34)");
@@ -4333,7 +4546,7 @@
         shell.classList.toggle("boss-fight", !!boss && boss.alive);
         monsterPanel.style.display = boss && boss.alive ? "block" : "none";
         if (boss) {
-          monsterName.textContent = "雷焰惡龍 · " + (boss.hp > boss.maxHp * .7 ? "Ⅰ" : boss.hp > boss.maxHp * .35 ? "Ⅱ" : "Ⅲ");
+          monsterName.textContent = (boss.name || "雷焰惡龍")+" · " + (boss.hp > boss.maxHp * .7 ? "Ⅰ" : boss.hp > boss.maxHp * .35 ? "Ⅱ" : "Ⅲ");
           monsterHealth.style.width = boss.hp / boss.maxHp * 100 + "%";
         }
         var counts = [];
@@ -4556,6 +4769,7 @@
           requestAnimationFrame(frame);
           return;
         }
+        paceBattle(elapsed);
         const seconds = Math.min(room.frontView ? .25 : .04, elapsed / 1000);
         const steps = Math.ceil(seconds / .04);
         lastTime = now;
