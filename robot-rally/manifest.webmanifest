@@ -1,0 +1,15 @@
+{
+  "id": "./",
+  "name": "Bolt Cup · Robot Rally",
+  "short_name": "Bolt Cup",
+  "lang": "en",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#142e30",
+  "theme_color": "#163c36",
+  "icons": [
+    {"src": "./art/icon-192.png", "sizes": "192x192", "type": "image/png"},
+    {"src": "./art/icon-512.png", "sizes": "512x512", "type": "image/png"}
+  ]
+}

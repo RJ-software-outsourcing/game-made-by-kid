@@ -1,6 +1,15 @@
 {
   "games": [
     {
+      "id": "robot-rally",
+      "title": "Bolt Cup · Robot Rally",
+      "description": "Build a little robot, scout your rival and battle for the Bolt Cup.",
+      "path": "robot-rally/",
+      "icon": "🤖🏆",
+      "colors": ["#174f47", "#be8435"],
+      "controls": "Tap to build · Drag to turn"
+    },
+    {
       "id": "coji-island",
       "title": "Coji's Island Adventure",
       "description": "Walk around Sunny Island with Coji and Blankie Bear. Talk to friends in English, help a hungry bear and light up the lighthouse!",

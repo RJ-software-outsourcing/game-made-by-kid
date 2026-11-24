@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+    <meta name="theme-color" content="#142e30" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <link rel="icon" href="./art/icon-192.png" />
+    <link rel="apple-touch-icon" href="./art/icon-180.png" />
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <link rel="stylesheet" href="./style.css" />
+    <link rel="stylesheet" href="./equipment.css" />
+    <link rel="stylesheet" href="./garage.css" />
+    <link rel="modulepreload" href="./vendor/three.module.js" />
+    <link rel="modulepreload" href="./js/game.js" />
+    <link rel="modulepreload" href="./js/view.js" />
+    <link rel="preload" as="image" href="./art/workshop.webp" />
+    <title>Bolt Cup · Robot Rally</title>
+  </head>
+  <body>
+    <main id="garage">
+      <section class="overview">
+        <section class="hero">
+          <div id="work-view" aria-label="Your 3D robot. Drag to turn. Tap a part to change it."></div>
+          <div class="identity">
+            <span class="eyebrow"><i></i> YOUR BOT</span>
+            <button class="name-plate" data-act="rename" aria-label="Rename your robot">
+              <b id="bot-name">Knuckle</b><i>✎</i></button
+            ><span id="trying-part" hidden></span>
+          </div>
+          <div class="pit-buttons">
+            <button id="sound" aria-label="Sound" class="glass" data-icon="sound"></button
+            ><button id="help" aria-label="How to play" class="glass" data-icon="help"></button>
+          </div>
+          <div id="rival-dial" hidden></div>
+          <section id="equipment-dial" aria-label="Your robot stats" hidden></section>
+          <button id="close-look" class="glass"><span data-icon="magnify"></span><span>Zoom</span></button>
+        </section>
+        <aside id="console" aria-label="Garage controls">
+          <div id="home">
+            <div class="cup-wallet">
+              <button class="round-tag" id="cup-open">
+                <span data-icon="trophy"></span
+                ><span><small>Bolt Cup</small><b id="round-name">Round of 16</b></span>
+              </button>
+              <div id="wallet"></div>
+            </div>
+            <div class="rival-head">
+              <div>
+                <span class="eyebrow">NEXT RIVAL</span>
+                <h2 id="rival-name">Buckler</h2>
+              </div>
+              <button id="inspect" aria-label="Scout rival"></button>
+            </div>
+            <p class="habit" id="rival-habit"></p>
+            <div id="cup-draw" aria-label="Tournament bracket"></div>
+            <button class="hint" id="scout"><i data-icon="eye"></i>Scout rival<span>›</span></button>
+            <button id="battle-start" class="primary">Battle <i data-icon="flag"></i></button>
+          </div>
+          <div id="bay" hidden></div>
+        </aside>
+      </section>
+      <nav id="dock" aria-label="Customize your bot">
+        <button data-nav="body"><i data-icon="cube"></i>Body</button
+        ><button data-nav="parts"><i data-icon="wrench"></i>Parts</button
+        ><button data-nav="paint"><i data-icon="palette"></i>Paint</button
+        ><button data-nav="battle"><i data-icon="flag"></i>Battle</button>
+      </nav>
+    </main>
+    <div id="render-host" aria-hidden="true"></div>
+    <section id="battle" aria-label="Arena" hidden>
+      <div id="float-hud" aria-hidden="true"></div>
+      <div class="ring-hud">
+        <div id="scores"></div>
+        <div class="clock" id="clock">36</div>
+      </div>
+      <div id="victory-call" hidden><small id="victory-name"></small><b id="victory-title">VICTORY</b></div>
+      <div id="practice-label" hidden></div>
+      <output id="countdown" hidden></output>
+      <div class="battle-feed">
+        <ol id="fight-log" aria-label="Fight log"></ol>
+        <div id="announcer-caption" hidden><span></span></div>
+      </div>
+      <div class="battle-tools">
+        <button class="glass" id="camera"><i data-icon="camera"></i><span>Ringside</span></button
+        ><button id="tactics" class="glass"><i data-icon="route"></i>Paths</button
+        ><button id="pause" aria-label="Pause match" class="glass" data-icon="pause"></button>
+      </div>
+    </section>
+    <dialog id="overlay">
+      <div class="modal-head">
+        <span class="eyebrow" id="modal-kicker"></span
+        ><button id="hear-result" class="round-button" aria-label="Read the match result aloud" data-icon="sound" hidden></button
+        ><button id="dismiss" class="round-button" aria-label="Close" data-icon="close"></button>
+      </div>
+      <h2 id="modal-title"></h2>
+      <div id="modal-body"></div>
+    </dialog>
+    <div id="toast" role="status"></div>
+    <div id="boot-notice" hidden role="alert">
+      <span>The garage could not open.</span><button id="retry-boot">Try again</button>
+    </div>
+    <noscript>Turn on JavaScript to play Bolt Cup.</noscript>
+    <script>
+      // This recovery path also runs when an imported module never arrives.
+      document.getElementById('retry-boot').onclick = async function () {
+        const notice = document.getElementById('boot-notice')
+        if (notice.dataset.graphics) return location.reload()
+        this.disabled = true
+        const message = notice.querySelector('span')
+        message.textContent = 'Opening the garage…'
+        const controller = new AbortController()
+        const timer = setTimeout(() => controller.abort(), 9000)
+        try {
+          const root = new URL('./', document.baseURI).href
+          const failed = performance
+            .getEntriesByType('resource')
+            .filter(
+              (r) =>
+                (r.name.startsWith(root + 'js/') || r.name.startsWith(root + 'vendor/')) &&
+                (r.responseStatus >= 400 || r.decodedBodySize === 0)
+            )
+            .map((r) => r.name)
+          // WebKit may retain a failed modulepreload across a page reload.
+          // Refresh those responses before opening a new module graph.
+          await Promise.all(
+            [...new Set(failed.length ? failed : [root + 'js/game.js'])].map(async (url) => {
+              const response = await fetch(url, { cache: 'reload', signal: controller.signal })
+              if (!response.ok) throw Error('Unavailable module')
+              await response.arrayBuffer()
+            })
+          )
+          location.reload()
+        } catch {
+          message.textContent = 'The garage could not load. Check the connection and try again.'
+          this.disabled = false
+        } finally {
+          clearTimeout(timer)
+        }
+      }
+    </script>
+    <script
+      type="module"
+      src="./js/game.js"
+      onerror="document.getElementById('boot-notice').hidden = false"
+    ></script>
+  </body>
+</html>

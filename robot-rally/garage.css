@@ -1,0 +1,1245 @@
+/* The four tabs belong to the bench and stay within thumb reach. */
+#garage #dock {
+  display: flex;
+  position: fixed;
+  bottom: max(8px, env(safe-area-inset-bottom));
+  left: 50%;
+  min-height: 48px;
+  z-index: 6;
+  transform: translateX(-50%);
+  background: linear-gradient(#3b4141, #202829);
+  border-radius: 10px;
+}
+#garage #dock button {
+  height: 44px;
+  min-width: clamp(78px, 10vw, 148px);
+  border-radius: 5px;
+}
+#garage .overview {
+  margin-bottom: max(62px, calc(env(safe-area-inset-bottom) + 59px));
+}
+#garage {
+  background: #171c1d;
+}
+#garage #work-view {
+  bottom: 0;
+}
+#garage #close-look {
+  bottom: 8px;
+}
+.identity {
+  right: 122px;
+}
+#garage:is([data-mode='parts'], [data-mode='pick']) .identity {
+  right: 12px;
+}
+@media (orientation: portrait) {
+  #garage:is([data-mode='parts'], [data-mode='pick']) .identity {
+    right: 41%;
+  }
+}
+.name-plate {
+  pointer-events: auto;
+  display: flex;
+  gap: 9px;
+  align-items: center;
+  max-width: 100%;
+  color: #fff4e1;
+  background: #182022c2;
+  border: 1px solid #a0aaa380;
+  padding: 5px 10px;
+  min-height: 44px;
+  border-radius: 5px;
+}
+.name-plate b {
+  font-size: clamp(22px, 3.4vw, 48px);
+  line-height: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.name-plate i {
+  font: 20px sans-serif;
+  color: #f5ba61;
+}
+#name-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+#name-form input {
+  min-width: 0;
+  flex: 1;
+  font: inherit;
+  padding: 12px 14px;
+  border-radius: 6px;
+  border: 2px solid #536562;
+}
+dialog[data-keyboard] {
+  top: var(--keyboard-top);
+  bottom: auto;
+  margin-block: 0;
+}
+#garage .wallet-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  white-space: nowrap;
+  color: #ffdc86;
+  background: #252a29;
+  padding: 7px 12px;
+  line-height: 1;
+  border: 1px solid #af9160;
+  border-radius: 7px;
+}
+#garage .wallet-chip b {
+  font-size: clamp(21px, 2.4vw, 34px);
+}
+#garage .wallet-chip svg {
+  width: 25px;
+  height: 25px;
+}
+#garage[data-mode='pick'] #bay {
+  grid-template-rows: auto auto minmax(90px, 0.8fr) minmax(140px, 1fr) auto;
+  gap: clamp(7px, 1.3vh, 14px);
+}
+.shelf-tabs {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 5px;
+}
+.shelf-tabs button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 44px;
+  color: #fff4dc;
+  background: #304040;
+  border: 1px solid #74827a;
+  border-radius: 5px;
+}
+.shelf-tabs button[aria-pressed='true'] {
+  color: #172523;
+  background: #ffcb6e;
+  border-color: #ffe5a5;
+}
+.kit-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-evenly;
+  gap: 2px;
+  min-width: 0;
+}
+.kit-card > b {
+  width: 100%;
+  font-size: clamp(12px, 1.45vw, 20px);
+  line-height: 1.08;
+  overflow-wrap: anywhere;
+  color: inherit;
+}
+#garage .kit-card .part-art {
+  max-height: 67%;
+  min-height: 0;
+  flex: 1;
+}
+#garage .kit-card > span:last-child {
+  position: static;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+.shop-detail {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: clamp(6px, 1.6vh, 15px);
+  padding: clamp(10px, 1.8vw, 26px);
+  border: 1px solid #718078;
+  background: linear-gradient(125deg, #31403f, #1d292b);
+  border-radius: 8px;
+  min-height: 0;
+}
+.shop-detail h3 {
+  font-size: clamp(22px, 3vw, 42px);
+  line-height: 1.06;
+  color: #fff1d7;
+}
+.shop-detail p {
+  font-size: clamp(16px, 2vw, 26px);
+  line-height: 1.25;
+  margin: 0;
+}
+.stat-ticket {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 10px;
+  border-left: 4px solid #8bd9ac;
+  background: #182b27;
+  color: #b9f1c9;
+}
+.stat-ticket strong {
+  font-size: clamp(16px, 2.1vw, 27px);
+}
+.stat-ticket span {
+  font-size: 15px;
+}
+#garage .kit-equip:disabled {
+  background: #394646;
+  color: #ced2c8;
+  border-color: #67736e;
+  box-shadow: none;
+  opacity: 1;
+}
+#garage .kit-actions button {
+  min-height: 48px;
+  font-size: clamp(14px, 1.7vw, 22px);
+  line-height: 1.1;
+}
+#garage .kit-equip svg {
+  vertical-align: middle;
+}
+#garage[data-mode='pick'] {
+  --dial-height: clamp(310px, 38dvh, 350px);
+}
+#garage[data-mode='pick'] #work-view {
+  bottom: var(--dial-height);
+}
+#garage[data-mode='pick'] #close-look {
+  bottom: calc(var(--dial-height) + 4px);
+}
+#garage[data-mode='pick'] #equipment-dial {
+  bottom: 6px;
+  height: calc(var(--dial-height) - 10px);
+  left: 8px;
+  right: 8px;
+  width: auto;
+  grid-template-columns: minmax(0, 0.82fr) minmax(0, 1.18fr);
+  padding: 7px 10px;
+  gap: 8px;
+  align-items: center;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #2b3333f0, #121b1cf9);
+}
+.loadout-list {
+  min-width: 0;
+  align-self: stretch;
+  display: grid;
+  grid-template-rows: auto repeat(6, minmax(0, 1fr));
+  gap: 1px;
+}
+.loadout-list > strong {
+  font-size: 16px;
+  color: #ffce77;
+}
+.gear-row {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  border-top: 1px solid #ffffff24;
+  min-height: 0;
+}
+.gear-row > span {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  flex-direction: column;
+}
+.gear-row small {
+  font-size: 10px;
+  color: #c4d1c8;
+}
+.gear-row b {
+  font-size: clamp(11px, 1.24vw, 16px);
+  line-height: 1.08;
+}
+.gear-row button {
+  align-self: stretch;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  padding: 3px 5px;
+  background: #413a2a;
+  color: #ffe0a2;
+  border: 1px solid #7f765c;
+  border-radius: 4px;
+  font-size: 13px;
+  min-width: 49px;
+}
+.gear-row button svg {
+  width: 14px;
+}
+.gear-row > i {
+  color: #b1b6a8;
+  padding: 0 12px;
+}
+#garage[data-mode='pick'] .dial-graph {
+  width: 100%;
+  display: grid;
+  align-content: center;
+}
+#garage[data-mode='pick'] .dial-graph svg {
+  max-height: 210px;
+}
+#overlay[data-type='bracket'],
+#overlay:has(.draw-tree) {
+  max-width: min(920px, 96vw);
+  width: 900px;
+}
+.draw-tree {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  height: clamp(245px, 51dvh, 520px);
+  margin-top: 5px;
+}
+.draw-round {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.draw-round h3 {
+  font-size: clamp(11px, 1.55vw, 20px);
+  line-height: 1;
+  padding-bottom: 6px;
+}
+.draw-pairs {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+.draw-pair {
+  position: relative;
+  flex: 1;
+  display: flex;
+  align-items: center;
+}
+.draw-bots {
+  width: calc(100% - 16px);
+  border: 1px solid #90978c;
+  border-radius: 4px;
+  background: #d8d9c9;
+  line-height: 1.05;
+  position: relative;
+}
+.draw-bots > div {
+  font-size: clamp(10px, 1.4vw, 17px);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  padding: 1px 4px;
+}
+.draw-bots > div + div {
+  border-top: 1px solid #91988955;
+}
+.fight-now .draw-bots {
+  outline: 2px solid #985c10;
+  background: #ffcf78;
+}
+.advanced {
+  font-weight: 800;
+  color: #174734;
+}
+.draw-round:not(:last-child) .draw-pair:after {
+  content: '';
+  position: absolute;
+  right: 7px;
+  top: 50%;
+  height: 50%;
+  width: 9px;
+  border-top: 1.5px solid #677a72;
+  border-right: 1.5px solid #677a72;
+}
+.draw-round:not(:last-child) .draw-pair:nth-child(even):after {
+  top: 0;
+  border-top: 0;
+  border-bottom: 1.5px solid #677a72;
+}
+.draw-round:not(:first-child) .draw-bots:before {
+  content: '';
+  position: absolute;
+  right: 100%;
+  top: 50%;
+  width: 8px;
+  border-top: 1.5px solid #677a72;
+}
+.bracket-start {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 12px;
+}
+.bracket-start b {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.bracket-start button {
+  flex-shrink: 0;
+}
+@media (orientation: portrait) {
+  #garage[data-mode='pick'] .overview {
+    grid-template-rows: minmax(0, 0.98fr) minmax(0, 1fr);
+  }
+  #garage[data-mode='pick'] #equipment-dial {
+    inset: 8px 8px 8px auto;
+    width: 39%;
+    height: auto;
+    grid-template-columns: 1fr;
+    grid-template-rows: minmax(90px, 0.6fr) minmax(190px, 1fr);
+  }
+  #garage[data-mode='pick'] #work-view {
+    inset: 0 41% 0 0;
+  }
+  #garage[data-mode='pick'] #close-look {
+    bottom: 8px;
+    right: 42%;
+  }
+  .shelf-tabs {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
+  #garage[data-mode='pick'] #bay {
+    grid-template-rows: auto auto minmax(68px, 0.78fr) minmax(104px, 1fr) auto;
+    gap: 5px;
+  }
+  .shop-detail {
+    gap: 4px;
+  }
+  .shop-detail h3 {
+    font-size: 23px;
+  }
+}
+@media (max-width: 600px) and (orientation: portrait) {
+  #garage #dock button {
+    min-width: 68px;
+    padding: 5px;
+  }
+  .shelf-tabs button {
+    flex-direction: column;
+    gap: 1px;
+    font-size: 11px;
+    padding: 1px;
+  }
+  .gear-row > svg,
+  .gear-row small {
+    display: none;
+  }
+  .gear-row button {
+    font-size: 10px;
+    min-width: 38px;
+  }
+  .kit-card > b {
+    font-size: 10px;
+  }
+  #garage[data-mode='pick'] #equipment-dial {
+    padding: 3px;
+    grid-template-rows: minmax(50px, 0.55fr) minmax(150px, 1fr);
+  }
+  .shop-detail p {
+    font-size: 14px;
+  }
+}
+.head-label > .charge-strip {
+  height: 11px;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  padding: 0 4px 2px;
+  border: 0;
+  background: #152327;
+  border-radius: 0 0 3px 3px;
+}
+.charge-strip > span {
+  color: #f6cb66;
+  font-size: 11px;
+  line-height: 8px;
+}
+.charge-strip > i {
+  position: relative;
+  flex: 1;
+  background: #665944;
+  height: 4px;
+  border-radius: 2px;
+}
+.charge-strip u {
+  background: #ffd66c;
+}
+.charge-strip .refilling u {
+  background: #fff1a6;
+}
+.charge-strip .refilling::after, .battery-row .refilling::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: clamp(1px, var(--ready-mark), calc(100% - 2px));
+  width: 2px;
+  background: #fff;
+  box-shadow: -1px 0 #67451c, 1px 0 #67451c;
+}
+.battery-row .refilling { position: relative; }
+.head-label > b,
+.head-label b {
+  max-width: 75%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.battle-feed {
+  position: absolute;
+  z-index: 3;
+  left: max(10px, env(safe-area-inset-left));
+  right: max(10px, env(safe-area-inset-right));
+  bottom: max(78px, calc(env(safe-area-inset-bottom) + 60px));
+  display: grid;
+  grid-template-columns: minmax(0, min(29vw, 300px)) minmax(0, 1fr);
+  align-items: end;
+  gap: 6px 14px;
+  pointer-events: none;
+}
+#fight-log {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  pointer-events: none;
+}
+#fight-log li {
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+  margin: 3px 0;
+  padding: 5px 8px;
+  background: #131d21d9;
+  color: #fff4de;
+  border-left: 3px solid #72d5c3;
+  text-shadow: 0 1px 2px #000;
+  font-size: clamp(11px, 1.45vw, 18px);
+  line-height: 1.18;
+}
+#fight-log li[data-side='1'] {
+  border-color: #ffb667;
+}
+@media (max-width: 599px) {
+  .battle-feed {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  #fight-log {
+    max-width: min(74vw, 280px);
+  }
+}
+#fight-log time {
+  flex: none;
+  font-variant-numeric: tabular-nums;
+  color: #d2cfbc;
+  font-size: 0.75em;
+}
+#victory-call {
+  position: absolute;
+  top: 19%;
+  left: 50%;
+  transform: translateX(-50%) skew(-6deg);
+  z-index: 5;
+  pointer-events: none;
+  font-weight: 1000;
+  font-size: clamp(34px, 8vw, 110px);
+  line-height: 1;
+  letter-spacing: 0.035em;
+  color: #ffe39c;
+  text-shadow:
+    0 3px #925509,
+    0 6px #352513,
+    0 8px 18px #080a08;
+  white-space: nowrap;
+  animation: cup-impact 0.55s ease-out both;
+}
+@keyframes cup-impact {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) scale(1.4) skew(-6deg);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) skew(-6deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  #victory-call {
+    animation: none;
+  }
+}
+#garage[data-mode='home'] .overview {
+  grid-template-columns: minmax(0, 0.88fr) minmax(0, 1.12fr);
+}
+#garage[data-mode='home'] #console {
+  margin: 0;
+  background: linear-gradient(128deg, #303d3e, #1c282b);
+  border: 0;
+  border-left: 3px solid #87938a;
+  border-radius: 0;
+  color: #fff2d8;
+  padding: clamp(10px, 1.5vw, 23px);
+}
+#garage[data-mode='home'] #home {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-rows: auto auto auto minmax(0, 1fr) auto;
+  gap: 6px 10px;
+}
+#home .cup-wallet {
+  grid-area: 1/1/2/-1;
+}
+#garage[data-mode='home'] .rival-head {
+  grid-area: 2/1/3/-1;
+  min-height: 66px;
+}
+#garage[data-mode='home'] #inspect {
+  height: 88px;
+  width: 33%;
+}
+#home .eyebrow {
+  color: #dfc799;
+}
+#garage #home .habit {
+  grid-area: 3/1/4/-1;
+  color: #ede7ce;
+  font-size: clamp(14px, 1.5vw, 22px);
+}
+#cup-draw {
+  grid-area: 4/1/5/-1;
+  min-height: 0;
+}
+#cup-draw > h3 {
+  display: block;
+  font-size: clamp(20px, 2.4vw, 32px);
+  font-weight: 800;
+  line-height: 1.1;
+  color: #ffdfa4;
+  margin: 4px 0;
+}
+#cup-draw .draw-tree {
+  height: calc(100% - 43px);
+}
+#cup-draw .draw-bots {
+  color: #fff4e2;
+  background: #374647;
+  border-color: #87938a;
+}
+#cup-draw .fight-now .draw-bots {
+  color: #232c28;
+  background: #ffcd72;
+}
+#cup-draw .advanced {
+  color: #a5f3c5;
+}
+#cup-draw .draw-round h3 {
+  font-size: clamp(11px, 1.13vw, 16px);
+}
+#cup-draw .draw-bots > div {
+  font-size: clamp(10px, 1.3vw, 16px);
+}
+#garage #home #scout {
+  grid-area: 5/1/6/2;
+  color: #ffdaa0;
+  border-color: #777b6a;
+  justify-self: start;
+}
+#garage #home #battle-start {
+  grid-area: 5/2/6/3;
+  align-self: center;
+}
+#garage[data-mode='home'] #work-view {
+  inset: 0 0 31%;
+}
+#garage[data-mode='home'] #close-look {
+  bottom: 32%;
+}
+#rival-dial {
+  position: absolute;
+  z-index: 4;
+  bottom: 7px;
+  left: 6%;
+  width: 88%;
+  height: 28%;
+  display: flex;
+  align-items: center;
+  padding: 6px 13px;
+  gap: 9px;
+  border: 1px solid #87938a;
+  border-radius: 7px;
+  background: #1c282ae6;
+  color: #fff3de;
+}
+#rival-dial .chart {
+  flex: 1;
+  min-width: 0;
+  padding: 0;
+}
+#rival-dial .chart svg {
+  max-height: 17vh;
+}
+#rival-dial .chart-clue {
+  width: 34%;
+  color: #fff1d4;
+  margin: 0;
+}
+#rival-dial .grid text {
+  fill: #fff0ce;
+}
+#rival-dial .legend {
+  color: #ffeed6;
+}
+@media (orientation: portrait) {
+  #garage[data-mode='home'] .overview {
+    grid-template-columns: 1fr;
+    grid-template-rows: minmax(0, 0.52fr) minmax(0, 1fr);
+  }
+  #garage[data-mode='home'] #work-view {
+    inset: 0 34% 0 0;
+  }
+  #garage[data-mode='home'] #close-look {
+    bottom: 4px;
+    right: 35%;
+  }
+  #rival-dial {
+    inset: 8px 7px 8px auto;
+    width: 32%;
+    height: auto;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+  #rival-dial .chart {
+    flex: 0;
+  }
+  #rival-dial .chart-clue {
+    width: 100%;
+    text-align: center;
+  }
+  #garage[data-mode='home'] #console {
+    border-left: 0;
+    border-top: 2px solid #87938a;
+  }
+  #garage[data-mode='home'] #inspect {
+    height: 65px;
+  }
+}
+#home .round-tag {
+  color: #fff1d6;
+}
+#home .round-tag b {
+  color: #fff0cc;
+}
+#home .round-tag small {
+  color: #ded4c0;
+}
+#garage #home #scout {
+  background: #344644;
+  color: #fff5df;
+}
+#rival-dial .chart svg {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+@media (orientation: portrait) {
+  #rival-dial .chart {
+    width: 100%;
+  }
+  #rival-dial .chart svg {
+    height: auto;
+    min-height: 75px;
+    max-height: 15vh;
+  }
+  #rival-dial {
+    padding-top: 45px;
+  }
+}
+#garage .kit-card .part-art {
+  width: 88%;
+  max-width: 144px;
+}
+@media (orientation: portrait) and (min-width: 601px) {
+  #garage[data-mode='pick'] #equipment-dial {
+    grid-template-rows: minmax(80px, 1fr) 288px;
+  }
+  #garage[data-mode='pick'] .loadout-list {
+    grid-template-rows: 18px repeat(6, minmax(44px, 1fr));
+  }
+}
+@media (orientation: portrait) and (max-width: 600px) {
+  #garage[data-mode='pick'] #equipment-dial {
+    grid-template-rows: minmax(56px, 1fr) minmax(0, auto);
+  }
+  .loadout-list {
+    grid-template-rows: 16px repeat(6, minmax(26px, 1fr));
+  }
+  .gear-row button {
+    min-height: 0;
+  }
+}
+#trying-part {
+  display: table;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  background: #1c322d;
+  color: #b3eec9;
+  padding: 3px 7px;
+  border-left: 3px solid #8bdaa9;
+  font-weight: 650;
+  font-size: clamp(12px, 1.4vw, 18px);
+  margin-top: 4px;
+}
+#garage[data-mode='body'] #console,
+#garage[data-mode='paint'] #console {
+  margin: 0;
+  background: linear-gradient(126deg, #303d3e, #1c282b);
+  border: 0;
+  border-left: 3px solid #87938a;
+  border-radius: 0;
+  color: #fff2d8;
+}
+#garage[data-mode='body'] .body-note,
+#garage[data-mode='paint'] .panel-note {
+  color: #ece2ce;
+}
+#garage[data-mode='body'] .frame-option,
+#garage[data-mode='paint'] .paint-choice {
+  border-radius: 6px;
+}
+#garage .kit-card .fitted-mark {
+  position: absolute;
+  left: 5px;
+  top: 5px;
+  right: auto;
+  background: #1c5949;
+  color: #d0fae3;
+  z-index: 1;
+  border-radius: 3px;
+}
+#garage .kit-card {
+  position: relative;
+}
+.rival-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  justify-self: center;
+  margin-top: 4px;
+  min-height: 44px;
+  padding: 3px 8px;
+  border: 1px solid #75867c;
+  border-radius: 5px;
+  color: #ffdda2;
+  font-size: 14px;
+}
+.rival-toggle[aria-pressed='true'] {
+  background: #3e4941;
+}
+.coach-link {
+  border: 1px solid #637667;
+  color: #205148;
+  border-radius: 6px;
+  padding: 8px 14px;
+  font-weight: 750;
+}
+@media (orientation: portrait) {
+  #garage[data-mode='pick'] .dial-graph {
+    max-height: 100%;
+    height: 100%;
+    grid-template-rows: minmax(0, 1fr) auto;
+    align-content: stretch;
+  }
+  #garage[data-mode='pick'] .dial-graph .chart {
+    min-height: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+  }
+  #garage[data-mode='pick'] .dial-graph .chart svg {
+    flex: 1;
+    min-height: 0;
+    width: 100%;
+  }
+  .rival-toggle {
+    font-size: 12px;
+    margin-top: 0;
+  }
+}
+.trial-column .trial-route {
+  display: block;
+  width: 100%;
+  height: clamp(72px, 13dvh, 142px);
+  margin: 2px auto;
+}
+#victory-call {
+  top: 7%;
+  display: grid;
+  justify-items: center;
+  text-align: center;
+}
+#victory-call small {
+  font-size: clamp(15px, 2.3vw, 34px);
+  letter-spacing: 0.06em;
+  text-shadow: 0 2px 4px #142023;
+  color: #fff3d4;
+}
+#victory-call b {
+  font-weight: 1000;
+}
+#battle[data-finish] .ring-hud {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.4s;
+}
+@media (max-height: 570px) {
+  .trial-column .trial-route {
+    height: 52px;
+  }
+}
+@media (orientation: landscape) and (max-height: 475px) {
+  .trial-column {
+    grid-template-columns: minmax(0, 1fr) 54px;
+    align-content: start;
+  }
+  .trial-column > small, .trial-column > b { grid-column: 1 / -1; }
+  .trial-column > span { grid-column: 1; }
+  .trial-column .trial-route {
+    grid-column: 2;
+    grid-row: 3 / span 3;
+    align-self: center;
+  }
+}
+#scores:not([data-onboard='true']) .meter-row {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  min-height: 0;
+  overflow: hidden;
+  clip-path: inset(100%);
+  padding: 0;
+}
+#scores:not([data-onboard='true']) .score {
+  align-self: flex-start;
+  min-height: 44px;
+}
+#scores:not([data-onboard='true']) .stat-label {
+  min-height: 24px;
+  margin: 0;
+  align-items: center;
+}
+
+.stat-ticket[data-change='down'] {
+  border-color: #ffb58f;
+  background: #332924;
+  color: #ffceb1;
+}
+.stat-ticket span {
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+/* In a narrow iPad window the six sell tiles share two rows under the model. */
+@media (orientation: portrait) and (max-width: 600px) {
+  #garage[data-mode='pick'] .overview {
+    grid-template-rows: minmax(0, 0.8fr) minmax(0, 1fr);
+  }
+  #garage[data-mode='pick'] .hero {
+    --gear-height: 116px;
+  }
+  #garage[data-mode='pick'] #equipment-dial {
+    inset: 4px 6px;
+    width: auto;
+    height: auto;
+    display: grid;
+    grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr) var(--gear-height);
+    gap: 4px;
+    padding: 0;
+    background: none;
+    border: none;
+    box-shadow: none;
+    pointer-events: none;
+  }
+  #garage[data-mode='pick'] #work-view {
+    inset: 0 42% calc(var(--gear-height) + 6px) 0;
+  }
+  #garage[data-mode='pick'] #close-look {
+    bottom: calc(var(--gear-height) + 7px);
+    right: 43%;
+  }
+  #garage[data-mode='pick'] .dial-graph,
+  #garage[data-mode='pick'] .loadout-list {
+    pointer-events: auto;
+    border: 1px solid #82928a;
+    border-radius: 6px;
+    background: #172526f5;
+  }
+  #garage[data-mode='pick'] .dial-graph {
+    grid-column: 2;
+    grid-row: 1;
+    padding: 2px 4px;
+  }
+  #garage[data-mode='pick'] .rival-toggle {
+    width: min(100%, 160px);
+  }
+  #garage[data-mode='pick'] .shop-detail {
+    padding: 4px 9px;
+    gap: 2px;
+  }
+  #garage[data-mode='pick'] .stat-ticket {
+    padding: 3px 7px;
+  }
+  #garage[data-mode='pick'] .loadout-list {
+    grid-area: 2 / 1 / 3 / -1;
+    grid-template: 17px repeat(2, minmax(44px, 1fr)) / repeat(3, minmax(0, 1fr));
+    gap: 1px 3px;
+    padding: 2px 3px;
+  }
+  .loadout-list > strong {
+    grid-column: 1 / -1;
+    font-size: 14px;
+    line-height: 17px;
+    padding-left: 3px;
+  }
+  .gear-row {
+    position: relative;
+    align-items: flex-start;
+    text-align: center;
+    padding: 3px;
+    border: 1px solid #67756d;
+    border-radius: 4px;
+    background: #243132;
+  }
+  .gear-row:has(button) {
+    background: #37382e;
+  }
+  .gear-row > i,
+  .gear-row > svg {
+    display: none;
+  }
+  .gear-row:not(:has(button)) small {
+    display: block;
+    font-size: 11px;
+  }
+  .gear-row b {
+    font-size: 12px;
+  }
+  .gear-row > span {
+    pointer-events: none;
+  }
+  .gear-row > span b {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .gear-row button {
+    position: absolute;
+    inset: 0;
+    align-items: flex-end;
+    justify-content: center;
+    width: 100%;
+    min-height: 44px;
+    padding: 0 3px 5px;
+    border: none;
+    background: transparent;
+    font-size: 12px;
+  }
+}
+@media (orientation: portrait) and (max-width: 600px) and (max-height: 730px) {
+  #garage[data-mode='pick'] .overview {
+    grid-template-rows: minmax(0, 1fr) 322px;
+  }
+  #garage[data-mode='pick'] #console {
+    padding: 4px 8px;
+  }
+  #garage[data-mode='pick'] #bay {
+    grid-template-rows: 28px 44px minmax(58px, 0.65fr) minmax(92px, 1fr) 44px;
+    gap: 3px;
+  }
+  #garage[data-mode='pick'] .shelf-head h2 {
+    font-size: 23px;
+  }
+  #garage[data-mode='pick'] .shelf-head .wallet-chip {
+    padding: 1px 7px;
+  }
+  #garage[data-mode='pick'] .kit-actions button {
+    min-height: 44px;
+    padding: 2px 5px;
+  }
+  #garage[data-mode='pick'] .shop-detail {
+    gap: 2px;
+    padding: 3px 8px;
+  }
+  #garage[data-mode='pick'] .shop-detail h3 {
+    font-size: 19px;
+  }
+  #garage[data-mode='pick'] .shop-detail p {
+    font-size: 14px;
+    line-height: 1.15;
+  }
+  #garage[data-mode='pick'] .stat-ticket {
+    padding: 2px 6px;
+  }
+  #garage[data-mode='pick'] .kit-title {
+    min-height: 32px;
+  }
+  #garage[data-mode='pick'] .kit-title .speak-part {
+    height: 44px;
+    min-height: 44px;
+  }
+}
+
+/* The bracket occupies the space between the rival and the start controls. */
+#cup-draw {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+}
+#cup-draw .draw-tree {
+  height: auto;
+  min-height: 0;
+  margin-top: 3px;
+}
+#cup-draw .draw-round,
+#cup-draw .draw-pairs,
+#cup-draw .draw-pair {
+  min-height: 0;
+}
+@media (orientation: landscape) and (max-height: 650px) {
+  #cup-draw .draw-bots > div {
+    font-size: 12px;
+    line-height: 1.02;
+    padding: 0 3px;
+  }
+}
+@media (orientation: portrait) {
+  #rival-dial {
+    display: grid;
+    grid-template-rows: minmax(0, 1fr) auto;
+    align-items: stretch;
+    gap: 4px;
+    padding: 50px 6px 7px;
+  }
+  #rival-dial .chart {
+    height: 100%;
+    display: grid;
+    grid-template-rows: minmax(0, 1fr) auto;
+    justify-items: center;
+    align-items: center;
+  }
+  #rival-dial .chart svg {
+    height: 100%;
+    min-height: 0;
+    max-height: none;
+  }
+  #rival-dial .chart-clue {
+    width: 100%;
+    align-self: center;
+  }
+}
+@media (orientation: portrait) and (max-width: 600px) and (max-height: 730px) {
+  #garage[data-mode='home'] .overview {
+    grid-template-rows: minmax(0, 0.39fr) minmax(0, 1fr);
+  }
+  #garage[data-mode='home'] #console {
+    padding: 4px 8px;
+  }
+  #garage[data-mode='home'] #home {
+    gap: 4px;
+  }
+  #garage[data-mode='home'] .rival-head {
+    min-height: 45px;
+  }
+  #garage[data-mode='home'] #inspect {
+    height: 48px;
+  }
+  #garage[data-mode='home'] #rival-name {
+    font-size: 25px;
+  }
+  #garage[data-mode='home'] #rival-dial .legend {
+    flex-wrap: nowrap;
+    gap: 3px;
+    font-size: 10px;
+  }
+  #cup-draw .draw-bots > div {
+    font:
+      600 10px/1.05 system-ui,
+      sans-serif;
+    padding: 0 3px;
+  }
+  #cup-draw > h3 {
+    font-size: 19px;
+    margin: 1px 0;
+  }
+  #garage[data-mode='pick'] .identity {
+    top: 3px;
+    left: 6px;
+  }
+  #garage[data-mode='pick'] .identity .eyebrow {
+    display: none;
+  }
+  #garage[data-mode='pick'] .name-plate {
+    padding: 3px 7px;
+  }
+  #garage[data-mode='pick'] #work-view {
+    top: 21px;
+  }
+}
+
+.gear-row[data-selected] {
+  box-shadow: inset 3px 0 #e2b56a;
+  background-color: #3a4035;
+}
+.gear-row[data-selected] > svg {
+  margin-left: 4px;
+}
+
+@media (max-width: 450px) and (orientation: portrait) {
+  #overlay[data-type='options'] .modal-row:has([data-act='full']) {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  #overlay [data-act='full'] {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-height: 450px) and (orientation: landscape) {
+  #overlay:is([data-type='help'], [data-type='cup']) {
+    width: min(620px, 96vw);
+    max-width: 96vw;
+  }
+  #overlay .cup-track, #overlay .instructions {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  #overlay .instructions {
+    column-gap: 28px;
+    row-gap: 7px;
+  }
+  #overlay[data-type='bracket'] {
+    padding: 7px 12px;
+    max-height: calc(100dvh - 10px);
+  }
+  #overlay[data-type='bracket'] h2 {
+    margin-top: -24px;
+    margin-right: 50px;
+  }
+  #overlay[data-type='bracket'] .modal-head {
+    align-items: flex-start;
+  }
+  #overlay .draw-tree {
+    height: clamp(200px, calc(100dvh - 154px), 300px);
+  }
+  #overlay .draw-bots > div {
+    padding: 0 4px;
+  }
+  #overlay .bracket-start {
+    margin-top: 3px;
+  }
+}
