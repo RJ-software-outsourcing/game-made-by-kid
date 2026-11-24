@@ -62,28 +62,31 @@ CastleScenes["star-optics"] = (() => {
   function chart(index) {
     // All arrangements are fed from the same optical port in the armillary plinth.
     const lamp = point([0.5, 0.035]);
+    // Symmetric layouts: the first mirror stands under the light port, the other two
+    // form a left/right pair. The three receivers fan out evenly around the armillary:
+    // left, front and right.
     const plans = [
       [
-        [0.5, 0.4],
-        [0.31, 0.45],
-        [0.35, 0.21],
+        [0.5, 0.2],
+        [0.3, 0.38],
+        [0.7, 0.38],
       ],
       [
-        [0.5, 0.22],
-        [0.68, 0.27],
-        [0.64, 0.48],
+        [0.5, 0.2],
+        [0.7, 0.38],
+        [0.3, 0.38],
       ],
       [
-        [0.5, 0.48],
-        [0.72, 0.45],
-        [0.68, 0.24],
+        [0.5, 0.25],
+        [0.22, 0.36],
+        [0.78, 0.36],
       ],
     ];
     const mounts = plans[index].map(point);
     const targets = [
-      [0.13, 0.22],
-      [0.87, 0.17],
-      [0.86, 0.5],
+      [0.11, 0.26],
+      [0.5, 0.485],
+      [0.89, 0.26],
     ].map(point);
     const direction = (a, b) => Math.atan2(b.y - a.y, b.x - a.x);
     const incoming = direction(lamp, mounts[0]);
@@ -170,54 +173,97 @@ CastleScenes["star-optics"] = (() => {
     return matches;
   }
   function create(s, complete) {
-    const signs = CastleScenes["chamber-rules"].signs;
-    const first = s.rule.goal;
+    const rule = s.rule;
     const firstLayout = Math.floor(Math.random() * 3);
-    const goals = [first, (first + 1 + Math.floor(Math.random() * 2)) % 3];
     const layout = chart(firstLayout),
       { stops } = layout;
     const room = CastleScenes["meridian-room"].create(s, layout, CastleScenes["meridian-models"].radius);
+    // Mirror rounds list the signs that count ("Not this one" accepts either remaining sign).
+    // Comet rounds are solved by turning the armillary crystal itself until its beam meets
+    // the comet. While the crystal points at the sky, no light reaches the floor port.
     let round = 0,
       stable = 0,
+      wrong = 0,
       faces,
       angles;
+    const lit = [];
+    const crystal = room.crystal;
+    const cometRound = () => !!rule.rounds[round].comet;
+    const allowed = () => (cometRound() ? [] : rule.rounds[round].allowed.filter((g) => !lit.includes(g)));
     function setRound() {
-      const answers = solutions(goals[round], layout);
-      if (answers.length !== 1 || !trace(answers[0], layout).full)
-        throw Error("The meridian needs one complete light path.");
-      faces = answers[0].map(
-        (f, i) => (f + 1 + Math.floor(Math.random() * (stops[i].length - 1))) % stops[i].length,
-      );
-      if (!angles) angles = faces.map((f, i) => stops[i][f]);
-      stable = 0;
+      stable = wrong = 0;
+      if (cometRound()) {
+        crystal.aim = 0;
+        if (!faces) faces = stops.map(() => 0);
+        if (!angles) angles = faces.map((f, i) => stops[i][f]);
+        return;
+      }
+      crystal.aim = 0;
+      const goals = allowed();
+      for (const goal of goals) {
+        const answers = solutions(goal, layout);
+        if (answers.length !== 1 || !trace(answers[0], layout).full)
+          throw Error("The meridian needs one complete light path.");
+      }
+      // Start every mirror away from the answer; never start on any sign that would count.
+      const answer = solutions(goals[0], layout)[0];
+      for (let tries = 0; tries < 40; tries++) {
+        faces = answer.map((f, i) => (f + 1 + Math.floor(Math.random() * (stops[i].length - 1))) % stops[i].length);
+        const ray = trace(faces, layout);
+        if (!(ray.full && goals.includes(ray.target))) break;
+      }
+      angles = angles || faces.map((f, i) => stops[i][f]);
     }
     setRound();
-    const scroll = () => "Turn the mirrors. Shine the light on the " + signs[goals[round]] + ".";
+    const scroll = () => (rule.perRound ? rule.rounds[round].line : rule.text);
+    const tell = () => s.hint("Light " + (round + 1) + " of " + rule.rounds.length);
+    function advance(target) {
+      s.chime(620);
+      if (target !== undefined) lit.push(target);
+      if (round === rule.rounds.length - 1) complete();
+      else {
+        round++;
+        setRound();
+        if (rule.perRound) s.notice(rule.rounds[round].line);
+        tell();
+      }
+    }
     return {
       scroll,
       drawRoom: room.drawRoom,
       ground: room.ground,
-      begin: () => s.hint(scroll()),
+      begin: tell,
       update(dt) {
         angles = angles.map((a, i) => a + range(stops[i][faces[i]] - a, -4 * dt, 4 * dt));
-        const ray = trace(faces, layout, angles);
-        stable =
-          ray.full &&
-          ray.target === goals[round] &&
-          angles.every((a, i) => Math.abs(a - stops[i][faces[i]]) < 0.001)
-            ? stable + dt
-            : 0;
-        if (stable > 0.65) {
-          s.chime(620);
-          if (round === 1) complete();
-          else {
-            round++;
-            setRound();
-            s.hint(scroll());
-          }
+        room.updateCrystal(dt);
+        if (cometRound()) {
+          stable = crystal.onComet() ? stable + dt : 0;
+          if (stable > 0.8) advance();
+          return;
         }
+        const ray = trace(faces, layout, angles);
+        const feeding = crystal.feedsPort();
+        const resting = feeding && ray.full && angles.every((a, i) => Math.abs(a - stops[i][faces[i]]) < 0.001);
+        stable = resting && allowed().includes(ray.target) ? stable + dt : 0;
+        // A full path onto a sign the scroll did not ask for: one gentle reminder.
+        wrong = resting && ray.target >= 0 && !allowed().includes(ray.target) ? wrong + dt : 0;
+        if (wrong > 0.9 && wrong - dt <= 0.9) {
+          s.tone(160, 0.35, "triangle", 0.1, 100);
+          s.hint(lit.includes(ray.target) ? "That one is done. Read the scroll again." : "Not that sign. Read the scroll again.");
+        }
+        if (stable > 0.65) advance(ray.target);
       },
       pick(pos) {
+        // The big crystal turns only when the scroll asks for the comet.
+        if (room.hitCrystal(pos)) {
+          if (cometRound()) {
+            crystal.aim = (crystal.aim + 1) % crystal.stops();
+            stable = 0;
+            s.chime(300 + crystal.aim * 70);
+          } else s.hint("The big crystal will not turn now. Use the mirrors.");
+          return true;
+        }
+        if (cometRound()) return false;
         const idx = room.pick(pos, angles);
         if (idx < 0) return false;
         faces[idx] = (faces[idx] + 1) % stops[idx].length;
@@ -227,7 +273,8 @@ CastleScenes["star-optics"] = (() => {
       },
       draw() {
         const ray = trace(faces, layout, angles);
-        room.draw(angles, ray, goals[round], stable);
+        const feeding = crystal.feedsPort();
+        room.draw(angles, feeding ? ray : { path: [layout.lamp], target: -1, full: false, contacts: [] }, feeding && allowed().includes(ray.target) ? ray.target : -1, stable);
       },
     };
   }

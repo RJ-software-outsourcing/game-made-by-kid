@@ -15,21 +15,21 @@ CastleScenes["annex-bosses"] = (() => {
       hp: 18,
       color: "#96dbff",
       note: 123,
-      hint: "Dodge the bones. Shield the soul wave. Cast when the crown dims.",
+      hint: "Dodge the bones. Shield the soul wave. Shoot through a gap in his bone ring.",
       result: "You beat the king!",
     },
     witch: {
-      hp: 16,
+      hp: 9,
       color: "#a2f282",
       note: 173,
-      hint: "Watch her shadow. Shield the green curse to reflect it.",
+      hint: "Your light cannot hurt her. Shield her green curse to send it back.",
       result: "You found the real witch!",
     },
     colossus: {
-      hp: 14,
+      hp: 12,
       color: "#ffac54",
       note: 71,
-      hint: "Dodge the hammer. Shield the steam. Shoot the open furnace core.",
+      hint: "His iron stops your light. Hit the glowing crack. It moves after each hit!",
       result: "You beat the iron giant!",
     },
   };
@@ -66,6 +66,27 @@ CastleScenes["annex-bosses"] = (() => {
       ending = false,
       armorFlash = 0,
       steamBlocked = false;
+    // The Bone King's ward: three clusters of bone and stone circle him. An orb that meets
+    // one is stopped, so the player shoots through a gap while still dodging his attacks.
+    const ward = { angle: 0, flash: [0, 0, 0], fall: 0 };
+    const WARDS = kind === "king" ? 3 : 0;
+    // The Iron Giant: one molten crack in his armour is the only place light can enter.
+    // Spots are fractions of his body box: [across, up].
+    const CRACKS = [
+      [0.02, 0.56],
+      [-0.2, 0.76],
+      [0.21, 0.76],
+      [-0.09, 0.22],
+      [0.12, 0.4],
+    ];
+    let crack = 0,
+      crackFlash = 0,
+      lastAim = null,
+      absorb = 0;
+    const crackAt = () => {
+      const b = box();
+      return { x: b.x + CRACKS[crack][0] * b.height, y: b.y - CRACKS[crack][1] * b.height, r: b.height * 0.1 };
+    };
     const progress = () => clamp(age / duration);
     const tier = () => (boss.hp / boss.maxHp > 0.7 ? 0 : boss.hp / boss.maxHp > 0.35 ? 1 : 2);
     const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)");
@@ -239,6 +260,13 @@ CastleScenes["annex-bosses"] = (() => {
       if (kind === "witch") rites.updateWater(dt, phase, age, move);
       boss.hurt = Math.max(0, boss.hurt - dt);
       armorFlash = Math.max(0, armorFlash - dt);
+      crackFlash = Math.max(0, crackFlash - dt);
+      absorb = Math.max(0, absorb - dt);
+      if (WARDS) {
+        if (terminal()) ward.fall = Math.min(1, ward.fall + dt * 0.8);
+        else ward.angle += dt * (0.85 + tier() * 0.3);
+        ward.flash = ward.flash.map((f) => Math.max(0, f - dt * 2.5));
+      }
       if (!player.moving) player.facing = 4;
       if (terminal()) {
         if (phase === "fallen" && age - dt < 2.32 && age >= 2.32) {
@@ -272,11 +300,59 @@ CastleScenes["annex-bosses"] = (() => {
         clearEchoes();
         s.hint(
           kind === "colossus"
-            ? "The furnace shutters are open. Cast at its heart!"
+            ? "Aim at the glowing crack!"
             : kind === "king"
-              ? "The crown is dim. Cast now!"
-              : "The witch is exposed. Cast now!",
+              ? "Wait for a gap in the bone ring. Then cast!"
+              : "Wait for her green curse. Hold Coji to send it back!",
         );
+      }
+    }
+    function wardPlace(i) {
+      const b = box(),
+        a = ward.angle + (i * Math.PI * 2) / WARDS;
+      const front = Math.sin(a);
+      return {
+        x: b.x + Math.cos(a) * b.height * 0.5,
+        y: b.y - b.height * (0.42 - 0.07 * front) + ward.fall * b.height * 0.42,
+        front,
+        size: b.height * 0.36 * (0.82 + 0.18 * front),
+        a,
+      };
+    }
+    // Which cluster, if any, is in front of the king's body right now.
+    function wardInFront() {
+      const b = box();
+      for (let i = 0; i < WARDS; i++) {
+        const w = wardPlace(i);
+        if (w.front > 0.15 && Math.abs(w.x - b.x) < w.size * 0.55 + b.height * 0.08) return i;
+      }
+      return -1;
+    }
+    function drawWards(front) {
+      if (!WARDS) return;
+      const img = s.sprite("boneBreach");
+      if (!img.width) return;
+      const cw = img.width / 3,
+        ch = img.height / 2,
+        t = game.time();
+      for (let i = 0; i < WARDS; i++) {
+        const w = wardPlace(i);
+        if (front !== w.front >= 0) continue;
+        const bob = Math.sin(t * 2.2 + i * 2) * w.size * 0.04;
+        const shade = 0.55 + 0.45 * (w.front * 0.5 + 0.5);
+        // Soul fire holds the cluster together.
+        s.glow(w.x, w.y + bob, w.size * 0.75, w.size * 0.55, "#8fd2ff", (0.3 + 0.5 * ward.flash[i]) * shade * (1 - ward.fall));
+        ctx.save();
+        ctx.globalAlpha = shade * (1 - ward.fall * 0.6);
+        ctx.translate(w.x, w.y + bob);
+        ctx.rotate(Math.sin(w.a * 1.3) * 0.18 + ward.fall * (i - 1) * 0.6);
+        ctx.drawImage(img, cw * 0, ch, cw, ch, -w.size * 0.6, -w.size * 0.5, w.size * 1.2, w.size * 0.8);
+        if (ward.flash[i] > 0) {
+          ctx.globalCompositeOperation = "screen";
+          ctx.globalAlpha = ward.flash[i] * 0.8;
+          ctx.drawImage(img, cw * 0, ch, cw, ch, -w.size * 0.6, -w.size * 0.5, w.size * 1.2, w.size * 0.8);
+        }
+        ctx.restore();
       }
     }
     function box(lane = boss.y) {
@@ -302,6 +378,7 @@ CastleScenes["annex-bosses"] = (() => {
       );
     }
     function interact(pos, shoot) {
+      lastAim = pos;
       if (!illusion() || separation() < 0.3) return false;
       const slots = echoes
         .map((figure, i) => ({ i, b: box(figure.y) }))
@@ -610,6 +687,38 @@ CastleScenes["annex-bosses"] = (() => {
       endBattle,
       interact,
       orbDamage() {
+        if (kind === "witch") {
+          // Echoes break when hit (handled by their own impact); the witch drinks the light.
+          absorb = 0.6;
+          s.tone(500, 0.5, "sine", 0.07, 900);
+          s.hint("She drinks your light! Shield her curse to send it back.");
+          return 0;
+        }
+        if (kind === "colossus") {
+          const c = crackAt();
+          if (lastAim && Math.hypot(lastAim.x - c.x, lastAim.y - c.y) < c.r * 1.6) {
+            crackFlash = 0.7;
+            s.rush(3200, 500, 0.6, 0.3);
+            crack = (crack + 1 + Math.floor(Math.random() * (CRACKS.length - 1))) % CRACKS.length;
+            s.hint("A hit! Find the new glowing crack.");
+            return 3;
+          }
+          armorFlash = 0.36;
+          s.chime(189);
+          s.hint("Clang! Aim at the glowing crack.");
+          return 0;
+        }
+        if (WARDS) {
+          const blocker = wardInFront();
+          if (blocker >= 0) {
+            ward.flash[blocker] = 1;
+            s.rush(2400, 500, 0.3, 0.32);
+            s.tone(240, 0.25, "square", 0.06, 120);
+            s.hint("Blocked! Wait for a gap.");
+            return 0;
+          }
+          return 2;
+        }
         if (kind !== "colossus") return open() || illusion() ? 2 : 1;
         if (open()) return 3;
         armorFlash = 0.36;
@@ -632,7 +741,34 @@ CastleScenes["annex-bosses"] = (() => {
           echoes.forEach((figure, i) => {
             if (figure.alive) drawBody(figure.y, i === trueSlot);
           });
-        } else drawBody(boss.y, true);
+        } else {
+          drawWards(false);
+          drawBody(boss.y, true);
+          drawWards(true);
+          if (kind === "colossus" && !terminal()) {
+            // Molten light leaking through a split in the iron plates.
+            const c = crackAt(),
+              t = game.time(),
+              pulse = 0.65 + 0.35 * Math.sin(t * 5);
+            s.glow(c.x, c.y, c.r * 1.8, c.r * 1.8, "#ff7a1a", 0.55 * pulse + crackFlash);
+            s.glow(c.x, c.y, c.r * 0.7, c.r * 0.9, "#ffd27a", 0.85 * pulse);
+            ctx.save();
+            ctx.globalCompositeOperation = "screen";
+            ctx.strokeStyle = "rgba(255,230,160," + (0.75 * pulse).toFixed(3) + ")";
+            ctx.lineWidth = Math.max(1.5, c.r * 0.12);
+            ctx.beginPath();
+            ctx.moveTo(c.x - c.r * 0.5, c.y - c.r * 0.6);
+            ctx.lineTo(c.x - c.r * 0.1, c.y - c.r * 0.1);
+            ctx.lineTo(c.x - c.r * 0.25, c.y + c.r * 0.3);
+            ctx.lineTo(c.x + c.r * 0.3, c.y + c.r * 0.65);
+            ctx.stroke();
+            ctx.restore();
+          }
+          if (kind === "witch" && absorb > 0) {
+            const b = box();
+            s.glow(b.x, b.y - b.height * 0.55, b.height * 0.4, b.height * 0.5, "#9cff7a", absorb);
+          }
+        }
         drawAttack();
       },
     };

@@ -785,13 +785,45 @@ CastleScenes["trial-view"] = function (game, art, helpers) {
   function watchHall(c,s) {
     const p=eyePlate(c),t=game.effects() && !reducedMotion.matches ? game.time() : 0;
     ctx.drawImage(p.img,p.left,p.top,p.w,p.h);
-    halo(p.left+p.w*.5,p.top+p.h*.13,p.h*(.15+.012*Math.sin(t*1.35)),"#9fdabb63");
+    const fx=CastleScenes["atmos-fx"], P=(u,v)=>({x:p.left+u*p.w,y:p.top+v*p.h});
+    // Moonlight through the green window: breathing shafts with dust, measured on the plate.
+    // Clouds drift across the moon: each pane of the window brightens and darkens on its own,
+    // so the shafts alternate light and shadow, and their pools on the floor follow.
+    const cloud=(phase)=>{ const v=.5+.5*Math.sin(t*.42+phase)*Math.cos(t*.23+phase*1.7); return v*v*(3-2*v); };
+    const panes=[[-.03,-.62,0],[.03,.58,2.1],[0,.04,4.2],[-.06,-.32,1.1],[.06,.3,3.3]];
+    if(game.effects()){
+      const win=P(.5,.07);
+      fx.shafts(ctx,panes.map(([dx,angle,phase],i)=>({x:win.x+p.w*dx,y:win.y,angle,length:p.h*(i<2?.66:.56),width:p.w*(i<2?.085:.055),
+        color:i===2?"#d6ffe8":"#a8f0c8",alpha:.06+.3*cloud(phase)})),t);
+      // Moonlight pooling on the wet floor where each shaft lands.
+      ctx.save();ctx.globalCompositeOperation="screen";
+      panes.forEach(([dx,angle,phase],i)=>{
+        const L=p.h*(i<2?.66:.56)*.92, x=win.x+p.w*dx+Math.sin(angle)*L, y=win.y+Math.cos(angle)*L;
+        ctx.save();ctx.translate(x,y);ctx.scale(1,.28);halo(0,0,p.w*.07,"rgba(170,240,205,"+(.18*cloud(phase)).toFixed(3)+")");ctx.restore();
+      });
+      ctx.restore();
+    }
+    halo(p.left+p.w*.5,p.top+p.h*.13,p.h*(.12+.06*cloud(0)),"#9fdabb70");
+    // Mist over the steps and the wet floor, drifting in two directions.
+    if(game.effects()) fx.fog(ctx,c.w,[
+      {y:P(0,.66).y,height:p.h*.12,speed:.009,alpha:.55,color:"#bfe6cf"},
+      {y:P(0,.74).y,height:p.h*.1,speed:-.007,alpha:.4,color:"#a9d8c0"},
+      {y:P(0,.5).y,height:p.h*.16,speed:.004,alpha:.22,color:"#c8efd8"},
+    ],t);
     const flame=art.sprite("livingFlames");
-    for(const u of [.333,.677]) {
+    // The braziers' bowls in the photograph: flames sit on the rim, smoke rises and drifts.
+    for(const u of [.325,.676]) {
       const index=Math.floor(t*12+u*31)%8,sw=flame.width/4,sh=flame.height/2;
-      const x=p.left+u*p.w,y=p.top+p.h*.60,size=p.h*.085;
+      const x=p.left+u*p.w,y=p.top+p.h*.592,size=p.h*.09;
+      if(game.effects()) for(let i=0;i<7;i++){
+        const f=(i/7+t*.12+u)%1;
+        const r=size*(.25+f*.75);
+        fx.glow(ctx,x+Math.sin(f*5+i+t*.6)*size*(.2+f*.8),y-size*.6-f*p.h*.2,r,r,"#8fa79c",.3*(1-f)*Math.min(1,f*6));
+      }
+      ctx.save();ctx.globalCompositeOperation="screen";
       ctx.drawImage(flame,index%4*sw,Math.floor(index/4)*sh,sw,sh,x-size*.45,y-size,size*.9,size);
-      halo(x,y,p.h*.061,"#eeb26762");
+      ctx.restore();
+      halo(x,y-size*.3,p.h*(.07+.008*Math.sin(t*9+u*7)),"#ffb35a70");
     }
     if(game.effects() && !reducedMotion.matches && !s.waiting){
       const awake=CastleScenes.eye.lids(s.timer,s.eyePeriod);
@@ -804,12 +836,7 @@ CastleScenes["trial-view"] = function (game, art, helpers) {
         halo(p.left+p.w*u,p.top+p.h*(.61-f*.12),Math.max(1,p.h*.0027),awake>.5?"#edc88194":"#9be8e47a");
       }
     }
-    // Safe landings keep their position as Coji walks; the latest one glows.
-    for(let i=1;i<=3;i++){
-      const pt=project(c,.5+i*3,2.5);if(pt.k<=0||pt.y>c.h)continue;
-      ctx.save();ctx.translate(pt.x,pt.y);ctx.scale(1,.25);
-      halo(0,0,c.unit*pt.k*.57,i<=s.section?"#a1eea97d":"#dfc4834f");ctx.restore();
-    }
+
   }
   function watchEye(c,item) {
     const p=eyePlate(c),size=p.h*.252,x=p.left+p.w*.5,y=p.top+p.h*.431;
@@ -817,10 +844,39 @@ CastleScenes["trial-view"] = function (game, art, helpers) {
     ctx.drawImage(img,index%3*cell,Math.floor(index/3)*cell,cell,cell,x-size/2,y-size/2,size,size);
     const t=game.effects()?game.time():0;
     if(item.lid>.1)halo(x,y,size*(.32+.035*Math.sin(t*3)),"#e4af533b");
+    // The eye's gaze: a golden beam to Coji when it catches him in the open.
+    if(item.caught>0){
+      const q=project(c,player.x,player.y), fx=CastleScenes["atmos-fx"];
+      ctx.save();ctx.globalCompositeOperation="screen";ctx.lineCap="round";
+      for(const [wd,a] of [[c.unit*.32,.18],[c.unit*.12,.4],[c.unit*.035,.9]]){
+        ctx.strokeStyle="rgba(255,205,110,"+(a*item.caught).toFixed(3)+")";ctx.lineWidth=wd;
+        ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(q.x,q.y-c.unit*q.k*.6);ctx.stroke();
+      }
+      ctx.restore();
+      fx?.glow(ctx,q.x,q.y-c.unit*q.k*.6,c.unit*.6,c.unit*.6,"#ffd27a",.7*item.caught);
+    }
     hits.push({item,x:x-size/2,y:y-size/2,w:size,h:size});
+  }
+  // A stone knight to hide behind: the corridor's own statue photograph, mirrored on
+  // alternate sides, standing on the floor with a contact shadow and lit by the braziers.
+  function cover(c,item) {
+    const p=project(c,item.x,item.y);
+    if (p.k<=0) return;
+    const img=art.sprite("pointingStatue");
+    if (!img.naturalWidth) return;
+    const h=c.unit*p.k*1.85, w=h*img.width/img.height;
+    shadow(p.x,p.y,w*.62);
+    ctx.save();ctx.translate(p.x,p.y);
+    if (item.index%2) ctx.scale(-1,1);
+    ctx.drawImage(img,-w/2,-h*.99,w,h);
+    ctx.restore();
+    // Warm brazier light on the stone.
+    const t=game.effects()?game.time():0;
+    halo(p.x-w*.18,p.y-h*.55,w*.5,"rgba(255,170,90,"+(.08+.03*Math.sin(t*7+item.index)).toFixed(3)+")");
   }
   function fixture(c,item) {
     if(item.type==="eye"){watchEye(c,item);return;}
+    if(item.type==="cover"){cover(c,item);return;}
     const p = project(c,item.x,item.y);
     if (p.k <= 0 || item.x < player.x-1) return;
     const u = Math.min(c.h*.34,c.w*.42)*p.k;
@@ -950,6 +1006,15 @@ CastleScenes["trial-view"] = function (game, art, helpers) {
       if (lava && s.furnace>0) drawCinders(c,s,finish);
       drawArcade(c,end,s);
       if (lava) floorLightOnWalls(c,s,finish);
+      // A cold mist creeps along the ghosts' corridor at knee height, in two drifting layers.
+      if (s.journey && game.effects() && CastleScenes["atmos-fx"]) {
+        const floorY=project(c,player.x+2.5,lanes/2).y, t=reducedMotion.matches?0:game.time();
+        CastleScenes["atmos-fx"].fog(ctx,c.w,[
+          {y:floorY,height:c.h*.16,speed:.008,alpha:.7,color:"#d6ecf0",density:3},
+          {y:floorY+c.h*.12,height:c.h*.14,speed:-.006,alpha:.55,color:"#c4e0e8",density:3},
+          {y:floorY-c.h*.07,height:c.h*.1,speed:.005,alpha:.4,color:"#e0f2f4",density:2.5},
+        ],t,"source-over");
+      }
     }
     const goal = player.path.at(-1);
     if (goal) {

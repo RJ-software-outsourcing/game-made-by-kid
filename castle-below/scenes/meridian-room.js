@@ -9,6 +9,16 @@ CastleScenes["meridian-room"] = (() => {
       near: 0.73,
       orb: [0.495, 0.317],
       moon: [0.298, 0.061],
+      // Moonbeams through the broken dome: [u, v, angle, length, width]
+      beams: [
+        [0.31, 0.07, 0.92, 0.3, 0.05],
+        [0.33, 0.065, 1.02, 0.36, 0.075],
+        [0.35, 0.07, 1.12, 0.3, 0.05],
+      ],
+      // The comet hangs still in the open sky; the crystal's sky aims are measured around it.
+      comet: [0.5, 0.15],
+      skyAims: [[0.3, 0.05], "comet", [0.66, 0.03], [0.84, 0.13]],
+      sky: 0.27,
       lamps: [
         [0.052, 0.323],
         [0.166, 0.335],
@@ -23,6 +33,13 @@ CastleScenes["meridian-room"] = (() => {
       near: 0.722,
       orb: [0.493, 0.382],
       moon: [0.295, 0.105],
+      beams: [
+        [0.31, 0.11, 0.85, 0.24, 0.07],
+        [0.33, 0.105, 0.97, 0.28, 0.1],
+      ],
+      comet: [0.52, 0.17],
+      skyAims: [[0.28, 0.08], "comet", [0.7, 0.06], [0.88, 0.16]],
+      sky: 0.3,
       lamps: [
         [0.024, 0.33],
         [0.16, 0.352],
@@ -66,30 +83,254 @@ CastleScenes["meridian-room"] = (() => {
     const models = CastleScenes["meridian-renderer"].create(s, layout);
     const reduced = matchMedia("(prefers-reduced-motion: reduce)");
     const view = () => camera(s.w(), s.h(), s.player.y, s.player.x);
+    // The dome's iron ribs and walls, cut from the photograph wherever it is not sky, so
+    // a comet can pass behind them. Built once per plate; skipped if pixels cannot be read.
+    const ribs = new Map();
+    function ribLayer(p) {
+      if (ribs.has(p)) return ribs.get(p);
+      let layer = null;
+      try {
+        const img = s.sprite(p.image),
+          w = img.width,
+          h = Math.ceil(img.height * p.sky);
+        const c = document.createElement("canvas");
+        c.width = w;
+        c.height = h;
+        const q = c.getContext("2d");
+        q.drawImage(img, 0, 0, w, h, 0, 0, w, h);
+        const data = q.getImageData(0, 0, w, h);
+        const px = data.data;
+        for (let i = 0; i < px.length; i += 4) {
+          const r = px[i],
+            gg = px[i + 1],
+            b = px[i + 2];
+          const lum = 0.3 * r + 0.59 * gg + 0.11 * b;
+          // Night sky is blue-dominant or nearly black; stars and the moon are neutral highlights.
+          const sky = (b >= r + 6 && lum < 150) || lum < 14 || (lum > 170 && Math.abs(r - b) < 25);
+          px[i + 3] = sky ? 0 : 255;
+        }
+        q.putImageData(data, 0, 0);
+        layer = c;
+      } catch (error) {
+        layer = null;
+      }
+      ribs.set(p, layer);
+      return layer;
+    }
+    // The armillary crystal: aim 0 feeds the floor port; the others send its beam into the sky.
+    const crystal = {
+      aim: 0,
+      shown: null,
+      stops: () => 1 + view().plate.skyAims.length,
+      target(c = view()) {
+        const p = c.plate,
+          orb = c.platePoint(p.orb);
+        const pt = this.aim === 0 ? c.project(layout.lamp, beamHeight()) : c.platePoint(p.skyAims[this.aim - 1] === "comet" ? p.comet : p.skyAims[this.aim - 1]);
+        return Math.atan2(pt.y - orb.y, pt.x - orb.x);
+      },
+      settled: () => crystal.shown !== null && Math.abs(crystal.shown - crystal.target()) < 0.012,
+      feedsPort: () => crystal.aim === 0 && crystal.settled(),
+      onComet: () => crystal.aim > 0 && view().plate.skyAims[crystal.aim - 1] === "comet" && crystal.settled(),
+    };
+    function updateCrystal(dt) {
+      const goal = crystal.target();
+      if (crystal.shown === null) crystal.shown = goal;
+      let d = goal - crystal.shown;
+      d = Math.atan2(Math.sin(d), Math.cos(d));
+      crystal.shown += Math.max(-dt * 2.2, Math.min(dt * 2.2, d));
+    }
+    function hitCrystal(pos) {
+      const c = view(),
+        orb = c.platePoint(c.plate.orb);
+      return Math.hypot(pos.x - orb.x, pos.y - orb.y) < c.ph * 0.1;
+    }
+    // A comet that stays put but is never still. The body is painted once, like a long
+    // exposure: hundreds of faint strands fan and curve into the dust tail, a few hundred
+    // straight blue strands make the ion tail, then the whole is softened. Coma breathing,
+    // shimmer and streamers flowing outward are animated on top.
+    let cometBody = null;
+    function paintComet() {
+      const W = 640,
+        H = 320,
+        hx = 48,
+        hy = H * 0.5;
+      const sharp = document.createElement("canvas");
+      sharp.width = W;
+      sharp.height = H;
+      const q = sharp.getContext("2d");
+      let seed = 11;
+      const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+      const gauss = () => (rnd() + rnd() + rnd() - 1.5) / 1.5;
+      q.lineCap = "round";
+      // Dust tail: wide, curved (it lags behind the comet's path), warm white.
+      for (let i = 0; i < 700; i++) {
+        const spread = gauss() * 0.16,
+          len = W * (0.35 + 0.6 * rnd() ** 0.6);
+        const bend = 0.18 + 0.12 * rnd();
+        const ex = hx + Math.cos(spread) * len,
+          ey = hy + Math.sin(spread) * len + len * bend * 0.5;
+        q.strokeStyle = "rgba(255,242,222," + (0.018 + 0.035 * rnd()) + ")";
+        q.lineWidth = 1 + rnd() * 2.2;
+        q.beginPath();
+        q.moveTo(hx, hy);
+        q.quadraticCurveTo(hx + (ex - hx) * 0.55, hy + (ey - hy) * 0.25, ex, ey);
+        q.stroke();
+      }
+      // Ion tail: narrow, straight, blue, slightly off the dust tail.
+      for (let i = 0; i < 260; i++) {
+        const spread = -0.06 + gauss() * 0.02,
+          len = W * (0.55 + 0.42 * rnd());
+        q.strokeStyle = "rgba(140,190,255," + (0.02 + 0.04 * rnd()) + ")";
+        q.lineWidth = 0.8 + rnd() * 1.4;
+        q.beginPath();
+        q.moveTo(hx, hy);
+        q.lineTo(hx + Math.cos(spread) * len, hy + Math.sin(spread) * len);
+        q.stroke();
+      }
+      // Soften: shrink and enlarge (a blur that works in every browser), then keep a little detail.
+      const small = document.createElement("canvas");
+      small.width = W / 5;
+      small.height = H / 5;
+      const sq = small.getContext("2d");
+      sq.imageSmoothingQuality = "high";
+      sq.drawImage(sharp, 0, 0, small.width, small.height);
+      const body = document.createElement("canvas");
+      body.width = W;
+      body.height = H;
+      const b = body.getContext("2d");
+      b.imageSmoothingQuality = "high";
+      b.drawImage(small, 0, 0, W, H);
+      b.globalAlpha = 0.45;
+      b.drawImage(sharp, 0, 0);
+      b.globalAlpha = 1;
+      // Coma: a small green-white glow around the nucleus.
+      const coma = b.createRadialGradient(hx, hy, 0, hx, hy, 46);
+      coma.addColorStop(0, "rgba(255,255,255,1)");
+      coma.addColorStop(0.12, "rgba(235,255,245,.9)");
+      coma.addColorStop(0.4, "rgba(170,240,215,.35)");
+      coma.addColorStop(1, "rgba(150,220,210,0)");
+      b.fillStyle = coma;
+      b.fillRect(0, 0, W, H);
+      return { canvas: body, W, H, hx, hy };
+    }
+    let cometFlare = 0;
+    function comet(c, p, t, dt) {
+      cometFlare = crystal.onComet() ? Math.min(1, cometFlare + dt * 1.5) : Math.max(0, cometFlare - dt * 0.8);
+      cometBody ??= paintComet();
+      const head = c.platePoint(p.comet),
+        u = c.ph;
+      const tailDir = -0.4; // away from the moon, rising gently to the right across open sky
+      const scale = (u * 0.36) / cometBody.W;
+      const breathe = 0.88 + 0.08 * Math.sin(t * 1.1) + 0.04 * Math.sin(t * 3.3);
+      g.save();
+      g.globalCompositeOperation = "screen";
+      g.translate(head.x, head.y);
+      g.rotate(tailDir);
+      g.scale(scale, scale);
+      g.globalAlpha = Math.min(1, 0.85 * breathe + cometFlare * 0.3);
+      g.drawImage(cometBody.canvas, -cometBody.hx, -cometBody.hy);
+      // Shimmer: the same body, nudged, fading in and out, so the tail seems to ripple.
+      g.globalAlpha = 0.18 + 0.12 * Math.sin(t * 0.7);
+      g.drawImage(cometBody.canvas, -cometBody.hx + 6 * Math.sin(t * 0.5), -cometBody.hy + 3 * Math.cos(t * 0.6));
+      // Streamers drifting out along the ion tail.
+      for (let k = 0; k < 6; k++) {
+        const f = (t * 0.05 + k / 6) % 1,
+          x = cometBody.W * (0.08 + 0.85 * f);
+        const ion = g.createLinearGradient(x, 0, x + 70, 0);
+        ion.addColorStop(0, "rgba(150,200,255,0)");
+        ion.addColorStop(0.5, "rgba(170,210,255," + (0.22 * (1 - f)).toFixed(3) + ")");
+        ion.addColorStop(1, "rgba(150,200,255,0)");
+        g.globalAlpha = 1;
+        g.fillStyle = ion;
+        g.fillRect(x, -cometBody.H * 0.06 + Math.sin(k * 2.1 + t * 0.4) * 3, 70, 4);
+      }
+      g.restore();
+      glow(head.x, head.y, u * 0.008, u * 0.008, "#ffffff", 0.9 + 0.1 * cometFlare);
+      if (cometFlare > 0) {
+        glow(head.x, head.y, u * 0.05 * cometFlare, u * 0.05 * cometFlare, "#d8f6ff", 0.6 * cometFlare);
+        for (let k = 0; k < 8; k++) {
+          const a = (k * Math.PI) / 4 + t * 0.3;
+          glow(head.x + Math.cos(a) * u * 0.05 * cometFlare, head.y + Math.sin(a) * u * 0.05 * cometFlare, u * 0.006, u * 0.006, "#e8f6ff", cometFlare * 0.7);
+        }
+      }
+    }
+    // The crystal's beam when it points into the sky.
+    function skyBeam(c) {
+      if (crystal.aim === 0 && crystal.feedsPort()) return;
+      const orb = c.platePoint(c.plate.orb),
+        a = crystal.shown,
+        L = c.ph * 0.9;
+      const end = { x: orb.x + Math.cos(a) * L, y: orb.y + Math.sin(a) * L };
+      g.save();
+      g.globalCompositeOperation = "screen";
+      g.lineCap = "round";
+      line(orb, end, "rgba(120,190,255,.14)", Math.max(8, c.ph * 0.02));
+      line(orb, end, "rgba(170,220,255,.32)", Math.max(3, c.ph * 0.008));
+      line(orb, end, "rgba(240,250,255,.85)", Math.max(1.5, c.ph * 0.003));
+      g.restore();
+    }
+    let lastRoomTime = -1;
     function drawRoom() {
       const c = view(),
         p = c.plate;
       g.drawImage(s.sprite(p.image), c.left, c.top, c.pw, c.ph);
       if (!s.game.effects()) return;
       const t = reduced.matches ? 0 : s.game.time();
+      const layer = ribLayer(p);
+      const dt = lastRoomTime < 0 ? 0 : Math.max(0, Math.min(0.1, t - lastRoomTime));
+      lastRoomTime = t;
+      comet(c, p, t, dt);
+      skyBeam(c);
+      // The dome's iron ribs pass in front of the comet and the crystal's sky beam.
+      if (layer) g.drawImage(layer, c.left, c.top, c.pw, c.ph * p.sky);
+      CastleScenes["atmos-fx"].shafts(
+        g,
+        p.beams.map(([u, v, angle, length, width]) => {
+          const at = c.platePoint([u, v]);
+          return { x: at.x, y: at.y, angle, length: length * c.ph, width: width * c.pw, color: "#c6defb", alpha: 0.2 };
+        }),
+        t,
+      );
       const moon = c.platePoint(p.moon);
-      glow(moon.x, moon.y, c.ph * 0.089, c.ph * 0.079, "#b7daff", 0.25 + 0.045 * Math.sin(t * 0.72));
+      glow(moon.x, moon.y, c.ph * 0.089, c.ph * 0.079, "#b7daff", 0.25 + 0.06 * Math.sin(t * 0.72));
       p.lamps.forEach((l, i) => {
         const pos = c.platePoint(l),
           flicker = 0.62 + 0.12 * Math.sin(t * 5 + i) * Math.sin(t * 2.7 + i);
         glow(pos.x, pos.y, c.ph * 0.028, c.ph * 0.041, "#ffbe78", flicker);
       });
-      const orb = c.platePoint(p.orb);
-      glow(orb.x, orb.y, c.ph * 0.038, c.ph * 0.033, "#9fd8ff", 0.49 + 0.1 * Math.cos(t * 1.8));
-      if (!reduced.matches)
-        for (let i = 0; i < 15; i++) {
-          const f = (t * 0.045 + i * 0.371) % 1;
-          const pos = c.platePoint([
-            p.orb[0] + ((i % 5) - 2) * 0.025 + 0.018 * Math.sin(4 * f + i),
-            p.orb[1] + 0.09 * (0.5 - f),
-          ]);
-          glow(pos.x, pos.y, 1.4, 1.4, "#c4e9ff", Math.sin(Math.PI * f) * 0.55);
+      // The crystal gathers energy: motes spiral in from all around, the core pulses,
+      // and slow rays turn around it.
+      const orb = c.platePoint(p.orb),
+        R = c.ph * 0.05;
+      const pulse = 0.5 + 0.5 * Math.sin(t * 2.4);
+      glow(orb.x, orb.y, R * 2.2, R * 2, "#6fb8ff", 0.22 + 0.12 * pulse);
+      glow(orb.x, orb.y, R * 0.9, R * 0.85, "#dff3ff", 0.55 + 0.3 * pulse);
+      if (!reduced.matches) {
+        g.save();
+        g.globalCompositeOperation = "screen";
+        g.translate(orb.x, orb.y);
+        for (let i = 0; i < 6; i++) {
+          g.save();
+          g.rotate(t * 0.35 + (i * Math.PI) / 3);
+          const ray = g.createLinearGradient(0, 0, R * 2.4, 0);
+          ray.addColorStop(0, "rgba(210,240,255," + (0.35 + 0.25 * pulse) + ")");
+          ray.addColorStop(1, "rgba(160,210,255,0)");
+          g.fillStyle = ray;
+          g.beginPath();
+          g.moveTo(0, -R * 0.06);
+          g.lineTo(R * 2.4, 0);
+          g.lineTo(0, R * 0.06);
+          g.fill();
+          g.restore();
         }
+        g.restore();
+        for (let i = 0; i < 22; i++) {
+          const f = (t * 0.22 + i * 0.137) % 1,
+            ang = i * 2.39 + f * 3.2,
+            dist = R * (3.2 * (1 - f) + 0.25);
+          glow(orb.x + Math.cos(ang) * dist, orb.y + Math.sin(ang) * dist * 0.7, 2.2, 2.2, "#cdeaff", Math.min(1, f * 3) * 0.85);
+        }
+      }
     }
     function mirrorGeometry(c, p, a) {
       const dx = Math.cos(a) * mirrorHalfWidth,
@@ -182,16 +423,25 @@ CastleScenes["meridian-room"] = (() => {
         }
       }
       const port = c.project(layout.lamp, beamHeight());
-      if (effects) {
+      if (effects && crystal.feedsPort()) {
+        // The crystal's light runs down into the port: a bright core, a soft halo and
+        // packets of energy travelling down it.
         const orb = c.platePoint(c.plate.orb);
-        const light = g.createLinearGradient(orb.x, orb.y, port.x, port.y);
-        light.addColorStop(0, "#afdfff70");
-        light.addColorStop(0.35, "#9bd5ff12");
-        light.addColorStop(0.84, "#92ceff36");
-        light.addColorStop(1, "#bde3ff99");
-        line(orb, port, light, Math.max(1, c.ph * 0.0019));
+        const t = reduced.matches ? 0 : s.game.time();
+        g.save();
+        g.globalCompositeOperation = "screen";
+        g.lineCap = "round";
+        line(orb, port, "rgba(120,190,255,.16)", Math.max(6, c.ph * 0.016));
+        line(orb, port, "rgba(160,215,255,.35)", Math.max(3, c.ph * 0.007));
+        line(orb, port, "rgba(235,248,255,.9)", Math.max(1.4, c.ph * 0.0028));
+        g.restore();
+        for (let i = 0; i < 3; i++) {
+          const f = (t * 0.9 + i / 3) % 1;
+          glow(orb.x + (port.x - orb.x) * f, orb.y + (port.y - orb.y) * f, c.ph * 0.012, c.ph * 0.012, "#e6f6ff", Math.sin(Math.PI * f));
+        }
+        glow(port.x, port.y, c.ph * 0.03, c.ph * 0.02, "#bfe6ff", 0.7);
       }
-      glow(port.x, port.y, port.size * 0.021, port.size * 0.013, "#c0e9ff", 0.9);
+      if (crystal.feedsPort()) glow(port.x, port.y, port.size * 0.021, port.size * 0.013, "#c0e9ff", 0.9);
       fixtures.forEach((f) => {
         f.draw();
         if (!f.mirror && ray.target === f.i) {
@@ -230,7 +480,7 @@ CastleScenes["meridian-room"] = (() => {
       const rim = view().project({ x: 0.5, y: 0.6 });
       return pos.y > rim.y ? s.base.ground(pos) : null;
     }
-    return { drawRoom, draw, pick, ground };
+    return { drawRoom, draw, pick, ground, crystal, updateCrystal, hitCrystal };
   }
   return { create, camera };
 })();
